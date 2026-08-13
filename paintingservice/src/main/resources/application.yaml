@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: paintingservice
+  datasource:
+    url: jdbc:mysql://localhost:3306/paintingservice
+    username: root
+    password: 123456
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  signerKey: "60e223886f5011866efc9a5801758c8f2019af5854e6cf44dc1a61a14b50ae5e63f4cd8ad98cc6b10d6948b6ccef6280725d18178ba0959714162d6965509de9"
+  expiration-ms: 86400000
+
+app:
+  upload:
+    dir: uploads
+
+cloudinary:
+  cloud-name: dc3q6nrfg
+  api-key: 355388687681718
+  api-secret: eY4TBaecWCUcZojcJBQ0ok3kme0
