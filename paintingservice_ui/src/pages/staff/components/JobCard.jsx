@@ -1,14 +1,10 @@
-// staff/components/JobCard.jsx
-
 import StatusBadge from "../../../components/common/StatusBadge";
 
 /**
- * Nút theo status (luồng đội thợ):
- * - CONTRACT_APPROVED / ASSIGNED  → Nhận việc + Từ chối
- * - ACCEPTED                      → Bắt đầu thi công (+ tùy chọn Từ chối)
- * - PROCESSING                    → Hoàn thành công trình
- * - WORKER_COMPLETED              → Chờ nghiệm thu (không nút)
- * - COMPLETED / CANCELLED         → Chỉ hiển thị
+ * Luồng đội thợ:
+ * CONTRACT_APPROVED / ASSIGNED  → Nhận việc + Từ chối
+ * ACCEPTED                      → Bắt đầu thi công
+ * PROCESSING                    → Hoàn thành
  */
 export default function JobCard({
   job,
@@ -18,30 +14,19 @@ export default function JobCard({
   onComplete,
 }) {
   const status = job.status || "";
-
-  // Trạng thái có thể nhận việc
   const canAccept = ["CONTRACT_APPROVED", "ASSIGNED"].includes(status);
-
-  // Có thể từ chối (trước khi bắt đầu làm)
-  const canReject = ["CONTRACT_APPROVED", "ASSIGNED", "ACCEPTED"].includes(
-    status
-  );
-
-  // Đang thi công → hoàn thành
+  const canReject = ["CONTRACT_APPROVED", "ASSIGNED", "ACCEPTED"].includes(status);
   const canComplete = status === "PROCESSING";
 
   const isWaitingAcceptance = status === "WORKER_COMPLETED";
   const isDone = status === "COMPLETED";
-  const isCancelled = status === "CANCELLED";
+  const isCancelled = status === "CANCELLED" || status === "WORKER_REJECTED";
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition space-y-4">
-      {/* Header */}
       <div className="flex justify-between items-start gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-400">
-            ĐƠN #{job.id}
-          </span>
+          <span className="text-xs font-bold text-slate-400">ĐƠN #{job.id}</span>
           <h3 className="font-bold text-slate-800 mt-1">
             {job.title || job.serviceName || "Công trình"}
           </h3>
@@ -49,7 +34,6 @@ export default function JobCard({
         <StatusBadge status={status} />
       </div>
 
-      {/* Nội dung */}
       <div className="space-y-2 text-sm text-slate-600">
         <p>
           <span className="font-semibold text-slate-400">📍 Địa chỉ:</span>{" "}
@@ -59,18 +43,14 @@ export default function JobCard({
           <span className="font-semibold text-slate-400">👤 Khách hàng:</span>{" "}
           {job.customerName || job.customer?.username || "Không xác định"}
         </p>
-
         <p>
           <span className="font-semibold text-slate-400">📅 Ngày khảo sát:</span>{" "}
           {job.appointmentDate || "—"}
         </p>
-
         <p>
           <span className="font-semibold text-slate-400">🕒 Giờ khảo sát:</span>{" "}
           {job.appointmentTime || "—"}
         </p>
-
-
         <p>
           <span className="font-semibold text-slate-400">📝 Mô tả:</span>{" "}
           {job.description || "Không có mô tả"}
@@ -83,7 +63,8 @@ export default function JobCard({
         )}
       </div>
 
-      {/* ===== Nhận việc / Từ chối (CONTRACT_APPROVED | ASSIGNED) ===== */}
+      {/* Đã xóa toàn bộ block "Báo cáo tiến độ" */}
+
       {canAccept && (
         <div className="flex gap-2 pt-3 border-t border-slate-100">
           {canReject && (
@@ -105,7 +86,6 @@ export default function JobCard({
         </div>
       )}
 
-      {/* ===== Đã nhận (ACCEPTED) → Bắt đầu (+ Từ chối) ===== */}
       {status === "ACCEPTED" && (
         <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
           <button
@@ -127,11 +107,6 @@ export default function JobCard({
         </div>
       )}
 
-      {/* ===== CONTRACT_APPROVED đã hiện block nhận việc ở trên.
-          Nếu backend cho start trực tiếp khi CONTRACT_APPROVED (không bắt accept):
-          bỏ comment block dưới và tắt canAccept cho CONTRACT_APPROVED nếu cần. ===== */}
-
-      {/* ===== Đang thi công → Hoàn thành ===== */}
       {canComplete && (
         <div className="pt-3 border-t border-slate-100">
           <button
@@ -147,7 +122,6 @@ export default function JobCard({
         </div>
       )}
 
-      {/* ===== Chờ nghiệm thu ===== */}
       {isWaitingAcceptance && (
         <div className="pt-3 border-t border-slate-100">
           <div className="text-center text-purple-600 font-semibold text-sm bg-purple-50 rounded-xl py-2">
@@ -156,7 +130,6 @@ export default function JobCard({
         </div>
       )}
 
-      {/* ===== Hoàn tất ===== */}
       {isDone && (
         <div className="pt-3 border-t border-slate-100">
           <div className="text-center text-green-600 font-semibold text-sm">
@@ -165,11 +138,10 @@ export default function JobCard({
         </div>
       )}
 
-      {/* ===== Đã hủy ===== */}
       {isCancelled && (
         <div className="pt-3 border-t border-slate-100">
           <div className="text-center text-slate-400 font-semibold text-sm">
-            Đơn đã hủy
+            {status === "WORKER_REJECTED" ? "Đã từ chối công trình" : "Đơn đã hủy"}
           </div>
         </div>
       )}

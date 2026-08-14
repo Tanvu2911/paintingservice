@@ -106,13 +106,13 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   const currentMenuItems = isTechnician ? technicianMenuItems : surveyMenuItems;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans antialiased">
-      {/* Sidebar cấu hình màu sắc & menu theo vai trò */}
+    <div className="flex min-h-screen bg-slate-950 font-sans antialiased text-slate-100">
       <Sidebar
         logoIcon={isTechnician ? "🛠️" : "📋"}
         logoTextPrimary={isTechnician ? "Kỹ Thuật" : "Khảo Sát"}
         logoTextSecondary="247"
         color={isTechnician ? "amber" : "blue"}
+        theme="dark"
         activeTab={getActiveTab()}
         onTabChange={(tab) =>
           navigate(`${basePath}/${tab === "dashboard" ? "dashboard" : tab}`)
@@ -129,7 +129,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
             onMarkRead={handleMarkRead}
             onDeleteAll={handleDeleteAll}
             onDeleteOne={handleDeleteOne}
-            color={isTechnician ? "amber" : "blue"}
+            theme="dark"
           />
         </div>
 

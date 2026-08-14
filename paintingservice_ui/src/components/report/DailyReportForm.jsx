@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ImageUpload from "../common/ImageUpload";
 
-export default function DailyReportForm({ onSubmit, submitting = false }) {
+export default function DailyReportForm({ onSubmit, submitting = false, showToast }) {
   const [dailyContent, setDailyContent] = useState("");
   const [dailyProgress, setDailyProgress] = useState("");
   const [dailyMaterialShortage, setDailyMaterialShortage] = useState("");
@@ -29,7 +29,7 @@ export default function DailyReportForm({ onSubmit, submitting = false }) {
     e.preventDefault();
 
     if (!dailyContent.trim()) {
-      alert("Vui lòng nhập nội dung báo cáo ngày");
+      showToast?.("Vui lòng nhập nội dung báo cáo ngày", "error");
       return;
     }
 
@@ -37,7 +37,7 @@ export default function DailyReportForm({ onSubmit, submitting = false }) {
     if (dailyProgress !== "" && dailyProgress != null) {
       progress = Number(dailyProgress);
       if (isNaN(progress) || progress < 0 || progress > 100) {
-        alert("Tiến độ phải từ 0 đến 100%");
+        showToast?.("Tiến độ phải từ 0 đến 100%", "error");
         return;
       }
     }

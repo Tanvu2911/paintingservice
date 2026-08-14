@@ -1,85 +1,43 @@
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import AxiosConfig from "../util/AxiosConfig";
+import { API_ENDPOINTS } from "../util/ApiEndpoints";
+import { getRedirectPath } from "../util/roleUtils";
 
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import AxiosConfig from '../util/AxiosConfig';
-import { API_ENDPOINTS } from '../util/ApiEndpoints';
-
-function Login({ onLogin }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+function Login({ onLogin, showToast }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) return alert("Vui lòng nhập đủ thông tin!");
+    if (!username.trim() || !password.trim()) {
+      showToast?.("Vui lòng nhập đủ thông tin!", "error");
+      return;
+    }
 
     try {
       setLoading(true);
+      const response = await AxiosConfig.post(API_ENDPOINTS.login, {
+        username,
+        password,
+      });
 
-      const response = await AxiosConfig.post(API_ENDPOINTS.login, { username, password });
-
-      // Xử lý dữ liệu trả về từ API
       const resData = response.data?.data || response.data;
-      console.log("👉 Dữ liệu phản hồi từ API:", resData);
-
-      // 1. Lưu Token
       const token = resData.token || resData.accessToken;
-      if (token) {
-        localStorage.setItem('token', token);
-      }
+      if (token) localStorage.setItem("token", token);
 
-      // 2. Cập nhật state ứng dụng
       onLogin(resData);
-
-      // 3. Trích xuất Role
-      const rawRole = resData.role || resData.user?.role || resData.roles;
-      let roleStr = "";
-      if (typeof rawRole === 'string') {
-        roleStr = rawRole;
-      } else if (typeof rawRole === 'object') {
-        roleStr = rawRole?.name || rawRole[0]?.name || rawRole[0] || "";
-      }
-      const role = roleStr.toUpperCase();
-
-      // 4. Trích xuất StaffType từ Enum backend (SUPERVISOR / WORKER)
-      const rawStaffType =
-        resData.staffType ||
-        resData.staffProfile?.staffType ||
-        resData.user?.staffType ||
-        resData.user?.staffProfile?.staffType;
-
-      let staffTypeStr = "";
-      if (typeof rawStaffType === 'string') {
-        staffTypeStr = rawStaffType;
-      } else if (typeof rawStaffType === 'object') {
-        staffTypeStr = rawStaffType?.name || rawStaffType?.code || "";
-      }
-      const staffType = staffTypeStr.toUpperCase();
-
-      console.log("🔍 Đã phân tích - Role:", role, "| StaffType:", staffType);
-
-      alert("Đăng nhập thành công!");
-
-      // 5. Điều hướng khớp 100% với Enum Backend (SUPERVISOR & WORKER)
-      if (role === 'ROLE_ADMIN' || role === 'ADMIN') {
-        navigate('/admin');
-      } else if (role === 'ROLE_STAFF' || role === 'STAFF') {
-        if (staffType === 'SUPERVISOR') {
-          navigate('/staff/survey');
-        } else if (staffType === 'WORKER') {
-          navigate('/staff/technician');
-        } else {
-          // Mặc định nếu không tìm thấy StaffType cụ thể
-          navigate('/staff/survey');
-        }
-      } else {
-        navigate('/');
-      }
-
+      showToast?.("Đăng nhập thành công!", "success");
+      navigate(getRedirectPath(resData));
     } catch (error) {
       console.error("Lỗi đăng nhập:", error);
-      alert(error.response?.data?.message || "Đăng nhập thất bại! Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.");
+      showToast?.(
+        error.response?.data?.message ||
+          "Đăng nhập thất bại! Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -128,22 +86,30 @@ function Login({ onLogin }) {
             </div>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full flex justify-center items-center py-3 px-4 text-sm font-bold rounded-xl text-white transition-all duration-200 shadow-md ${loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
-                }`}
-            >
-              {loading ? "Đang xử lý..." : "Đăng Nhập"}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full flex justify-center items-center py-3 px-4 text-sm font-bold rounded-xl text-white transition-all duration-200 shadow-md ${
+              loading
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700 active:scale-[0.99]"
+            }`}
+          >
+            {loading ? "Đang xử lý..." : "Đăng Nhập"}
+          </button>
         </form>
 
         <p className="text-center text-sm text-gray-600 mt-4">
-          Chưa có tài khoản?{' '}
-          <Link to="/register" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors underline-offset-4 hover:underline">
+          Chưa có tài khoản?{" "}
+          <Link
+            to="/register"
+            className="font-semibold text-blue-600 hover:text-blue-500 transition-colors underline-offset-4 hover:underline"
+          >
             Đăng ký ngay
+          </Link>
+          {" · "}
+          <Link to="/home" className="text-slate-500 hover:text-slate-700">
+            Về trang chủ
           </Link>
         </p>
       </div>

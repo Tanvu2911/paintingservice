@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AxiosConfig from "../../util/AxiosConfig";
-import StatusBadge from "../../components/StatusBadge";
+import StatusBadge from "../../components/common/StatusBadge";
+import PaymentSection from "../../components/payment/PaymentSection";
 
 function BookingDetail({ user, showToast }) {
   const { id } = useParams();
@@ -9,7 +10,18 @@ function BookingDetail({ user, showToast }) {
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState(false);
+
+  const fetchBooking = async () => {
+    try {
+      const res = await AxiosConfig.get(`/bookings/${id}`);
+      setBooking(res.data);
+    } catch (error) {
+      console.error(error);
+      showToast?.("Không tải được thông tin đơn hàng", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -17,30 +29,8 @@ function BookingDetail({ user, showToast }) {
       return;
     }
 
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await AxiosConfig.get(`/bookings/${id}`);
-        if (!cancelled) {
-          setBooking(res.data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error(error);
-          showToast("Không tải được thông tin đơn hàng", "error");
-          navigate("/");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    setLoading(true);
+    fetchBooking();
   }, [id, user, navigate, showToast]);
 
   const formatDate = (dateInput) => {
@@ -50,68 +40,6 @@ function BookingDetail({ user, showToast }) {
     }
     return dateInput || "—";
   };
-
-  const formatMoney = (amount) => {
-    if (amount == null) return "0 VNĐ";
-    return Number(amount).toLocaleString("vi-VN") + " VNĐ";
-  };
-
-  // ===== THANH TOÁN ZALOPAY (khớp backend @RequestParam) =====
-  const handlePayment = async (paymentType) => {
-    if (!booking) return;
-
-    const confirmMsg =
-      paymentType === "DEPOSIT"
-        ? "Xác nhận thanh toán tiền cọc?"
-        : "Xác nhận thanh toán phần còn lại?";
-
-    if (!window.confirm(confirmMsg)) return;
-
-    try {
-      setPaying(true);
-
-      const res = await AxiosConfig.post(
-        `/payments/zalopay/create?bookingId=${booking.id}&paymentType=${paymentType}`
-      );
-
-      const data = res.data;
-
-      if (data?.order_url) {
-        window.location.href = data.order_url;
-      } else if (data?.qr_code) {
-        showToast("Vui lòng quét mã QR để thanh toán", "info");
-      } else {
-        showToast("Không nhận được link thanh toán từ ZaloPay", "error");
-      }
-    } catch (error) {
-      console.error(error);
-      const msg =
-        error.response?.data?.message ||
-        error.response?.data?.messages?.join?.(", ") ||
-        "Lỗi tạo đơn thanh toán";
-      showToast(msg, "error");
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  const canPayDeposit =
-    booking &&
-    !booking.depositPaid &&
-    [
-      "WAITING_CUSTOMER_SIGNATURE",
-      "ASSIGNED",
-      "PROCESSING",
-      "CONTRACT_APPROVED",
-    ].includes(booking.status);
-
-  const canPayFinal =
-    booking &&
-    booking.depositPaid &&
-    !booking.finalPaid &&
-    ["WORKER_COMPLETED", "COMPLETED", "WAITING_FINAL_PAYMENT"].includes(
-      booking.status
-    );
 
   if (loading) {
     return (
@@ -128,7 +56,7 @@ function BookingDetail({ user, showToast }) {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/home")}
             className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600"
           >
             ← Quay lại
@@ -206,84 +134,7 @@ function BookingDetail({ user, showToast }) {
           <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
             💰 Thông tin thanh toán
           </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <div className="bg-slate-50 rounded-xl p-4 text-center">
-              <div className="text-xs text-slate-400 font-bold uppercase mb-1">
-                Tổng giá trị
-              </div>
-              <div className="text-lg font-black text-slate-800">
-                {formatMoney(booking.totalAmount || booking.service?.basePrice)}
-              </div>
-            </div>
-            <div className="bg-blue-50 rounded-xl p-4 text-center">
-              <div className="text-xs text-blue-500 font-bold uppercase mb-1">
-                Tiền cọc
-              </div>
-              <div className="text-lg font-black text-blue-700">
-                {formatMoney(
-                  booking.depositAmount || (booking.totalAmount || 0) * 0.3
-                )}
-              </div>
-              <div className="text-[10px] mt-1 font-semibold">
-                {booking.depositPaid ? (
-                  <span className="text-emerald-600">Đã thanh toán ✓</span>
-                ) : (
-                  <span className="text-amber-600">Chưa thanh toán</span>
-                )}
-              </div>
-            </div>
-            <div className="bg-emerald-50 rounded-xl p-4 text-center">
-              <div className="text-xs text-emerald-600 font-bold uppercase mb-1">
-                Còn lại
-              </div>
-              <div className="text-lg font-black text-emerald-700">
-                {formatMoney(
-                  booking.remainingAmount ||
-                    (booking.totalAmount || 0) - (booking.paidAmount || 0)
-                )}
-              </div>
-              <div className="text-[10px] mt-1 font-semibold">
-                {booking.finalPaid ? (
-                  <span className="text-emerald-600">Đã thanh toán ✓</span>
-                ) : (
-                  <span className="text-amber-600">Chưa thanh toán</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            {canPayDeposit && (
-              <button
-                onClick={() => handlePayment("DEPOSIT")}
-                disabled={paying}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all"
-              >
-                {paying ? "Đang tạo đơn..." : "Thanh toán tiền cọc (ZaloPay)"}
-              </button>
-            )}
-
-            {canPayFinal && (
-              <button
-                onClick={() => handlePayment("FINAL")}
-                disabled={paying}
-                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all"
-              >
-                {paying
-                  ? "Đang tạo đơn..."
-                  : "Thanh toán phần còn lại (ZaloPay)"}
-              </button>
-            )}
-
-            {!canPayDeposit && !canPayFinal && (
-              <div className="w-full text-center py-3 text-sm text-slate-400 bg-slate-50 rounded-xl">
-                {booking.finalPaid
-                  ? "Đơn hàng đã thanh toán đầy đủ"
-                  : "Chưa đến giai đoạn thanh toán"}
-              </div>
-            )}
-          </div>
+          <PaymentSection booking={booking} showToast={showToast} onRefresh={fetchBooking} />
         </div>
 
         {booking.notes && (

@@ -16,5 +16,6 @@ public enum BookingStatus {
     WAITING_CUSTOMER_SIGNATURE,
     CONTRACT_APPROVED,         // 4. Admin duyệt hợp đồng -> Bàn giao đội thợ (khách chọn)
     WORKER_REJECTED,
-    WORKER_COMPLETED           // 6. Đội thợ bấm "Xác nhận hoàn thành" -> Chờ nghiệm thu thực tế
+    WORKER_COMPLETED,          // 6. Đội thợ bấm "Xác nhận hoàn thành" -> Chờ nghiệm thu thực tế
+    PAID_TO_STAFF             // 8. Admin đã hoàn tất thanh toán thù lao cho giám sát và đội thợ
 }

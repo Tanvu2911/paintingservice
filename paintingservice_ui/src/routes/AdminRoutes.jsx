@@ -11,6 +11,9 @@ import PaintingDashboard from "../pages/admin/painting/PaintingDashboard";
 import PaintingRequestList from "../pages/admin/painting/PaintingRequestList";
 import QuotationPage from "../pages/admin/painting/QuotationPage";
 import ProgressTrackingPage from "../pages/admin/painting/ProgressTrackingPage";
+import AccountManagement from "../pages/admin/accounts/AccountManagement";
+import AdminRevenue from "../pages/admin/revenue/AdminRevenue";
+import AdminWallet from "../pages/admin/wallet/AdminWallet";
 import InspectionPage from "../pages/admin/painting/InspectionPage";
 
 export default function AdminRoutes({ user, onLogout, showToast }) {
@@ -22,6 +25,7 @@ export default function AdminRoutes({ user, onLogout, showToast }) {
         <Route index element={<Dashboard />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="employees" element={<EmployeeManagement />} />
+        <Route path="accounts" element={<AccountManagement />} />
         <Route path="customers" element={<CustomerManagement />} />
   {/* 1. Hỗ trợ URL mới /admin/bookings */}
         <Route path="bookings" element={<OrderList />} />
@@ -32,6 +36,8 @@ export default function AdminRoutes({ user, onLogout, showToast }) {
         {/* <Route path="orders/:id" element={<OrderDetail />} /> */}
         <Route path="contracts" element={<ContractManagement />} />
         <Route path="payments" element={<PaymentToStaff />} />
+        <Route path="revenue" element={<AdminRevenue />} />
+        <Route path="wallet" element={<AdminWallet />} />
         <Route path="painting" element={<PaintingDashboard />} />
         <Route path="painting/requests" element={<PaintingRequestList />} />
         <Route path="painting/quotes" element={<QuotationPage />} />

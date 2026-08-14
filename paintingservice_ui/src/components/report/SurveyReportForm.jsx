@@ -5,6 +5,7 @@ export default function SurveyReportForm({
   initialData = {},
   onSubmit,
   submitting = false,
+  showToast,
 }) {
   const [surveyNote, setSurveyNote] = useState(initialData.surveyNote || "");
   const [materialNote, setMaterialNote] = useState(initialData.materialNote || "");
@@ -41,13 +42,13 @@ export default function SurveyReportForm({
     e.preventDefault();
 
     if (!surveyNote.trim() && !materialNote.trim() && !materialShortage.trim()) {
-      alert("Vui lòng nhập ít nhất một ghi chú");
+      showToast?.("Vui lòng nhập ít nhất một ghi chú", "error");
       return;
     }
 
     const total = Number(totalAmount);
     if (!totalAmount || isNaN(total) || total <= 0) {
-      alert("Vui lòng nhập tổng báo giá hợp lệ (> 0)");
+      showToast?.("Vui lòng nhập tổng báo giá hợp lệ (> 0)", "error");
       return;
     }
 
@@ -55,11 +56,11 @@ export default function SurveyReportForm({
     if (depositAmount !== "" && depositAmount != null) {
       deposit = Number(depositAmount);
       if (isNaN(deposit) || deposit <= 0) {
-        alert("Tiền cọc không hợp lệ");
+        showToast?.("Tiền cọc không hợp lệ", "error");
         return;
       }
       if (deposit > total) {
-        alert("Tiền cọc không được lớn hơn tổng báo giá");
+        showToast?.("Tiền cọc không được lớn hơn tổng báo giá", "error");
         return;
       }
     }

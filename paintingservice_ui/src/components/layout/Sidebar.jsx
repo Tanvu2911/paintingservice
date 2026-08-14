@@ -3,55 +3,98 @@ export default function Sidebar({
   logoTextPrimary = "Quản Trị",
   logoTextSecondary = "247",
   color = "blue",
+  theme = "dark",
   activeTab,
   onTabChange,
   onLogout,
   menuItems = [],
 }) {
-  const colorMap = {
+  const isDark = theme === "dark";
+
+  const accentMap = {
     blue: {
-      bg: "bg-blue-600",
-      hover: "hover:bg-blue-50",
-      active: "bg-blue-50 text-blue-700 border-r-4 border-blue-600",
       logoBg: "bg-blue-600",
+      active: isDark
+        ? "bg-blue-600/20 text-blue-300 border border-blue-500/30"
+        : "bg-blue-50 text-blue-700 border-r-4 border-blue-600",
+      hover: isDark ? "hover:bg-slate-800 text-slate-300" : "hover:bg-blue-50 text-slate-600",
+      dot: "bg-blue-500",
+    },
+    amber: {
+      logoBg: "bg-amber-500",
+      active: isDark
+        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+        : "bg-amber-50 text-amber-800 border-r-4 border-amber-600",
+      hover: isDark ? "hover:bg-slate-800 text-slate-300" : "hover:bg-amber-50 text-slate-600",
+      dot: "bg-amber-400",
     },
   };
-  const c = colorMap[color] || colorMap.blue;
+  const accent = accentMap[color] || accentMap.blue;
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col min-h-screen sticky top-0">
-      <div className="p-6 border-b border-slate-100">
+    <aside
+      className={`w-64 flex flex-col min-h-screen sticky top-0 ${
+        isDark
+          ? "bg-slate-900 border-r border-slate-800"
+          : "bg-white border-r border-slate-200"
+      }`}
+    >
+      <div className={`p-5 border-b ${isDark ? "border-slate-800" : "border-slate-100"}`}>
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 ${c.logoBg} rounded-xl flex items-center justify-center text-white font-black text-lg`}>
+          <div
+            className={`w-10 h-10 ${accent.logoBg} rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg`}
+          >
             {logoIcon}
           </div>
           <div>
-            <p className="font-black text-slate-800 leading-tight">{logoTextPrimary}</p>
-            <p className="text-xs text-slate-400 font-medium">{logoTextSecondary}</p>
+            <p className={`font-black leading-tight ${isDark ? "text-slate-100" : "text-slate-800"}`}>
+              {logoTextPrimary}
+            </p>
+            <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              {logoTextSecondary}
+            </p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
         {menuItems.map((item) => (
           <button
             key={item.value}
             onClick={() => onTabChange(item.value)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === item.value
-                ? c.active
-                : `text-slate-600 ${c.hover}`
-              }`}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === item.value
+                ? accent.active
+                : isDark
+                ? `text-slate-400 ${accent.hover}`
+                : `text-slate-600 ${accent.hover}`
+            }`}
           >
-            <span className="text-lg">{item.icon}</span>
-            {item.label}
+            <span className="text-base shrink-0">{item.icon}</span>
+            <span className="flex-1 text-left">{item.label}</span>
+            {item.badge != null && item.badge > 0 && (
+              <span
+                className={`min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                  activeTab === item.value
+                    ? "bg-white/20 text-inherit"
+                    : `${accent.dot} text-white`
+                }`}
+              >
+                {item.badge}
+              </span>
+            )}
           </button>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-100">
+      <div className={`p-3 border-t ${isDark ? "border-slate-800" : "border-slate-100"}`}>
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-all"
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            isDark
+              ? "text-rose-400 hover:bg-rose-500/10"
+              : "text-rose-600 hover:bg-rose-50"
+          }`}
         >
           <span>🚪</span>
           Đăng xuất

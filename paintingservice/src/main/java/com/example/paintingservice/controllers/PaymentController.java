@@ -80,6 +80,94 @@ public class PaymentController {
     }
 
     // =========================================================================
+    // === TÍCH HỢP THANH TOÁN VIETQR & ADMIN XÁC NHẬN ===
+    // =========================================================================
+
+    /**
+     * Khách hàng quét mã QR xong bấm "Tôi đã chuyển khoản"
+     */
+    @PostMapping("/qr-submit")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> submitQrPayment(
+            @RequestParam Long bookingId,
+            @RequestParam(defaultValue = "DEPOSIT") String paymentType,
+            @RequestParam(required = false) String note,
+            org.springframework.security.core.Authentication authentication) {
+        try {
+            String username = authentication != null ? authentication.getName() : "customer";
+            return ResponseEntity.ok(paymentService.submitQrPayment(bookingId, paymentType, note, username));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Admin lấy danh sách các giao dịch QR khách đã chuyển đang chờ duyệt
+     */
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getPendingPayments() {
+        List<PaymentDto> dtos = paymentService.getPendingPayments().stream()
+                .map(PaymentMapper::toDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * Lấy danh sách thanh toán theo bookingId
+     */
+    @GetMapping("/booking/{bookingId}")
+    public ResponseEntity<?> getPaymentsByBooking(@PathVariable Long bookingId) {
+        List<PaymentDto> dtos = paymentService.getPaymentsByBooking(bookingId).stream()
+                .map(PaymentMapper::toDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
+    }
+
+    /**
+     * Admin bấm duyệt/xác nhận đã nhận tiền từ khách hàng
+     */
+    @PostMapping("/{id}/confirm")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> confirmPayment(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(paymentService.confirmPayment(id));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Admin từ chối giao dịch nếu chưa nhận được tiền
+     */
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> rejectPayment(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        try {
+            String reason = body != null ? body.get("reason") : null;
+            return ResponseEntity.ok(paymentService.rejectPayment(id, reason));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Admin quét QR thanh toán cho nhân viên (Giám sát / Đội thợ)
+     */
+    @PostMapping("/staff-payout")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> payStaffPayout(
+            @RequestParam Long bookingId,
+            @RequestParam Long staffId,
+            @RequestParam(required = false, defaultValue = "STAFF") String role) {
+        try {
+            return ResponseEntity.ok(paymentService.payStaffPayout(bookingId, staffId, role));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // =========================================================================
     // === CÁC API CRUD QUẢN LÝ THANH TOÁN CŨ ===
     // =========================================================================
 
