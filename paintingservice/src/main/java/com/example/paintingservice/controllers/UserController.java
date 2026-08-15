@@ -83,7 +83,7 @@ public class UserController {
             return ResponseEntity.notFound().build();
         }
         User user = userOptional.get();
-  
+
         UserDto dto = UserMapper.toDto(user);
         return ResponseEntity.ok(dto);
     }
@@ -105,47 +105,57 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> create(@Valid @RequestBody UserDto dto) {
         User userEntity = UserMapper.toEntity(dto);
-        
+
         // Tiến hành mã hóa mật khẩu nhận được từ React trước khi lưu xuống DB
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             userEntity.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
-        
+
         UserDto result = UserMapper.toDto(userService.save(userEntity));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
-    // 🛠️ ĐÃ SỬA: Tối ưu hóa việc cập nhật mật khẩu (Mã hóa nếu mới / Giữ nguyên nếu trống)
+    // 🛠️ ĐÃ SỬA: Tối ưu hóa việc cập nhật mật khẩu (Mã hóa nếu mới / Giữ nguyên
+    // nếu trống)
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF') or hasRole('TECHNICIAN') or hasRole('CUSTOMER')")
-    public ResponseEntity<UserDto> update(@PathVariable Long id, @Valid @RequestBody UserDto dto, org.springframework.security.core.Authentication authentication) {
+    public ResponseEntity<UserDto> update(@PathVariable Long id, @Valid @RequestBody UserDto dto,
+            org.springframework.security.core.Authentication authentication) {
+
+        System.out.println("========== UPDATE USER ==========");
+        System.out.println("ID = " + id);
+        System.out.println("USERNAME = " + authentication.getName());
+        System.out.println("AUTHORITIES = " + authentication.getAuthorities());
+        System.out.println("================================");
+
         Optional<User> userOptional = userRepository.findById(id);
         if (userOptional.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        
+
         User existingUser = userOptional.get();
 
         // Kiểm tra bảo mật: Chỉ Admin hoặc chính chủ sở hữu mới được cập nhật
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        
+
         if (!isAdmin && !existingUser.getUsername().equals(authentication.getName())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         dto.setId(id);
         User userEntity = UserMapper.toEntity(dto);
-        
+
         // Logic kiểm tra mật khẩu:
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             // Nếu admin nhập mật khẩu mới -> Tiến hành mã hóa mật khẩu mới đó
             userEntity.setPassword(passwordEncoder.encode(dto.getPassword()));
         } else {
-            // Nếu admin để trống mật khẩu -> Giữ lại chuỗi mật khẩu đã mã hóa cũ từ cơ sở dữ liệu
+            // Nếu admin để trống mật khẩu -> Giữ lại chuỗi mật khẩu đã mã hóa cũ từ cơ sở
+            // dữ liệu
             userEntity.setPassword(existingUser.getPassword());
         }
-        
+
         UserDto result = UserMapper.toDto(userService.save(userEntity));
         return ResponseEntity.ok(result);
     }

@@ -1,6 +1,6 @@
 import { useOutletContext } from "react-router-dom";
 import useBookingHistory from "../../../hooks/useBookingHistory";
-import StatisticCards from "../components/StatisticCards";
+import StatisticCards from "./StatisticCards";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import { formatMoney } from "../../../util/formatters";
 

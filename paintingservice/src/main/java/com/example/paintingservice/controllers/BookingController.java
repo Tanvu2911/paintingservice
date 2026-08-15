@@ -20,9 +20,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import com.example.paintingservice.repository.BookingRepository;
 import org.springframework.web.bind.annotation.*;
-    // Thêm import
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.MediaType;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -99,7 +96,8 @@ public class BookingController {
             notificationService.save(Notification.builder()
                     .user(customer)
                     .title("Gửi yêu cầu thành công")
-                    .content(String.format("Yêu cầu #%d (%s) đã được gửi thành công và đang chờ xử lý.", saved.getId(), serviceName))
+                    .content(String.format("Yêu cầu #%d (%s) đã được gửi thành công và đang chờ xử lý.", saved.getId(),
+                            serviceName))
                     .createdAt(LocalDateTime.now()).isRead(false).build());
         }
 
@@ -107,7 +105,8 @@ public class BookingController {
             notificationService.save(Notification.builder()
                     .user(admin)
                     .title("Yêu cầu khảo sát mới")
-                    .content(String.format("Khách hàng %s vừa gửi yêu cầu #%d cho dịch vụ '%s'.", customerName, saved.getId(), serviceName))
+                    .content(String.format("Khách hàng %s vừa gửi yêu cầu #%d cho dịch vụ '%s'.", customerName,
+                            saved.getId(), serviceName))
                     .createdAt(LocalDateTime.now()).isRead(false).build());
         });
 
@@ -118,14 +117,15 @@ public class BookingController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or isAuthenticated()")
     public ResponseEntity<BookingDto> update(@PathVariable Long id,
-                                             @Valid @RequestBody BookingDto dto,
-                                             Authentication authentication) {
+            @Valid @RequestBody BookingDto dto,
+            Authentication authentication) {
         if (!bookingService.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
 
         Booking old = bookingRepository.findById(id).orElse(null);
-        if (old == null) return ResponseEntity.notFound().build();
+        if (old == null)
+            return ResponseEntity.notFound().build();
 
         boolean statusChanged = old.getStatus() != dto.getStatus();
         boolean technicianChanged = (old.getTechnician() == null && dto.getTechnicianId() != null) ||
@@ -143,8 +143,8 @@ public class BookingController {
         BookingMapper.updateEntity(dto, old);
         Booking updated = bookingService.save(old);
 
-        String serviceName = (old.getService() != null) ? old.getService().getName() :
-                serviceEntityRepository.findById(dto.getServiceId())
+        String serviceName = (old.getService() != null) ? old.getService().getName()
+                : serviceEntityRepository.findById(dto.getServiceId())
                         .map(ServiceEntity::getName).orElse("Dịch vụ");
 
         String actorName = authentication.getName();
@@ -213,11 +213,11 @@ public class BookingController {
 
             String techContent = technicianChanged
                     ? (dto.getTechnicianId() == null
-                    ? String.format("Bạn không còn đảm nhận yêu cầu #%d (%s) nữa.", id, serviceName)
-                    : String.format("Bạn được phân công yêu cầu #%d (%s) cho khách hàng %s tại %s.",
-                    id, serviceName, customerName, dto.getAddress()))
+                            ? String.format("Bạn không còn đảm nhận yêu cầu #%d (%s) nữa.", id, serviceName)
+                            : String.format("Bạn được phân công yêu cầu #%d (%s) cho khách hàng %s tại %s.",
+                                    id, serviceName, customerName, dto.getAddress()))
                     : String.format("Hệ thống đã cập nhật yêu cầu #%d (%s). Trạng thái hiện tại: %s",
-                    id, serviceName, statusVN);
+                            id, serviceName, statusVN);
 
             notificationService.save(Notification.builder()
                     .user(techEntity)
@@ -247,7 +247,8 @@ public class BookingController {
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
                     .title("Hủy yêu cầu")
-                    .content(String.format("Yêu cầu #%d (%s) đã bị xóa khỏi hệ thống bởi %s.", id, serviceName, actorName))
+                    .content(String.format("Yêu cầu #%d (%s) đã bị xóa khỏi hệ thống bởi %s.", id, serviceName,
+                            actorName))
                     .createdAt(LocalDateTime.now()).isRead(false).build());
         }
 
@@ -273,7 +274,8 @@ public class BookingController {
         return ResponseEntity.noContent().build();
     }
 
-    // ==================== PHÂN CÔNG GIÁM SÁT → SURVEY_ASSIGNED ====================
+    // ==================== PHÂN CÔNG GIÁM SÁT → SURVEY_ASSIGNED
+    // ====================
     @PostMapping("/{id}/assign-supervisor")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignSupervisor(
@@ -305,11 +307,11 @@ public class BookingController {
 
         return ResponseEntity.ok(Map.of(
                 "message", "Phân công giám sát thành công",
-                "booking", BookingMapper.toDto(booking)
-        ));
+                "booking", BookingMapper.toDto(booking)));
     }
 
-    // ==================== PHÂN CÔNG ĐỘI THỢ (dùng khi cần gán lại) ====================
+    // ==================== PHÂN CÔNG ĐỘI THỢ (dùng khi cần gán lại)
+    // ====================
     @PostMapping("/{id}/assign-team")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignTeam(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
@@ -320,7 +322,8 @@ public class BookingController {
 
         Long technicianId = Long.valueOf(teamIdObj.toString());
         Booking booking = bookingRepository.findById(id).orElse(null);
-        if (booking == null) return ResponseEntity.notFound().build();
+        if (booking == null)
+            return ResponseEntity.notFound().build();
 
         User technician = userRepository.findById(technicianId).orElse(null);
         if (technician == null) {
@@ -350,7 +353,8 @@ public class BookingController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> payStaff(@PathVariable Long id) {
         Booking booking = bookingRepository.findById(id).orElse(null);
-        if (booking == null) return ResponseEntity.notFound().build();
+        if (booking == null)
+            return ResponseEntity.notFound().build();
 
         booking.setStatus(BookingStatus.COMPLETED);
         bookingRepository.save(booking);
@@ -392,6 +396,7 @@ public class BookingController {
         String reason = dto != null ? dto.getReason() : null;
         return ResponseEntity.ok(bookingService.rejectSurveyJob(id, principal.getName(), reason));
     }
+
     @PostMapping("/{id}/start-job")
     @PreAuthorize("hasRole('STAFF') or hasRole('TECHNICIAN')")
     public ResponseEntity<BookingDto> startJob(@PathVariable Long id, Principal principal) {
@@ -426,6 +431,5 @@ public class BookingController {
                 .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN")
                         || authority.getAuthority().equals("ADMIN"));
     }
-
 
 }

@@ -82,11 +82,18 @@ export default function PaymentToStaff() {
   // 1.2 Gia hạn thêm 24h
   const handleExtendDeadline = async (bookingId, reason) => {
     try {
+      await AxiosConfig.post(`/payments/extend-deposit-deadline/${bookingId}`, {
+        hours: 24,
+        reason: reason || "Admin gia hạn thêm 24h",
+      });
       showToast?.(`Đã gia hạn thêm +24 giờ cho đơn hàng #${bookingId}`, "success");
       setSelectedPaymentToVerify(null);
       loadData();
     } catch (err) {
-      showToast?.("Lỗi khi gia hạn thời gian", "error");
+      showToast?.(
+        err.response?.data?.message || "Lỗi khi gia hạn thời gian",
+        "error"
+      );
     }
   };
 
@@ -176,11 +183,10 @@ export default function PaymentToStaff() {
         <button
           type="button"
           onClick={() => setActiveTab("customer_approvals")}
-          className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 border-b-2 transition ${
-            activeTab === "customer_approvals"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-700"
-          }`}
+          className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 border-b-2 transition ${activeTab === "customer_approvals"
+            ? "border-blue-600 text-blue-600"
+            : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
         >
           <span>📥 Duyệt thanh toán &amp; Cọc từ Khách</span>
           {pendingPayments.length > 0 && (
@@ -193,11 +199,10 @@ export default function PaymentToStaff() {
         <button
           type="button"
           onClick={() => setActiveTab("staff_payouts")}
-          className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 border-b-2 transition ${
-            activeTab === "staff_payouts"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-700"
-          }`}
+          className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 border-b-2 transition ${activeTab === "staff_payouts"
+            ? "border-blue-600 text-blue-600"
+            : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
         >
           <span>📤 Thanh toán thù lao cho Nhân viên</span>
         </button>
@@ -260,11 +265,10 @@ export default function PaymentToStaff() {
                       </td>
                       <td className="py-4 px-6">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            p.paymentType === "DEPOSIT"
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
-                              : "bg-purple-50 text-purple-700 border border-purple-200"
-                          }`}
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold ${p.paymentType === "DEPOSIT"
+                            ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : "bg-purple-50 text-purple-700 border border-purple-200"
+                            }`}
                         >
                           {p.paymentType === "DEPOSIT"
                             ? "Tiền cọc (30%)"
@@ -277,8 +281,14 @@ export default function PaymentToStaff() {
                       <td className="py-4 px-6">
                         {p.paymentType === "DEPOSIT" ? (
                           <DepositCountdownBadge
-                            signedAt={p.booking?.createdAt || p.paidAt}
-                            compact={true}
+                            signedAt={booking.depositRequestedAt || booking.createdAt || booking.appointmentDate}
+                            deadline={booking.depositDeadline}
+                            isDepositPaid={
+                              booking.depositPaid ||
+                              booking.paymentStatus === "DEPOSIT_PAID" ||
+                              booking.paymentStatus === "FULLY_PAID"
+                            }
+                            isCancelled={booking.status === "CANCELLED"}
                           />
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
@@ -485,13 +495,11 @@ export default function PaymentToStaff() {
             orderId={payoutModalData.orderId}
             accountNo={payoutModalData.staffPhone || "0987654321"}
             accountName={payoutModalData.staffName}
-            addInfo={`LUONG DH${payoutModalData.orderId} ${
-              payoutModalData.role === "SURVEYOR" ? "GS" : "THO"
-            }`}
+            addInfo={`LUONG DH${payoutModalData.orderId} ${payoutModalData.role === "SURVEYOR" ? "GS" : "THO"
+              }`}
             title={`Quét mã QR trả thù lao cho ${payoutModalData.staffName}`}
-            subTitle={`Thù lao vị trí: ${
-              payoutModalData.role === "SURVEYOR" ? "Giám sát viên" : "Đội thợ thi công"
-            }`}
+            subTitle={`Thù lao vị trí: ${payoutModalData.role === "SURVEYOR" ? "Giám sát viên" : "Đội thợ thi công"
+              }`}
             note="* Quét mã QR trên app ngân hàng của Admin để chuyển thù lao trực tiếp. Sau khi chuyển xong, bấm nút xác nhận bên dưới."
             confirmText={`Xác nhận đã chuyển ${formatMoney(payoutModalData.amount)}`}
             confirmColor="bg-emerald-600 hover:bg-emerald-700"

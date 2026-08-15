@@ -30,7 +30,16 @@ export default function DepositVerificationModal({
     currentBooking?.depositAmount ||
     (Number(currentBooking?.totalAmount) || 0) * 0.3;
 
-  const proofImg = payment?.proofImage || payment?.receiptImage || currentBooking?.depositProofImage;
+  const proofImg =
+    payment?.proofImage ||
+    payment?.proofImageUrl ||
+    payment?.receiptImage ||
+    payment?.receiptUrl ||
+    payment?.imageUrl ||
+    payment?.proofUrl ||
+    currentBooking?.depositProofImage ||
+    currentBooking?.proofImage ||
+    currentBooking?.depositProofUrl;
 
   return (
     <div className="space-y-5 max-h-[85vh] overflow-y-auto px-1">
@@ -91,14 +100,17 @@ export default function DepositVerificationModal({
               src={proofImg}
               alt="Ảnh biên lai"
               onClick={() => setIsZoomed(true)}
-              className={`object-contain rounded-lg transition-all cursor-zoom-in ${
-                isZoomed ? "max-h-[70vh] w-full" : "max-h-72"
-              }`}
+              className={`object-contain rounded-lg transition-all cursor-zoom-in ${isZoomed ? "max-h-[70vh] w-full" : "max-h-72"
+                }`}
             />
           </div>
         ) : (
-          <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs">
-            Khách hàng chưa tải lên ảnh chụp bill chuyển khoản (đã quét mã chuyển khoản trực tiếp).
+          <div className="p-8 text-center bg-amber-50 border border-dashed border-amber-200 rounded-xl text-amber-700 text-xs">
+            <p className="font-semibold mb-1">Không tìm thấy ảnh biên lai</p>
+            <p>
+              Khách chưa gửi ảnh hoặc backend chưa trả đúng field
+              (proofImage / proofImageUrl).
+            </p>
           </div>
         )}
 

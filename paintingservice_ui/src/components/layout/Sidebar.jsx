@@ -3,30 +3,15 @@ export default function Sidebar({
   logoTextPrimary = "Quản Trị",
   logoTextSecondary = "247",
   color = "blue",
-  theme = "dark",
   activeTab,
   onTabChange,
   onLogout,
   menuItems = [],
 }) {
-  const isDark = theme === "dark";
 
   const accentMap = {
     blue: {
       logoBg: "bg-blue-600",
-      active: isDark
-        ? "bg-blue-600/20 text-blue-300 border border-blue-500/30"
-        : "bg-blue-50 text-blue-700 border-r-4 border-blue-600",
-      hover: isDark ? "hover:bg-slate-800 text-slate-300" : "hover:bg-blue-50 text-slate-600",
-      dot: "bg-blue-500",
-    },
-    amber: {
-      logoBg: "bg-amber-500",
-      active: isDark
-        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-        : "bg-amber-50 text-amber-800 border-r-4 border-amber-600",
-      hover: isDark ? "hover:bg-slate-800 text-slate-300" : "hover:bg-amber-50 text-slate-600",
-      dot: "bg-amber-400",
     },
   };
   const accent = accentMap[color] || accentMap.blue;
@@ -34,12 +19,10 @@ export default function Sidebar({
   return (
     <aside
       className={`w-64 flex flex-col min-h-screen sticky top-0 ${
-        isDark
-          ? "bg-slate-900 border-r border-slate-800"
-          : "bg-white border-r border-slate-200"
+        "bg-white border-r border-slate-200"
       }`}
     >
-      <div className={`p-5 border-b ${isDark ? "border-slate-800" : "border-slate-100"}`}>
+      <div className={`p-5 border-b ${ "border-slate-100"}`}>
         <div className="flex items-center gap-3">
           <div
             className={`w-10 h-10 ${accent.logoBg} rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg`}
@@ -47,10 +30,10 @@ export default function Sidebar({
             {logoIcon}
           </div>
           <div>
-            <p className={`font-black leading-tight ${isDark ? "text-slate-100" : "text-slate-800"}`}>
+            <p className={`font-black leading-tight ${"text-slate-800"}`}>
               {logoTextPrimary}
             </p>
-            <p className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            <p className={`text-xs font-medium ${ "text-slate-400"}`}>
               {logoTextSecondary}
             </p>
           </div>
@@ -65,8 +48,7 @@ export default function Sidebar({
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
               activeTab === item.value
                 ? accent.active
-                : isDark
-                ? `text-slate-400 ${accent.hover}`
+                
                 : `text-slate-600 ${accent.hover}`
             }`}
           >
@@ -87,13 +69,11 @@ export default function Sidebar({
         ))}
       </nav>
 
-      <div className={`p-3 border-t ${isDark ? "border-slate-800" : "border-slate-100"}`}>
+      <div className={`p-3 border-t ${ "border-slate-100"}`}>
         <button
           onClick={onLogout}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            isDark
-              ? "text-rose-400 hover:bg-rose-500/10"
-              : "text-rose-600 hover:bg-rose-50"
+             "text-rose-600 hover:bg-rose-50"
           }`}
         >
           <span>🚪</span>

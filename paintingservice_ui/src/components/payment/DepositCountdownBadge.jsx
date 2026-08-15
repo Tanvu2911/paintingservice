@@ -20,8 +20,8 @@ export default function DepositCountdownBadge({
   const targetTime = deadline
     ? new Date(deadline).getTime()
     : signedAt
-    ? new Date(signedAt).getTime() + 24 * 60 * 60 * 1000
-    : Date.now() + 24 * 60 * 60 * 1000;
+      ? new Date(signedAt).getTime() + 24 * 60 * 60 * 1000
+      : Date.now() + 24 * 60 * 60 * 1000;
 
   const [timeLeft, setTimeLeft] = useState(Math.max(0, targetTime - Date.now()));
 
@@ -69,13 +69,12 @@ export default function DepositCountdownBadge({
   if (compact) {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold font-mono ${
-          isUrgent
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold font-mono ${isUrgent
             ? "bg-rose-100 text-rose-700 animate-pulse border border-rose-300"
             : isWarning
-            ? "bg-amber-100 text-amber-800 border border-amber-300"
-            : "bg-blue-100 text-blue-800 border border-blue-200"
-        }`}
+              ? "bg-amber-100 text-amber-800 border border-amber-300"
+              : "bg-blue-100 text-blue-800 border border-blue-200"
+          }`}
       >
         <span>⏳</span>
         <span>
@@ -88,31 +87,29 @@ export default function DepositCountdownBadge({
 
   return (
     <div
-      className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${
-        isUrgent
+      className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all ${isUrgent
           ? "bg-rose-50 border-rose-300 text-rose-900 shadow-sm shadow-rose-100"
           : isWarning
-          ? "bg-amber-50 border-amber-300 text-amber-900"
-          : "bg-blue-50 border-blue-200 text-blue-900"
-      }`}
+            ? "bg-amber-50 border-amber-300 text-amber-900"
+            : "bg-blue-50 border-blue-200 text-blue-900"
+        }`}
     >
       <div className="flex items-center gap-2">
         <span
-          className={`w-2.5 h-2.5 rounded-full ${
-            isUrgent
+          className={`w-2.5 h-2.5 rounded-full ${isUrgent
               ? "bg-rose-600 animate-ping"
               : isWarning
-              ? "bg-amber-500"
-              : "bg-blue-600"
-          }`}
+                ? "bg-amber-500"
+                : "bg-blue-600"
+            }`}
         />
         <div>
           <p className="font-bold">
             {isUrgent
               ? "⚠️ Khẩn cấp: Sắp hết hạn chuyển cọc (Nhắc nhở cuối)"
               : isWarning
-              ? "🔔 Nhắc nhở lần 1: Vui lòng chuyển cọc sớm"
-              : "⏱️ Thời hạn thanh toán cọc trong vòng 24 giờ"}
+                ? "🔔 Nhắc nhở lần 1: Vui lòng chuyển cọc sớm"
+                : "⏱️ Thời hạn thanh toán cọc trong vòng 24 giờ"}
           </p>
           <p className="text-[11px] opacity-80 mt-0.5">
             {isUrgent

@@ -84,5 +84,7 @@ public class Booking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "preferred_technician_id")
-    private User preferredTechnician;   // Đội thợ mà khách hàng chọn khi tạo đơn
+    private User preferredTechnician; // Đội thợ mà khách hàng chọn khi tạo đơn
+
+    private LocalDateTime depositDeadline;
 }

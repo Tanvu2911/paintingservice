@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatMoney } from "../../util/formatters";
 import StatusBadge from "../common/StatusBadge";
@@ -23,12 +24,21 @@ export default function BookingHistoryPage({
   showTechnicianFilter = false,
   showCustomerFilter = false,
   emptyMessage = "Chưa có dữ liệu lịch sử.",
+  statusFilter = [], // Nhận prop statusFilter
 }) {
   const navigate = useNavigate();
   const { filtered, bookings, stats, loading, filters } = useBookingHistory(
     role,
     showToast
   );
+
+  // LỌC DỮ LIỆU: Chỉ giữ lại các đơn hàng có trạng thái nằm trong statusFilter (nếu có truyền vào)
+  const displayData = useMemo(() => {
+    if (statusFilter && statusFilter.length > 0) {
+      return filtered.filter((row) => statusFilter.includes(row.status));
+    }
+    return filtered;
+  }, [filtered, statusFilter]);
 
   const columns = [
     {
@@ -51,23 +61,23 @@ export default function BookingHistoryPage({
     },
     ...(showCustomerFilter
       ? [
-          {
-            key: "customer",
-            label: "Khách hàng",
-            render: (row) =>
-              row.customerName || row.customer?.username || "—",
-          },
-        ]
+        {
+          key: "customer",
+          label: "Khách hàng",
+          render: (row) =>
+            row.customerName || row.customer?.username || "—",
+        },
+      ]
       : []),
     ...(showTechnicianFilter
       ? [
-          {
-            key: "technician",
-            label: "Kỹ thuật viên",
-            render: (row) =>
-              row.technicianName || row.preferredTechnicianName || "—",
-          },
-        ]
+        {
+          key: "technician",
+          label: "Kỹ thuật viên",
+          render: (row) =>
+            row.technicianName || row.preferredTechnicianName || "—",
+        },
+      ]
       : []),
     {
       key: "date",
@@ -101,9 +111,9 @@ export default function BookingHistoryPage({
       filters={filters}
       columns={columns}
       data={{
-        rows: filtered,
+        rows: displayData, // Sử dụng dữ liệu đã được lọc
         totalCount: bookings.length,
-        filteredCount: filtered.length,
+        filteredCount: displayData.length, // Cập nhật lại số lượng sau khi lọc
       }}
       loading={loading}
       emptyMessage={emptyMessage}

@@ -15,7 +15,7 @@ export default function Employee({ user, onLogout, showToast }) {
   const [services, setServices] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  
+
   // Tạo state local để quản lý thông tin profile mới nhất (đặc biệt là status)
   const [profile, setProfile] = useState(user);
   const [activeTab, setActiveTab] = useState('tasks');
@@ -24,14 +24,14 @@ export default function Employee({ user, onLogout, showToast }) {
   const [searchDate, setSearchDate] = useState('');
   const [filterServiceId, setFilterServiceId] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
-  
+
   // States cho Hợp đồng
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
-  const [contractForm, setContractForm] = useState({ 
-    id: null, 
-    bookingId: null, 
-    contractCode: '', 
-    content: '', 
+  const [contractForm, setContractForm] = useState({
+    id: null,
+    bookingId: null,
+    contractCode: '',
+    content: '',
     customerSigned: false,
     customerSignatureImg: '',
     workerSigned: false,
@@ -153,16 +153,16 @@ export default function Employee({ user, onLogout, showToast }) {
     fetchServices();
     fetchContracts();
     fetchNotifications();
-    
+
     return () => { isMounted = false; };
   }, [refreshTrigger]);
 
   // Xử lý Đăng xuất hệ thống (Sử dụng navigate để quay về trang login)
   const handleLogout = () => {
     if (window.confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
-      onLogout(); 
+      onLogout();
       showToast("Đăng xuất thành công!");
-      navigate('/login'); 
+      navigate('/login');
     }
   };
 
@@ -218,9 +218,9 @@ export default function Employee({ user, onLogout, showToast }) {
       else return;
 
       const task = tasks.find(t => t.id === taskId);
-      
-      const formattedTime = task.appointmentTime 
-        ? (task.appointmentTime.length === 5 ? `${task.appointmentTime}:00` : task.appointmentTime) 
+
+      const formattedTime = task.appointmentTime
+        ? (task.appointmentTime.length === 5 ? `${task.appointmentTime}:00` : task.appointmentTime)
         : "08:00:00";
 
       // ✅ Tạo payload chuẩn xác để tránh lỗi 400
@@ -254,11 +254,11 @@ export default function Employee({ user, onLogout, showToast }) {
   // Xử lý từ chối nhiệm vụ (Chuyển về PENDING và gỡ technicianId)
   const handleRefuseTask = async (taskId) => {
     if (!window.confirm("Bạn có chắc chắn muốn từ chối nhiệm vụ này không?")) return;
-    
+
     try {
       const task = tasks.find(t => t.id === taskId);
-      const formattedTime = task.appointmentTime 
-        ? (task.appointmentTime.length === 5 ? `${task.appointmentTime}:00` : task.appointmentTime) 
+      const formattedTime = task.appointmentTime
+        ? (task.appointmentTime.length === 5 ? `${task.appointmentTime}:00` : task.appointmentTime)
         : "08:00:00";
 
       const payload = {
@@ -359,11 +359,11 @@ Chi tiết công việc cụ thể:
 - Bên thi công cam kết sử dụng vật tư đúng chủng loại và thi công đúng kỹ thuật.
 - Bảo hành công trình trong vòng 12 tháng kể từ ngày nghiệm thu.`;
 
-        setContractForm({ 
-          id: null, 
-          bookingId: task.id, 
-          contractCode: `HD-${task.id}-${Date.now().toString().slice(-4)}`, 
-          content: contractTemplate, 
+        setContractForm({
+          id: null,
+          bookingId: task.id,
+          contractCode: `HD-${task.id}-${Date.now().toString().slice(-4)}`,
+          content: contractTemplate,
           customerSigned: false,
           customerSignatureImg: '',
           workerSigned: false,
@@ -384,7 +384,7 @@ Chi tiết công việc cụ thể:
 
     const canvas = workerCanvasRef.current;
     let payload = { ...contractForm };
-    
+
     // Nếu không phải xem hợp đồng đã khóa, lấy chữ ký mới từ canvas
     if (!contractForm.customerSigned && canvas) {
       payload.workerSignatureImg = canvas.toDataURL("image/png");
@@ -414,7 +414,7 @@ Chi tiết công việc cụ thể:
       // Trích xuất danh sách ID kỹ năng từ thông tin profile hiện tại
       const currentSkillIds = profile.skills ? profile.skills.map(s => s.id || s) : [];
 
-      const payload = { 
+      const payload = {
         username: profile.username, // Bắt buộc gửi username để xác thực dữ liệu
         fullName: profileForm.fullName,
         email: profileForm.email,
@@ -425,7 +425,7 @@ Chi tiết công việc cụ thể:
         skillIds: currentSkillIds,    // Gửi mảng ID thay vì mảng Object
         password: profileForm.password
       };
-      
+
       if (!payload.password || payload.password.trim() === '') {
         delete payload.password;
       }
@@ -442,9 +442,9 @@ Chi tiết công việc cụ thể:
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans antialiased text-slate-900">
-      
+
       {/* SIDEBAR DÙNG CHUNG */}
-      <Sidebar 
+      <Sidebar
         logoIcon="W"
         logoTextPrimary="Kỹ Thuật"
         logoTextSecondary="247"
@@ -464,7 +464,7 @@ Chi tiết công việc cụ thể:
       {/* MAIN CONTENT */}
       <main className="flex-1 p-10 overflow-y-auto">
         <div className="flex justify-end mb-4">
-          <NotificationPopover 
+          <NotificationPopover
             notifications={notifications}
             onMarkRead={handleMarkRead}
             onDeleteAll={handleDeleteAllNotifications}
@@ -487,7 +487,7 @@ Chi tiết công việc cụ thể:
           </div>
         )}
 
-        <DashboardHeader 
+        <DashboardHeader
           title="Khu Vực Làm Việc"
           subtitle={`Xin chào, ${profile?.fullName || profile?.username}. Chúc bạn một ngày làm việc hiệu quả!`}
           userName={profile?.username}
@@ -500,19 +500,19 @@ Chi tiết công việc cụ thể:
           <>
             {/* THỐNG KÊ NHANH */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-              <StatCard 
-                label="Nhiệm vụ mới" 
-                value={tasks.filter(t => t.status === 'ASSIGNED').length} 
+              <StatCard
+                label="Nhiệm vụ mới"
+                value={tasks.filter(t => t.status === 'ASSIGNED').length}
               />
-              <StatCard 
-                label="Đang thi công" 
-                value={tasks.filter(t => ['ACCEPTED', 'PROCESSING'].includes(t.status)).length} 
+              <StatCard
+                label="Đang thi công"
+                value={tasks.filter(t => ['ACCEPTED', 'PROCESSING'].includes(t.status)).length}
                 colorClass="text-blue-600"
                 borderClass="border-l-4 border-l-blue-500"
               />
-              <StatCard 
-                label="Đã xong" 
-                value={tasks.filter(t => t.status === 'COMPLETED').length} 
+              <StatCard
+                label="Đã xong"
+                value={tasks.filter(t => t.status === 'COMPLETED').length}
                 colorClass="text-emerald-600"
                 borderClass="border-l-4 border-l-emerald-500"
               />
@@ -522,8 +522,8 @@ Chi tiết công việc cụ thể:
             <div className="mb-6 flex flex-wrap gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex-1 min-w-[200px] relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Tìm theo tên khách hàng, địa chỉ hoặc mô tả..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
                   value={searchTerm}
@@ -532,7 +532,7 @@ Chi tiết công việc cụ thể:
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Hạng mục:</span>
-                <select 
+                <select
                   className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500/20"
                   value={filterServiceId}
                   onChange={(e) => setFilterServiceId(e.target.value)}
@@ -543,13 +543,13 @@ Chi tiết công việc cụ thể:
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Lọc ngày:</span>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
                   value={searchDate}
                   onChange={(e) => setSearchDate(e.target.value)}
                 />
-                <select 
+                <select
                   className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500/20"
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value)}
@@ -559,7 +559,7 @@ Chi tiết công việc cụ thể:
                 </select>
 
                 {(searchTerm || searchDate || filterServiceId || sortOrder !== 'desc') && (
-                  <button onClick={() => {setSearchTerm(''); setSearchDate(''); setFilterServiceId(''); setSortOrder('desc');}} className="text-xs font-bold text-rose-500 underline">Xóa lọc</button>
+                  <button onClick={() => { setSearchTerm(''); setSearchDate(''); setFilterServiceId(''); setSortOrder('desc'); }} className="text-xs font-bold text-rose-500 underline">Xóa lọc</button>
                 )}
               </div>
             </div>
@@ -569,7 +569,7 @@ Chi tiết công việc cụ thể:
               <div className="p-6 border-b border-slate-50 flex justify-between items-center">
                 <div className="flex items-center gap-4">
                   <h3 className="text-lg font-black text-slate-900 tracking-tight">Nhiệm vụ được phân công</h3>
-                  <button 
+                  <button
                     onClick={() => setRefreshTrigger(p => p + 1)}
                     className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400"
                     title="Tải lại danh sách"
@@ -579,7 +579,7 @@ Chi tiết công việc cụ thể:
                 </div>
                 {loading && <div className="text-xs text-slate-400 animate-pulse font-bold uppercase tracking-widest">Đang tải...</div>}
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -596,7 +596,7 @@ Chi tiết công việc cụ thể:
                   <tbody className="divide-y divide-slate-100">
                     {tasks.length > 0 ? tasks
                       .filter(task => {
-                        const matchesName = !searchTerm || 
+                        const matchesName = !searchTerm ||
                           (task.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (task.address || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (task.description || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -607,95 +607,94 @@ Chi tiết công việc cụ thể:
                       .sort((a, b) => {
                         const dateA = formatDate(a.appointmentDate);
                         const dateB = formatDate(b.appointmentDate);
-                        return sortOrder === 'desc' 
-                          ? dateB.localeCompare(dateA) 
+                        return sortOrder === 'desc'
+                          ? dateB.localeCompare(dateA)
                           : dateA.localeCompare(dateB);
                       })
                       .map((task) => (
-                      <tr key={task.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-5 font-bold text-amber-600 text-sm">#{task.id}</td>
-                        <td className="px-6 py-5 font-bold text-slate-900 text-sm">
-                          <div className="flex flex-col">
-                            <span>{task.customerName || `Khách hàng ID: ${task.customerId}`}</span>
-                            <span className="text-[10px] text-slate-400 font-medium">{task.customerPhone || 'Không có SĐT'}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-slate-500 text-sm font-bold">
-                          {services.find(s => s.id === task.serviceId)?.name || `DV #${task.serviceId}`}
-                        </td>
-                        <td className="px-6 py-5 text-slate-500 text-xs">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-slate-900 font-bold">
-                              {formatDate(task.appointmentDate)} <span className="text-blue-500/50">@ {task.appointmentTime}</span>
-                            </span>
-                            <span className="truncate max-w-[150px] italic text-slate-400" title={task.address}>{task.address}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-slate-400 text-xs italic max-w-[120px] truncate" title={task.description}>
-                          {task.description}
-                        </td>
-                        <td className="px-6 py-5">
-                          <StatusBadge status={task.status} />
-                        </td>
-                        <td className="px-6 py-5 text-right flex justify-end gap-2">
-                          {task.status !== 'COMPLETED' && (
-                            <div className="flex gap-2">
-                              {(() => {
-                                const contract = contracts.find(c => c.bookingId === task.id);
-                                const isSigned = contract?.customerSigned;
-                                const isBiddingDisabled = profile?.status === 'RESTRICTED' || (task.status === 'ACCEPTED' && !isSigned);
-
-                                return (
-                                  <button 
-                                    onClick={() => handleStatusUpdate(task.id, task.status)}
-                                    disabled={isBiddingDisabled}
-                                    className={`px-4 py-2 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 
-                                      ${isBiddingDisabled
-                                        ? 'bg-slate-300 cursor-not-allowed grayscale opacity-60' 
-                                        : (['PENDING', 'ASSIGNED'].includes(task.status) ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20' 
-                                          : task.status === 'ACCEPTED' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20' 
-                                          : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20')
-                                      }`}
-                                  >
-                                    {['PENDING', 'ASSIGNED'].includes(task.status) ? 'Xác nhận nhận việc' 
-                                      : task.status === 'ACCEPTED' ? 'Bắt đầu làm' 
-                                      : 'Xác nhận hoàn thành'}
-                                  </button>
-                                );
-                              })()}
-
-                              {task.status === 'ASSIGNED' && (
-                                <button 
-                                  onClick={() => handleRefuseTask(task.id)}
-                                  className="px-4 py-2 bg-rose-100 text-rose-600 text-xs font-black rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm"
-                                >
-                                  Từ chối
-                                </button>
-                              )}
+                        <tr key={task.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-6 py-5 font-bold text-amber-600 text-sm">#{task.id}</td>
+                          <td className="px-6 py-5 font-bold text-slate-900 text-sm">
+                            <div className="flex flex-col">
+                              <span>{task.customerName || `Khách hàng ID: ${task.customerId}`}</span>
+                              <span className="text-[10px] text-slate-400 font-medium">{task.customerPhone || 'Không có SĐT'}</span>
                             </div>
-                          )}
-                          <button 
-                            onClick={() => handleOpenContractModal(task)}
-                            className={`p-2 rounded-lg transition-all shadow-sm ${
-                              ['ACCEPTED', 'PROCESSING', 'COMPLETED'].includes(task.status) 
-                              ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white' 
-                              : 'bg-slate-50 text-slate-300 cursor-not-allowed'
-                            }`}
-                            disabled={!['ACCEPTED', 'PROCESSING', 'COMPLETED'].includes(task.status)}
-                            title="Lập hợp đồng khảo sát"
-                          >
-                            📜
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteTask(task.id)}
-                            className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                            title="Xóa nhiệm vụ"
-                          >
-                            🗑️
-                          </button>
-                        </td>
-                      </tr>
-                    )) : (
+                          </td>
+                          <td className="px-6 py-5 text-slate-500 text-sm font-bold">
+                            {services.find(s => s.id === task.serviceId)?.name || `DV #${task.serviceId}`}
+                          </td>
+                          <td className="px-6 py-5 text-slate-500 text-xs">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-slate-900 font-bold">
+                                {formatDate(task.appointmentDate)} <span className="text-blue-500/50">@ {task.appointmentTime}</span>
+                              </span>
+                              <span className="truncate max-w-[150px] italic text-slate-400" title={task.address}>{task.address}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 text-slate-400 text-xs italic max-w-[120px] truncate" title={task.description}>
+                            {task.description}
+                          </td>
+                          <td className="px-6 py-5">
+                            <StatusBadge status={task.status} />
+                          </td>
+                          <td className="px-6 py-5 text-right flex justify-end gap-2">
+                            {task.status !== 'COMPLETED' && (
+                              <div className="flex gap-2">
+                                {(() => {
+                                  const contract = contracts.find(c => c.bookingId === task.id);
+                                  const isSigned = contract?.customerSigned;
+                                  const isBiddingDisabled = profile?.status === 'RESTRICTED' || (task.status === 'ACCEPTED' && !isSigned);
+
+                                  return (
+                                    <button
+                                      onClick={() => handleStatusUpdate(task.id, task.status)}
+                                      disabled={isBiddingDisabled}
+                                      className={`px-4 py-2 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 
+                                      ${isBiddingDisabled
+                                          ? 'bg-slate-300 cursor-not-allowed grayscale opacity-60'
+                                          : (['PENDING', 'ASSIGNED'].includes(task.status) ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
+                                            : task.status === 'ACCEPTED' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'
+                                              : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20')
+                                        }`}
+                                    >
+                                      {['PENDING', 'ASSIGNED'].includes(task.status) ? 'Xác nhận nhận việc'
+                                        : task.status === 'ACCEPTED' ? 'Bắt đầu làm'
+                                          : 'Xác nhận hoàn thành'}
+                                    </button>
+                                  );
+                                })()}
+
+                                {task.status === 'ASSIGNED' && (
+                                  <button
+                                    onClick={() => handleRefuseTask(task.id)}
+                                    className="px-4 py-2 bg-rose-100 text-rose-600 text-xs font-black rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm"
+                                  >
+                                    Từ chối
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            <button
+                              onClick={() => handleOpenContractModal(task)}
+                              className={`p-2 rounded-lg transition-all shadow-sm ${['ACCEPTED', 'PROCESSING', 'COMPLETED'].includes(task.status)
+                                ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'
+                                : 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                                }`}
+                              disabled={!['ACCEPTED', 'PROCESSING', 'COMPLETED'].includes(task.status)}
+                              title="Lập hợp đồng khảo sát"
+                            >
+                              📜
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                              title="Xóa nhiệm vụ"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      )) : (
                       <tr>
                         <td colSpan="5" className="px-6 py-10 text-center text-slate-400 text-sm font-medium italic">Hiện chưa có nhiệm vụ nào được giao cho bạn.</td>
                       </tr>
@@ -723,55 +722,55 @@ Chi tiết công việc cụ thể:
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Họ và tên</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-medium"
                       value={profileForm.fullName}
-                      onChange={e => setProfileForm({...profileForm, fullName: e.target.value})}
+                      onChange={e => setProfileForm({ ...profileForm, fullName: e.target.value })}
                       required
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Email</label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-medium"
                       value={profileForm.email}
-                      onChange={e => setProfileForm({...profileForm, email: e.target.value})}
+                      onChange={e => setProfileForm({ ...profileForm, email: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Số điện thoại</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-medium"
                       value={profileForm.phoneNumber}
-                      onChange={e => setProfileForm({...profileForm, phoneNumber: e.target.value})}
+                      onChange={e => setProfileForm({ ...profileForm, phoneNumber: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Mật khẩu mới (để trống nếu không đổi)</label>
-                    <input 
-                      type="password" 
+                    <input
+                      type="password"
                       placeholder="••••••••"
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-medium"
                       value={profileForm.password}
-                      onChange={e => setProfileForm({...profileForm, password: e.target.value})}
+                      onChange={e => setProfileForm({ ...profileForm, password: e.target.value })}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Địa chỉ</label>
-                  <textarea 
+                  <textarea
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-medium h-24 resize-none"
                     value={profileForm.address}
-                    onChange={e => setProfileForm({...profileForm, address: e.target.value})}
+                    onChange={e => setProfileForm({ ...profileForm, address: e.target.value })}
                   />
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <button 
+                  <button
                     type="submit"
                     className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 active:scale-95"
                   >
@@ -796,31 +795,31 @@ Chi tiết công việc cụ thể:
         )}
 
         {/* MODAL LẬP HỢP ĐỒNG */}
-        <Modal 
-          isOpen={isContractModalOpen} 
+        <Modal
+          isOpen={isContractModalOpen}
           onClose={() => setIsContractModalOpen(false)}
           title={contractForm.customerSigned ? "Xem Hợp Đồng (Đã khóa chỉnh sửa)" : "Lập Hợp Đồng Khảo Sát & Thi Công"}
         >
           <form onSubmit={handleSaveContract} className="space-y-4">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Mã hợp đồng (Tự động)</label>
-              <input 
+              <input
                 type="text" className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm bg-slate-50 font-bold"
                 value={contractForm.contractCode} readOnly
               />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nội dung thỏa thuận</label>
-              <textarea 
+              <textarea
                 className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-amber-500 h-48 resize-none"
                 placeholder="Nhập các điều khoản, báo giá sơ bộ và cam kết thi công..."
                 value={contractForm.content}
-                onChange={e => setContractForm({...contractForm, content: e.target.value})}
+                onChange={e => setContractForm({ ...contractForm, content: e.target.value })}
                 disabled={contractForm.customerSigned}
                 required
               />
             </div>
-            
+
             {!contractForm.customerSigned && (
               <div className="space-y-2">
                 <div className="flex justify-between items-end">
@@ -828,7 +827,7 @@ Chi tiết công việc cụ thể:
                   <button type="button" onClick={clearWorkerSignature} className="text-[10px] text-rose-500 font-bold hover:underline">Xóa</button>
                 </div>
                 <div className="border-2 border-dashed border-slate-200 rounded-2xl bg-white overflow-hidden">
-                  <canvas 
+                  <canvas
                     ref={workerCanvasRef} width={500} height={120}
                     onMouseDown={startDrawing} onMouseMove={draw}
                     onMouseUp={() => setIsDrawing(false)} onMouseLeave={() => setIsDrawing(false)}

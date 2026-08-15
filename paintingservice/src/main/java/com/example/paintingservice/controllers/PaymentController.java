@@ -2,15 +2,17 @@ package com.example.paintingservice.controllers;
 
 import com.example.paintingservice.dto.PaymentDto;
 import com.example.paintingservice.mapper.PaymentMapper;
-import com.example.paintingservice.service.PaymentService;
 import com.example.paintingservice.service.MoMoService;
-import tools.jackson.databind.ObjectMapper;
+import com.example.paintingservice.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -23,87 +25,60 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final MoMoService moMoService;
-    private final ObjectMapper objectMapper;
 
-    // =========================================================================
-    // === TÍCH HỢP THANH TOÁN MOMO ===
-    // =========================================================================
+    // ===== MOMO =====
 
-    /**
-     * Khách hàng bấm lấy URL thanh toán MoMo để chuyển hướng (Redirect)
-     * @param bookingId ID đơn hàng
-     * @param paymentType "DEPOSIT" (Cọc) hoặc "FINAL" (Thanh toán nốt)
-     */
     @PostMapping("/momo/create")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> createMoMoOrder(
             @RequestParam Long bookingId,
             @RequestParam(defaultValue = "DEPOSIT") String paymentType) {
-
         try {
-            return ResponseEntity.ok(
-                    paymentService.createMoMoPayment(bookingId, paymentType)
-            );
-        } catch (Exception e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    /**
-     * IPN Webhook nhận kết quả thanh toán tự động từ MoMo Server gửi về
-     * (Lưu ý: Cần cấu hình permitAll() cho endpoint này trong SecurityConfig)
-     */
-    @PostMapping("/momo/ipn")
-    public ResponseEntity<?> momoIPN(@RequestBody Map<String, String> ipnParams) {
-        try {
-            // 1. Kiểm tra chữ ký bảo mật signature từ MoMo
-            boolean isValid = moMoService.verifyIPN(ipnParams);
-            if (!isValid) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid signature"));
-            }
-
-            // 2. Lấy kết quả giao dịch
-            String orderId = ipnParams.get("orderId");
-            String resultCode = ipnParams.get("resultCode");
-
-            // 3. Nếu thanh toán thành công (resultCode == "0") -> Cập nhật Database
-            if ("0".equals(resultCode)) {
-                paymentService.processMoMoSuccessCallback(orderId);
-            }
-
-            // MoMo yêu cầu trả về HTTP 204 hoặc JSON xác nhận đã nhận tin
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    // =========================================================================
-    // === TÍCH HỢP THANH TOÁN VIETQR & ADMIN XÁC NHẬN ===
-    // =========================================================================
-
-    /**
-     * Khách hàng quét mã QR xong bấm "Tôi đã chuyển khoản"
-     */
-    @PostMapping("/qr-submit")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> submitQrPayment(
-            @RequestParam Long bookingId,
-            @RequestParam(defaultValue = "DEPOSIT") String paymentType,
-            @RequestParam(required = false) String note,
-            org.springframework.security.core.Authentication authentication) {
-        try {
-            String username = authentication != null ? authentication.getName() : "customer";
-            return ResponseEntity.ok(paymentService.submitQrPayment(bookingId, paymentType, note, username));
+            return ResponseEntity.ok(paymentService.createMoMoPayment(bookingId, paymentType));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 
-    /**
-     * Admin lấy danh sách các giao dịch QR khách đã chuyển đang chờ duyệt
-     */
+    @PostMapping("/momo/ipn")
+    public ResponseEntity<?> momoIPN(@RequestBody Map<String, String> ipnParams) {
+        try {
+            boolean isValid = moMoService.verifyIPN(ipnParams);
+            if (!isValid) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "Invalid signature"));
+            }
+            String orderId = ipnParams.get("orderId");
+            String resultCode = ipnParams.get("resultCode");
+            if ("0".equals(resultCode)) {
+                paymentService.processMoMoSuccessCallback(orderId);
+            }
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // ===== QR + ADMIN =====
+
+    @PostMapping(value = "/qr-submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> submitQrPayment(
+            @RequestParam Long bookingId,
+            @RequestParam(defaultValue = "DEPOSIT") String paymentType,
+            @RequestParam(required = false) String note,
+            @RequestParam(required = false) MultipartFile proofImage,
+            Authentication authentication) {
+        try {
+            String username = authentication != null ? authentication.getName() : "customer";
+            return ResponseEntity.ok(
+                    paymentService.submitQrPayment(bookingId, paymentType, note, proofImage, username));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @GetMapping("/pending")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getPendingPayments() {
@@ -113,9 +88,6 @@ public class PaymentController {
         return ResponseEntity.ok(dtos);
     }
 
-    /**
-     * Lấy danh sách thanh toán theo bookingId
-     */
     @GetMapping("/booking/{bookingId}")
     public ResponseEntity<?> getPaymentsByBooking(@PathVariable Long bookingId) {
         List<PaymentDto> dtos = paymentService.getPaymentsByBooking(bookingId).stream()
@@ -124,9 +96,6 @@ public class PaymentController {
         return ResponseEntity.ok(dtos);
     }
 
-    /**
-     * Admin bấm duyệt/xác nhận đã nhận tiền từ khách hàng
-     */
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> confirmPayment(@PathVariable Long id) {
@@ -137,12 +106,11 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Admin từ chối giao dịch nếu chưa nhận được tiền
-     */
     @PostMapping("/{id}/reject")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> rejectPayment(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+    public ResponseEntity<?> rejectPayment(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
         try {
             String reason = body != null ? body.get("reason") : null;
             return ResponseEntity.ok(paymentService.rejectPayment(id, reason));
@@ -151,9 +119,6 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Admin quét QR thanh toán cho nhân viên (Giám sát / Đội thợ)
-     */
     @PostMapping("/staff-payout")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> payStaffPayout(
@@ -167,13 +132,34 @@ public class PaymentController {
         }
     }
 
-    // =========================================================================
-    // === CÁC API CRUD QUẢN LÝ THANH TOÁN CŨ ===
-    // =========================================================================
+    /**
+     * Admin gia hạn thêm 24h (hoặc số giờ tùy chọn)
+     * Frontend gọi: POST /api/payments/extend-deposit-deadline/{bookingId}
+     * body: { "hours": 24, "reason": "..." }
+     */
+    @PostMapping("/extend-deposit-deadline/{bookingId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> extendDepositDeadline(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, Object> body) {
+        try {
+            Integer hours = body != null && body.get("hours") != null
+                    ? Integer.valueOf(body.get("hours").toString())
+                    : 24;
+            String reason = body != null ? (String) body.get("reason") : null;
+            return ResponseEntity.ok(paymentService.extendDepositDeadline(bookingId, hours, reason));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    // ===== CRUD =====
 
     @GetMapping
     public List<PaymentDto> getAll() {
-        return paymentService.findAll().stream().map(PaymentMapper::toDto).collect(Collectors.toList());
+        return paymentService.findAll().stream()
+                .map(PaymentMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
@@ -193,7 +179,9 @@ public class PaymentController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PaymentDto> update(@PathVariable Long id, @Valid @RequestBody PaymentDto dto) {
+    public ResponseEntity<PaymentDto> update(
+            @PathVariable Long id,
+            @Valid @RequestBody PaymentDto dto) {
         if (!paymentService.existsById(id)) {
             return ResponseEntity.notFound().build();
         }

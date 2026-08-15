@@ -61,9 +61,11 @@ export default function DepositPaymentProofModal({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // ... giữ nguyên phần import và state
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!proofPreview) {
+    if (!proofImage) {   // dùng proofImage (File), không dùng proofPreview
       setErrorMsg("Vui lòng tải lên ảnh chụp biên lai chuyển khoản thành công");
       return;
     }
@@ -72,14 +74,18 @@ export default function DepositPaymentProofModal({
       if (onSubmitProof) {
         await onSubmitProof({
           bookingId: booking.id,
-          image: proofPreview,
+          image: proofImage,          // ← File object
           note: customerNote.trim(),
           amount: depositAmount,
         });
       }
       setActiveView("success");
     } catch (err) {
-      setErrorMsg(err.message || "Lỗi khi gửi ảnh thanh toán");
+      setErrorMsg(
+        err?.response?.data?.message ||
+        err?.message ||
+        "Lỗi khi gửi ảnh thanh toán"
+      );
     }
   };
 

@@ -112,7 +112,6 @@ export default function StaffLayout({ user, onLogout, showToast }) {
         logoTextPrimary={isTechnician ? "Kỹ Thuật" : "Khảo Sát"}
         logoTextSecondary="247"
         color={isTechnician ? "amber" : "blue"}
-        theme="dark"
         activeTab={getActiveTab()}
         onTabChange={(tab) =>
           navigate(`${basePath}/${tab === "dashboard" ? "dashboard" : tab}`)
@@ -129,7 +128,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
             onMarkRead={handleMarkRead}
             onDeleteAll={handleDeleteAll}
             onDeleteOne={handleDeleteOne}
-            theme="dark"
+            color={isTechnician ? "amber" : "blue"}
           />
         </div>
 

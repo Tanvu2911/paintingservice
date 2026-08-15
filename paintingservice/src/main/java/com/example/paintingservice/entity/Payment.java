@@ -34,7 +34,6 @@ public class Payment {
     @Column(name = "transaction_code", length = 100)
     private String transactionCode;
 
-
     // ... các trường cũ ...
 
     @Column(name = "payment_type", length = 20)
@@ -42,4 +41,10 @@ public class Payment {
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
+
+    @Column(name = "proof_image", length = 255)
+    private String proofImage;
+
+    @Column(name = "note", columnDefinition = "TEXT")
+    private String note;
 }

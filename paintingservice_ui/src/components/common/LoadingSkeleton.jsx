@@ -1,18 +1,12 @@
-export default function LoadingSkeleton({ rows = 4, columns = 4, variant = "light" }) {
-  const isDark = variant === "dark";
-
+export default function LoadingSkeleton({ rows = 4, columns = 4 }) {
   return (
-    <div
-      className={`rounded-2xl p-4 space-y-3 animate-pulse ${
-        isDark ? "bg-slate-800/60 border border-slate-700/60" : "bg-white border border-slate-100"
-      }`}
-    >
+    <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-3 animate-pulse">
       {Array.from({ length: rows }).map((_, row) => (
         <div key={row} className="flex gap-3">
           {Array.from({ length: columns }).map((__, col) => (
             <div
               key={col}
-              className={`h-4 rounded flex-1 ${isDark ? "bg-slate-700" : "bg-slate-200"}`}
+              className="h-4 bg-slate-200 rounded flex-1"
               style={{ opacity: 1 - col * 0.1 }}
             />
           ))}

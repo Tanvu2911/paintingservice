@@ -14,11 +14,9 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     const path = location.pathname;
     if (path.includes("/employees")) return "employees";
     if (path.includes("/customers")) return "customers";
-    if (path.includes("/bookings")) return "bookings";
+    if (path.includes("/bookings")) return "orders";
     if (path.includes("/contracts")) return "contracts";
-    if (path.includes("/accounts")) return "accounts";
-    if (path.includes("/revenue")) return "revenue";
-    if (path.includes("/wallet")) return "wallet";
+    if (path.includes("/payments")) return "payments";
     if (path.includes("/painting")) return "painting";
     if (path.includes("/notifications")) return "notifications";
     return "dashboard";
@@ -80,39 +78,21 @@ export default function AdminLayout({ user, onLogout, showToast }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-950 font-sans antialiased text-slate-100">
+    <div className="flex min-h-screen bg-slate-50 font-sans antialiased">
       <Sidebar
         logoIcon="S"
         logoTextPrimary="Quản Trị"
         logoTextSecondary="247"
         color="blue"
-        theme="dark"
         activeTab={getActiveTab()}
-        onTabChange={(tab) => {
-          const pathMap = {
-            dashboard: "/admin/dashboard",
-            accounts: "/admin/accounts",
-            employees: "/admin/employees",
-            customers: "/admin/customers",
-            bookings: "/admin/bookings",
-            contracts: "/admin/contracts",
-            revenue: "/admin/revenue",
-            wallet: "/admin/wallet",
-            payments: "/admin/payments",
-            painting: "/admin/painting",
-          };
-          navigate(pathMap[tab] || "/admin/dashboard");
-        }}
+        onTabChange={(tab) => navigate(`/admin/${tab === "dashboard" ? "" : tab}`)}
         onLogout={handleLogout}
         menuItems={[
           { label: "Tổng quan", icon: "📊", value: "dashboard" },
-          { label: "Quản lý tài khoản", icon: "🔐", value: "accounts" },
           { label: "Quản Lý Nhân Viên", icon: "🧰", value: "employees" },
           { label: "Quản Lý Khách Hàng", icon: "👥", value: "customers" },
           { label: "Quản Lý Yêu Cầu", icon: "📋", value: "bookings" },
           { label: "Hợp Đồng", icon: "📄", value: "contracts" },
-          { label: "Doanh thu", icon: "📈", value: "revenue" },
-          { label: "Ví hệ thống", icon: "🏦", value: "wallet" },
           { label: "Thanh Toán NV", icon: "💰", value: "payments" },
           { label: "Dịch Vụ Sơn Nhà", icon: "🎨", value: "painting" },
         ]}
@@ -125,7 +105,7 @@ export default function AdminLayout({ user, onLogout, showToast }) {
             onMarkRead={handleMarkRead}
             onDeleteAll={handleDeleteAll}
             onDeleteOne={handleDeleteOne}
-            theme="dark"
+            color="blue"
           />
         </div>
 

@@ -5,6 +5,7 @@ import CustomerProfile from "../pages/customer/CustomerProfile";
 import CustomerWallet from "../pages/customer/CustomerWallet";
 import CustomerDashboard from "../pages/customer/CustomerDashboard";
 import CustomerBooking from "../pages/customer/CustomerBooking";
+import OngoingBookings from "../pages/customer/CustomerOngoing";
 
 export default function CustomerRoutes({ user, onLogout, showToast }) {
   return (
@@ -17,6 +18,7 @@ export default function CustomerRoutes({ user, onLogout, showToast }) {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<CustomerDashboard />} />
         <Route path="booking" element={<CustomerBooking />} />
+        <Route path="ongoing" element={<OngoingBookings />} />
         <Route path="history" element={<CustomerHistory />} />
         <Route path="profile" element={<CustomerProfile />} />
         <Route path="wallet" element={<CustomerWallet />} />
