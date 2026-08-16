@@ -1,286 +1,3 @@
-// import { useState } from "react";
-// import AxiosConfig from "../../util/AxiosConfig";
-// import { formatMoney } from "../../util/formatters";
-// import Modal from "../common/Modal";
-// import QRCodePayment from "../common/QRCodePayment";
-// import DepositPaymentProofModal from "./DepositPaymentProofModal";
-// import DepositCountdownBadge from "./DepositCountdownBadge";
-
-// export function getPaymentState(booking) {
-//   if (!booking) return { canPayDeposit: false, canPayFinal: false };
-
-//   const isDepositPaid =
-//     booking.depositPaid ||
-//     booking.paymentStatus === "DEPOSIT_PAID" ||
-//     booking.paymentStatus === "FULLY_PAID";
-
-//   const isFinalPaid =
-//     booking.finalPaid || booking.paymentStatus === "FULLY_PAID";
-
-//   const isCancelled = booking.status === "CANCELLED";
-
-//   const canPayDeposit =
-//     !isDepositPaid &&
-//     !isCancelled &&
-//     [
-//       "PENDING",
-//       "SURVEY_ASSIGNED",
-//       "WAITING_CUSTOMER_SIGNATURE",
-//       "ASSIGNED",
-//       "PROCESSING",
-//       "CONTRACT_APPROVED",
-//     ].includes(booking.status);
-
-//   const canPayFinal =
-//     isDepositPaid &&
-//     !isFinalPaid &&
-//     !isCancelled &&
-//     ["WORKER_COMPLETED", "COMPLETED", "WAITING_FINAL_PAYMENT"].includes(
-//       booking.status
-//     );
-
-//   return { canPayDeposit, canPayFinal, isDepositPaid, isFinalPaid, isCancelled };
-// }
-
-// export default function PaymentSection({ booking, showToast, onRefresh, compact = false }) {
-//   const [paying, setPaying] = useState(false);
-//   const [openDepositModal, setOpenDepositModal] = useState(false);
-//   const [openFinalQrModal, setOpenFinalQrModal] = useState(false);
-
-//   const { canPayDeposit, canPayFinal, isDepositPaid, isFinalPaid, isCancelled } = getPaymentState(booking);
-
-//   const depositAmount =
-//     booking?.depositAmount && Number(booking.depositAmount) > 0
-//       ? Number(booking.depositAmount)
-//       : (Number(booking?.totalAmount) || 0) * 0.3;
-
-//   const remainingAmount =
-//     booking?.remainingAmount && Number(booking.remainingAmount) > 0
-//       ? Number(booking.remainingAmount)
-//       : Math.max(0, (Number(booking?.totalAmount) || 0) - depositAmount);
-
-//   const isPendingConfirmation = booking?.paymentStatus === "PENDING_CONFIRMATION";
-
-//   // Xử lý nộp ảnh chuyển khoản cọc
-//   const handleDepositProofSubmit = async ({ image, note }) => {
-//     if (!booking) return;
-
-//     try {
-//       setPaying(true);
-
-//       const formData = new FormData();
-//       formData.append("bookingId", booking.id);
-//       formData.append("paymentType", "DEPOSIT");
-//       if (note) formData.append("note", note);
-//       if (image) {
-//         formData.append("proofImage", image); // tên field phải khớp backend
-//       }
-
-//       const res = await AxiosConfig.post("/payments/qr-submit", formData, {
-//         headers: { "Content-Type": "multipart/form-data" },
-//       });
-
-//       showToast?.(
-//         res.data?.message ||
-//         "Đã gửi ảnh thanh toán cọc thành công! Vui lòng chờ Admin xác nhận.",
-//         "success"
-//       );
-
-//       // Đóng modal + refresh để hiện banner "Chờ Admin"
-//       setOpenDepositModal(false);
-//       if (onRefresh) onRefresh();
-//     } catch (error) {
-//       const msg =
-//         error.response?.data?.message ||
-//         error.response?.data?.messages?.join?.(", ") ||
-//         "Lỗi khi gửi xác nhận thanh toán";
-//       showToast?.(msg, "error");
-//       throw error; // để modal hiện errorMsg
-//     } finally {
-//       setPaying(false);
-//     }
-//   };
-
-//   // Xử lý nộp thanh toán phần còn lại (FINAL)
-//   const handleFinalPaymentSubmit = async () => {
-//     if (!booking) return;
-//     try {
-//       setPaying(true);
-//       const res = await AxiosConfig.post(
-//         `/payments/qr-submit?bookingId=${booking.id}&paymentType=FINAL`
-//       );
-//       showToast?.(
-//         res.data?.message || "Đã gửi thông tin tất toán! Vui lòng chờ Admin xác nhận.",
-//         "success"
-//       );
-//       setOpenFinalQrModal(false);
-//       if (onRefresh) onRefresh();
-//     } catch (error) {
-//       const msg =
-//         error.response?.data?.message || "Lỗi khi gửi xác nhận thanh toán";
-//       showToast?.(msg, "error");
-//     } finally {
-//       setPaying(false);
-//     }
-//   };
-
-//   if (!booking) return null;
-
-//   return (
-//     <div className={compact ? "space-y-3" : "space-y-4"}>
-//       {/* Countdown 24h nếu chưa đóng cọc */}
-//       {!isDepositPaid && !isCancelled && (
-//         <DepositCountdownBadge
-//           signedAt={booking.createdAt || booking.appointmentDate}
-//           deadline={booking.depositDeadline}
-//           isDepositPaid={isDepositPaid}
-//           isCancelled={isCancelled}
-//         />
-//       )}
-
-//       {/* Banner chờ duyệt */}
-//       {isPendingConfirmation && (
-//         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2.5">
-//           <span className="text-lg animate-spin">⏳</span>
-//           <div>
-//             <p className="font-bold">Đang chờ Admin kiểm tra và xác nhận chuyển khoản</p>
-//             <p className="text-[11px] text-amber-600">
-//               Bạn đã gửi ảnh/biên lai chuyển khoản. Đội thi công sẽ được bàn giao ngay khi Admin duyệt cọc.
-//             </p>
-//           </div>
-//         </div>
-//       )}
-
-//       {/* Bảng tóm tắt số tiền */}
-//       <div className={`grid grid-cols-1 ${compact ? "sm:grid-cols-3" : "sm:grid-cols-3"} gap-3`}>
-//         <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
-//           <div className="text-[10px] text-slate-400 font-bold uppercase mb-1">
-//             Tổng giá trị HĐ
-//           </div>
-//           <div className="text-base font-black text-slate-800">
-//             {formatMoney(booking.totalAmount || booking.service?.basePrice)}
-//           </div>
-//         </div>
-
-//         <div className="bg-blue-50/60 rounded-xl p-3 text-center border border-blue-100">
-//           <div className="text-[10px] text-blue-600 font-bold uppercase mb-1">
-//             Phí cọc (24h)
-//           </div>
-//           <div className="text-base font-black text-blue-700">
-//             {formatMoney(depositAmount)}
-//           </div>
-//           <div className="text-[10px] mt-1 font-semibold">
-//             {isDepositPaid ? (
-//               <span className="text-emerald-600">Đã thanh toán ✓</span>
-//             ) : isPendingConfirmation ? (
-//               <span className="text-amber-600">Chờ duyệt ⏳</span>
-//             ) : (
-//               <span className="text-rose-500">Chưa cọc</span>
-//             )}
-//           </div>
-//         </div>
-
-//         <div className="bg-emerald-50/60 rounded-xl p-3 text-center border border-emerald-100">
-//           <div className="text-[10px] text-emerald-600 font-bold uppercase mb-1">
-//             Còn lại sau hoàn thành
-//           </div>
-//           <div className="text-base font-black text-emerald-700">
-//             {formatMoney(remainingAmount)}
-//           </div>
-//           <div className="text-[10px] mt-1 font-semibold">
-//             {isFinalPaid ? (
-//               <span className="text-emerald-600">Đã thanh toán ✓</span>
-//             ) : isDepositPaid && isPendingConfirmation ? (
-//               <span className="text-amber-600">Chờ duyệt ⏳</span>
-//             ) : (
-//               <span className="text-slate-500">Chưa thanh toán</span>
-//             )}
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* Buttons */}
-//       <div className="flex flex-col sm:flex-row gap-2.5">
-//         {canPayDeposit && (
-//           <button
-//             type="button"
-//             onClick={() => setOpenDepositModal(true)}
-//             disabled={paying}
-//             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-blue-600/20"
-//           >
-//             <span>📱 Quét VietQR &amp; Gửi ảnh chuyển cọc (24h)</span>
-//           </button>
-//         )}
-
-//         {canPayFinal && (
-//           <button
-//             type="button"
-//             onClick={() => setOpenFinalQrModal(true)}
-//             disabled={paying}
-//             className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20"
-//           >
-//             <span>📱 Quét VietQR thanh toán phần còn lại</span>
-//           </button>
-//         )}
-
-//         {!canPayDeposit && !canPayFinal && (
-//           <div className="w-full text-center py-2.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
-//             {isFinalPaid
-//               ? "Đã hoàn tất thanh toán 100% ✓"
-//               : isDepositPaid
-//                 ? "Đã cọc thành công ✓ – Đội thợ đang tiến hành thi công"
-//                 : isPendingConfirmation
-//                   ? "Đã gửi thông tin chuyển khoản – Vui lòng chờ Admin xác nhận"
-//                   : isCancelled
-//                     ? "Đơn hàng đã bị hủy"
-//                     : "Chưa đến giai đoạn thanh toán"}
-//           </div>
-//         )}
-//       </div>
-
-//       {/* Modal nộp ảnh cọc + VietQR */}
-//       <Modal
-//         isOpen={openDepositModal}
-//         onClose={() => setOpenDepositModal(false)}
-//         title={`Thanh toán tiền cọc đơn hàng #${booking.id}`}
-//         size="lg"
-//       >
-//         <DepositPaymentProofModal
-//           booking={booking}
-//           onClose={() => setOpenDepositModal(false)}
-//           onSubmitProof={handleDepositProofSubmit}
-//           loading={paying}
-//         />
-//       </Modal>
-
-//       {/* Modal tất toán cuối */}
-//       <Modal
-//         isOpen={openFinalQrModal}
-//         onClose={() => setOpenFinalQrModal(false)}
-//         title={`Thanh toán hoàn tất đơn hàng #${booking.id}`}
-//         size="md"
-//       >
-//         <QRCodePayment
-//           amount={remainingAmount}
-//           orderId={booking.id}
-//           addInfo={`TT DH${booking.id}`}
-//           accountNo="0355880362"
-//           accountName="VU VIET TAN"
-//           title="Quét mã VietQR thanh toán phần còn lại"
-//           subTitle="Mở ứng dụng ngân hàng bất kỳ để quét mã và chuyển khoản nhanh"
-//           confirmText="Tôi đã chuyển khoản tất toán thành công"
-//           confirmColor="bg-emerald-600 hover:bg-emerald-700"
-//           onConfirm={handleFinalPaymentSubmit}
-//           onClose={() => setOpenFinalQrModal(false)}
-//           loading={paying}
-//         />
-//       </Modal>
-//     </div>
-//   );
-// }
-
-
-
 import { useState, useRef } from "react";
 import AxiosConfig from "../../util/AxiosConfig";
 import { formatMoney } from "../../util/formatters";
@@ -289,43 +6,91 @@ import QRCodePayment from "../common/QRCodePayment";
 import DepositPaymentProofModal from "./DepositPaymentProofModal";
 import DepositCountdownBadge from "./DepositCountdownBadge";
 
-export function getPaymentState(booking) {
-  if (!booking) return { canPayDeposit: false, canPayFinal: false };
+export function getPaymentState(booking, contract) {
+  if (!booking) {
+    return {
+      canPayDeposit: false,
+      canPayFinal: false,
+      isDepositPaid: false,
+      isFinalPaid: false,
+      isCancelled: false,
+      isPendingConfirmation: false,
+      isContractSigned: false,
+    };
+  }
 
-  const isDepositPaid =
+  const isContractSigned = Boolean(
+    contract?.customerSigned ||
+    booking.contractSigned ||
+    [
+      "WAITING_DEPOSIT",
+      "DEPOSIT_CONFIRMED",
+      "ASSIGNED",
+      "PROCESSING",
+      "WORKER_COMPLETED",
+      "COMPLETED",
+      "WAITING_FINAL_PAYMENT",
+    ].includes(booking.status)
+  );
+
+  const isDepositPaid = Boolean(
     booking.depositPaid ||
     booking.paymentStatus === "DEPOSIT_PAID" ||
-    booking.paymentStatus === "FULLY_PAID";
+    booking.paymentStatus === "FULLY_PAID" ||
+    [
+      "DEPOSIT_CONFIRMED",
+      "ASSIGNED",
+      "PROCESSING",
+      "WORKER_COMPLETED",
+      "COMPLETED",
+    ].includes(booking.status)
+  );
 
-  const isFinalPaid =
-    booking.finalPaid || booking.paymentStatus === "FULLY_PAID";
+  const isPendingConfirmation = booking.paymentStatus === "PENDING_CONFIRMATION";
+
+  const isFinalPaid = Boolean(
+    booking.finalPaid ||
+    booking.paymentStatus === "FULLY_PAID"
+  );
 
   const isCancelled = booking.status === "CANCELLED";
 
+  // 1. Chỉ được thanh toán cọc khi ĐÃ KÝ HỢP ĐỒNG (WAITING_DEPOSIT) và CHƯA CỌC và CHƯA GỬI ẢNH CHỜ DUYỆT
   const canPayDeposit =
+    isContractSigned &&
     !isDepositPaid &&
+    !isPendingConfirmation &&
     !isCancelled &&
-    [
-      "PENDING",
-      "SURVEY_ASSIGNED",
-      "WAITING_CUSTOMER_SIGNATURE",
-      "ASSIGNED",
-      "PROCESSING",
-      "CONTRACT_APPROVED",
-    ].includes(booking.status);
+    ["WAITING_DEPOSIT"].includes(booking.status);
 
+  // 2. Chỉ được thanh toán phần còn lại khi ĐÃ CỌC, ĐÃ HOÀN THÀNH THI CÔNG, ĐÃ NGHIỆM THU và CHƯA TẤT TOÁN
   const canPayFinal =
     isDepositPaid &&
     !isFinalPaid &&
+    !isPendingConfirmation &&
     !isCancelled &&
-    ["WORKER_COMPLETED", "COMPLETED", "WAITING_FINAL_PAYMENT"].includes(
-      booking.status
-    );
+    ["WORKER_COMPLETED", "COMPLETED", "WAITING_FINAL_PAYMENT"].includes(booking.status) &&
+    Boolean(booking.customerAccepted);
 
-  return { canPayDeposit, canPayFinal, isDepositPaid, isFinalPaid, isCancelled };
+  return {
+    canPayDeposit,
+    canPayFinal,
+    isDepositPaid,
+    isFinalPaid,
+    isCancelled,
+    isPendingConfirmation,
+    isContractSigned,
+  };
 }
 
-export default function PaymentSection({ booking, showToast, onRefresh, compact = false }) {
+export default function PaymentSection({
+  booking,
+  contract,
+  onOpenContract,
+  showToast,
+  onRefresh,
+  compact = false,
+}) {
   const [paying, setPaying] = useState(false);
   const [openDepositModal, setOpenDepositModal] = useState(false);
   const [openFinalModal, setOpenFinalModal] = useState(false);
@@ -337,7 +102,15 @@ export default function PaymentSection({ booking, showToast, onRefresh, compact 
   const [finalErrorMsg, setFinalErrorMsg] = useState("");
   const finalFileInputRef = useRef(null);
 
-  const { canPayDeposit, canPayFinal, isDepositPaid, isFinalPaid, isCancelled } = getPaymentState(booking);
+  const {
+    canPayDeposit,
+    canPayFinal,
+    isDepositPaid,
+    isFinalPaid,
+    isCancelled,
+    isPendingConfirmation,
+    isContractSigned,
+  } = getPaymentState(booking, contract);
 
   const depositAmount =
     booking?.depositAmount && Number(booking.depositAmount) > 0
@@ -348,8 +121,6 @@ export default function PaymentSection({ booking, showToast, onRefresh, compact 
     booking?.remainingAmount && Number(booking.remainingAmount) > 0
       ? Number(booking.remainingAmount)
       : Math.max(0, (Number(booking?.totalAmount) || 0) - depositAmount);
-
-  const isPendingConfirmation = booking?.paymentStatus === "PENDING_CONFIRMATION";
 
   // Xử lý nộp ảnh chuyển khoản cọc
   const handleDepositProofSubmit = async ({ image, note }) => {
@@ -476,8 +247,8 @@ export default function PaymentSection({ booking, showToast, onRefresh, compact 
 
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
-      {/* Countdown 24h nếu chưa đóng cọc */}
-      {!isDepositPaid && !isCancelled && (
+      {/* Countdown 24h nếu đang ở bước cọc WAITING_DEPOSIT */}
+      {booking.status === "WAITING_DEPOSIT" && !isDepositPaid && !isCancelled && !isPendingConfirmation && (
         <DepositCountdownBadge
           signedAt={booking.createdAt || booking.appointmentDate}
           deadline={booking.depositDeadline}
@@ -486,14 +257,70 @@ export default function PaymentSection({ booking, showToast, onRefresh, compact 
         />
       )}
 
-      {/* Banner chờ duyệt */}
+      {/* 1. Trường hợp CHƯA KÝ HỢP ĐỒNG */}
+      {!isContractSigned && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 text-xs text-blue-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl shrink-0">✍️</span>
+            <div>
+              <p className="font-bold text-sm text-blue-950">Chưa ký hợp đồng dịch vụ</p>
+              <p className="text-blue-700 text-xs mt-0.5">
+                Quý khách vui lòng kiểm tra báo giá và ký hợp đồng điện tử trước khi tiến hành thanh toán đặt cọc.
+              </p>
+            </div>
+          </div>
+          {onOpenContract && (
+            <button
+              type="button"
+              onClick={onOpenContract}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shrink-0 shadow-sm"
+            >
+              Xem &amp; Ký HĐ
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 2. Trường hợp ĐÃ GỬI ẢNH CHỜ DUYỆT CỌC / TẤT TOÁN */}
       {isPendingConfirmation && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2.5">
-          <span className="text-lg animate-spin">⏳</span>
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 flex items-center gap-3 shadow-xs">
+          <span className="text-2xl shrink-0">⏳</span>
           <div>
-            <p className="font-bold">Đang chờ Admin kiểm tra và xác nhận chuyển khoản</p>
-            <p className="text-[11px] text-amber-600">
-              Bạn đã gửi ảnh/biên lai chuyển khoản. Đội thi công sẽ được bàn giao ngay khi Admin duyệt cọc.
+            <p className="font-bold text-sm text-amber-950">
+              Đã gửi biên lai – Đang chờ Admin xác nhận thanh toán
+            </p>
+            <p className="text-amber-700 text-xs mt-0.5">
+              Hệ thống đã ghi nhận ảnh biên lai chuyển khoản. Mã VietQR tạm ẩn để tránh thanh toán trùng lặp.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Trường hợp ĐÃ CỌC THÀNH CÔNG */}
+      {isDepositPaid && !isFinalPaid && !canPayFinal && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-900 flex items-center gap-3 shadow-xs">
+          <span className="text-2xl shrink-0">✅</span>
+          <div>
+            <p className="font-bold text-sm text-emerald-950">
+              Đã xác nhận tiền cọc thành công
+            </p>
+            <p className="text-emerald-700 text-xs mt-0.5">
+              Admin đã duyệt tiền cọc. Đội thợ đang triển khai thi công. Quý khách sẽ thanh toán phần còn lại sau khi nghiệm thu hoàn tất.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Trường hợp ĐÃ HOÀN TẤT 100% */}
+      {isFinalPaid && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-900 flex items-center gap-3 shadow-xs">
+          <span className="text-2xl shrink-0">🎉</span>
+          <div>
+            <p className="font-bold text-sm text-emerald-950">
+              Đã hoàn tất thanh toán 100%
+            </p>
+            <p className="text-emerald-700 text-xs mt-0.5">
+              Đơn hàng đã được thanh toán đầy đủ. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của Sơn Sửa 247!
             </p>
           </div>
         </div>
@@ -538,7 +365,7 @@ export default function PaymentSection({ booking, showToast, onRefresh, compact 
           <div className="text-[10px] mt-1 font-semibold">
             {isFinalPaid ? (
               <span className="text-emerald-600">Đã thanh toán ✓</span>
-            ) : isPendingConfirmation ? (
+            ) : isPendingConfirmation && isDepositPaid ? (
               <span className="text-amber-600">Chờ duyệt ⏳</span>
             ) : (
               <span className="text-slate-500">Chưa thanh toán</span>
@@ -554,7 +381,7 @@ export default function PaymentSection({ booking, showToast, onRefresh, compact 
             type="button"
             onClick={() => setOpenDepositModal(true)}
             disabled={paying}
-            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-blue-600/20"
+            className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-blue-600/20"
           >
             <span>📱 Quét VietQR &amp; Gửi ảnh chuyển cọc (24h)</span>
           </button>
@@ -565,24 +392,10 @@ export default function PaymentSection({ booking, showToast, onRefresh, compact 
             type="button"
             onClick={() => setOpenFinalModal(true)}
             disabled={paying}
-            className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20"
+            className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:bg-slate-300 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20"
           >
             <span>📱 Quét VietQR &amp; Gửi ảnh thanh toán hoàn thành</span>
           </button>
-        )}
-
-        {!canPayDeposit && !canPayFinal && (
-          <div className="w-full text-center py-2.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
-            {isFinalPaid
-              ? "Đã hoàn tất thanh toán 100% ✓"
-              : isDepositPaid
-                ? "Đã cọc thành công ✓ – Đội thợ đang tiến hành thi công"
-                : isPendingConfirmation
-                  ? "Đã gửi thông tin chuyển khoản – Vui lòng chờ Admin xác nhận"
-                  : isCancelled
-                    ? "Đơn hàng đã bị hủy"
-                    : "Chưa đến giai đoạn thanh toán"}
-          </div>
         )}
       </div>
 

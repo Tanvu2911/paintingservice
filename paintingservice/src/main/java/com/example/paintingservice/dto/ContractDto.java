@@ -24,6 +24,11 @@ public class ContractDto {
     private String content;
     private Boolean customerSigned;
     private Boolean surveySigned;
+
+    private Boolean adminSigned;
+    private LocalDateTime adminSignedAt;
+    private String adminSignatureImg;
+
     private String customerSignatureImg;
     private String surveySignatureImg;
     private LocalDateTime customerSignedAt;

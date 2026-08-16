@@ -604,6 +604,16 @@ export default function BookingDetail({
     ]);
   };
 
+  const handleAcceptQuote = async () => {
+    try {
+      await AxiosConfig.put(`/bookings/${id}`, { ...booking, status: "CUSTOMER_ACCEPTED_QUOTE" });
+      showToast?.("Đã đồng ý báo giá. Vui lòng chờ Admin lập hợp đồng!");
+      fetchBooking();
+    } catch (err) {
+      showToast?.(err.response?.data?.message || "Lỗi đồng ý báo giá", "error");
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       navigate("/login");
@@ -929,97 +939,31 @@ export default function BookingDetail({
           </div>
         </section>
 
-        {/* Contract */}
-        {isContractRelevant && (
-          <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-5 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h2 className="font-black text-slate-900">
-                    Hợp đồng dịch vụ
-                  </h2>
-
-                  <p className="text-xs text-slate-400 mt-1">
-                    Xem và ký hợp đồng của yêu cầu này
-                  </p>
+        {/* Banner Hợp đồng & Báo giá sẵn sàng ký */}
+        {booking.status === "WAITING_CUSTOMER_SIGNATURE" && (
+          <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-6 shadow-lg">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-wider mb-2">
+                  📜 Hợp đồng &amp; Báo giá sẵn sàng
+                </span>
+                <h2 className="text-xl font-black">Admin đã lập hợp đồng chi tiết cho công trình</h2>
+                <p className="text-sm text-blue-100 mt-1 max-w-xl">
+                  Vui lòng kiểm tra báo giá, hiện trạng khảo sát, quy trình thi công &amp; chính sách bảo hành trong hợp đồng, sau đó ký tên điện tử để xác nhận.
+                </p>
+                <div className="flex flex-wrap gap-4 mt-3 text-xs font-bold text-blue-100 bg-white/10 p-3 rounded-xl border border-white/10">
+                  <span>Tổng tiền: <strong className="text-white text-sm">{formatMoney(booking.totalAmount)}</strong></span>
+                  <span>•</span>
+                  <span>Tiền cọc yêu cầu: <strong className="text-amber-300 text-sm">{formatMoney(booking.depositAmount)}</strong></span>
                 </div>
-
-                {contractLoading ? (
-                  <span className="text-xs text-slate-400">
-                    Đang tải...
-                  </span>
-                ) : contract ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setContractModal(true)
-                    }
-                    className="
-                      px-4 py-2.5
-                      rounded-xl
-                      bg-emerald-50
-                      text-emerald-600
-                      hover:bg-emerald-100
-                      text-xs
-                      font-black
-                      transition
-                    "
-                  >
-                    📜{" "}
-                    {booking.status ===
-                      "WAITING_CUSTOMER_SIGNATURE"
-                      ? "Ký hợp đồng"
-                      : "Xem hợp đồng"}
-                  </button>
-                ) : (
-                  <span className="text-xs font-medium text-slate-400">
-                    Chưa có hợp đồng
-                  </span>
-                )}
               </div>
-
-              {contract && (
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-3 rounded-xl bg-slate-50">
-                    <div className="text-[10px] uppercase font-black text-slate-400">
-                      Mã hợp đồng
-                    </div>
-
-                    <div className="text-sm font-bold mt-1">
-                      {contract.contractCode || "—"}
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50">
-                    <div className="text-[10px] uppercase font-black text-slate-400">
-                      Nhân sự ký
-                    </div>
-
-                    <div className="text-sm font-bold mt-1">
-                      {contract.workerSigned
-                        ? "Đã ký ✓"
-                        : "Chưa ký"}
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-50">
-                    <div className="text-[10px] uppercase font-black text-slate-400">
-                      Khách hàng ký
-                    </div>
-
-                    <div
-                      className={`text-sm font-bold mt-1 ${contract.customerSigned
-                        ? "text-emerald-600"
-                        : "text-amber-500"
-                        }`}
-                    >
-                      {contract.customerSigned
-                        ? "Đã ký ✓"
-                        : "Chưa ký"}
-                    </div>
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() => setContractModal(true)}
+                className="w-full md:w-auto px-6 py-3.5 bg-white text-blue-700 hover:bg-blue-50 text-sm font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span>✍️ Xem Báo Giá &amp; Ký Hợp Đồng Ngay</span>
+              </button>
             </div>
           </section>
         )}
@@ -1038,8 +982,10 @@ export default function BookingDetail({
 
           <PaymentSection
             booking={booking}
+            contract={contract}
+            onOpenContract={() => setContractModal(true)}
             showToast={showToast}
-            onRefresh={fetchBooking}
+            onRefresh={refreshData}
           />
         </section>
 

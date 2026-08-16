@@ -583,44 +583,19 @@ export default function SurveyJobs() {
 
     if (
       !surveyNote.trim() &&
-      !materialNote.trim() &&
-      !materialShortage.trim()
+      !materialNote.trim()
     ) {
       showToast?.("Vui lòng nhập ít nhất nội dung khảo sát hoặc vật liệu", "error");
       return;
-    }
-
-    const total = Number(totalAmount);
-    if (!totalAmount || Number.isNaN(total) || total <= 0) {
-      showToast?.("Vui lòng nhập tổng báo giá hợp lệ (> 0)", "error");
-      return;
-    }
-
-    let deposit = null;
-    if (depositAmount !== "" && depositAmount != null) {
-      deposit = Number(depositAmount);
-      if (Number.isNaN(deposit) || deposit <= 0) {
-        showToast?.("Tiền cọc không hợp lệ", "error");
-        return;
-      }
-      if (deposit > total) {
-        showToast?.("Tiền cọc không được lớn hơn tổng báo giá", "error");
-        return;
-      }
     }
 
     try {
       setSubmitting(true);
 
       // Bước 1: Lưu báo giá vào Booking qua StaffProfileController
-      const pricePayload = {
-        totalAmount: total,
-      };
-      if (deposit != null) pricePayload.depositAmount = deposit;
-
       await AxiosConfig.post(
         `/staff/survey/jobs/${selectedJob.id}/report`,
-        pricePayload
+        {}
       );
 
       // Bước 2: Tìm hoặc tạo BookingDetail cho đơn này
@@ -641,10 +616,7 @@ export default function SurveyJobs() {
         files: surveyImages,
       });
 
-      // Bước 4: Nếu có thông tin thiếu vật liệu, cập nhật
-      if (materialShortage.trim()) {
-        await bookingDetailApi.reportShortage(detail.id, materialShortage.trim());
-      }
+      // (Đã loại bỏ báo cáo vật liệu phát sinh ở bước khảo sát đầu tiên theo yêu cầu)
 
       showToast?.("Đã gửi báo cáo khảo sát & báo giá thành công!", "success");
       closeModal();
@@ -994,8 +966,6 @@ export default function SurveyJobs() {
             const hasSurveyReport = Boolean(
               detail?.surveyNote || detail?.materialNote || detail?.materialShortage
             );
-            const canSubmitAgreement =
-              hasSurveyReport && ["ACCEPTED", "SURVEYING"].includes(status);
             const canDailyReport = ["CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(status);
             const canSupervisorAccept =
               status === "WORKER_COMPLETED" && (!detail || !detail.supervisorAccepted);
@@ -1121,15 +1091,6 @@ export default function SurveyJobs() {
                       className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                     >
                       📝 Gửi / Sửa báo cáo khảo sát
-                    </button>
-                  )}
-
-                  {canSubmitAgreement && (
-                    <button
-                      onClick={() => openModal(job, "agreement")}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-                    >
-                      📜 Báo cáo kết quả &amp; Lập hợp đồng
                     </button>
                   )}
 
@@ -1553,47 +1514,7 @@ export default function SurveyJobs() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Tổng báo giá (VNĐ) *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={totalAmount}
-                        onChange={(e) => setTotalAmount(e.target.value)}
-                        placeholder="Ví dụ: 8000000"
-                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Tiền cọc yêu cầu (VNĐ)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(e.target.value)}
-                        placeholder="Để trống = Mặc định 30%"
-                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Phát sinh / Thiếu vật liệu (nếu có)
-                    </label>
-                    <textarea
-                      value={materialShortage}
-                      onChange={(e) => setMaterialShortage(e.target.value)}
-                      rows={2}
-                      placeholder="Ghi chú nếu cần đặt thêm vật tư đặc biệt..."
-                      className="w-full border border-amber-200 rounded-xl px-3.5 py-2 text-xs bg-amber-50/40"
-                    />
+                  <div className="hidden">
                   </div>
 
                   <div>

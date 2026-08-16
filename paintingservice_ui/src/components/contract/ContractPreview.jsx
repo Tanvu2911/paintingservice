@@ -9,14 +9,6 @@ export default function ContractPreview({
 }) {
   if (!contract) return null;
 
-  const getSurveySignatureImg = (c) =>
-    c?.workerSignatureImg || c?.surveySignatureImg || null;
-
-  const getSurveySigned = (c) => !!(c?.workerSigned || c?.surveySigned);
-
-  const getSurveySignedAt = (c) =>
-    c?.workerSignedAt || c?.surveySignedAt || null;
-
   const getCustomerName = () => {
     if (!bookingDetail) return "—";
     return (
@@ -39,17 +31,6 @@ export default function ContractPreview({
     );
   };
 
-  const getSupervisorName = () => {
-    if (!bookingDetail) return "—";
-    return (
-      bookingDetail.surveyorName ||
-      bookingDetail.supervisorName ||
-      bookingDetail.surveyor?.fullName ||
-      bookingDetail.surveyor?.username ||
-      "—"
-    );
-  };
-
   const getAmount = () => {
     if (!bookingDetail) return null;
     return bookingDetail.totalAmount ?? bookingDetail.amount ?? null;
@@ -57,13 +38,13 @@ export default function ContractPreview({
 
   const status =
     contract.status ||
-    (contract.customerSigned && getSurveySigned(contract)
+    (contract.customerSigned && contract.adminSigned
       ? "CONTRACT_CONFIRMED"
       : contract.customerSigned
-      ? "CUSTOMER_SIGNED"
-      : getSurveySigned(contract)
-      ? "WORKER_SIGNED"
-      : "PENDING");
+        ? "CUSTOMER_SIGNED"
+        : contract.adminSigned
+          ? "ADMIN_SIGNED"
+          : "PENDING");
 
   return (
     <div className="space-y-5">
@@ -81,22 +62,20 @@ export default function ContractPreview({
       {/* Badges ký */}
       <div className="flex flex-wrap gap-2 text-xs">
         <span
-          className={`px-2.5 py-1 rounded-full font-semibold ${
-            getSurveySigned(contract)
-              ? "bg-blue-50 text-blue-700"
-              : "bg-slate-100 text-slate-500"
-          }`}
+          className={`px-2.5 py-1 rounded-full font-semibold ${contract.customerSigned
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-slate-100 text-slate-500"
+            }`}
         >
-          {getSurveySigned(contract) ? "✓ Giám sát đã ký" : "○ Giám sát chưa ký"}
+          {contract.customerSigned ? "✓ Khách đã ký" : "○ Chờ khách ký"}
         </span>
         <span
-          className={`px-2.5 py-1 rounded-full font-semibold ${
-            contract.customerSigned
-              ? "bg-emerald-50 text-emerald-700"
-              : "bg-slate-100 text-slate-500"
-          }`}
+          className={`px-2.5 py-1 rounded-full font-semibold ${contract.adminSigned
+            ? "bg-purple-50 text-purple-700"
+            : "bg-slate-100 text-slate-500"
+            }`}
         >
-          {contract.customerSigned ? "✓ Khách đã ký" : "○ Khách chưa ký"}
+          {contract.adminSigned ? "✓ Admin đã ký" : "○ Chờ Admin ký"}
         </span>
       </div>
 
@@ -125,12 +104,6 @@ export default function ContractPreview({
         </div>
         <div>
           <p className="text-[11px] font-bold text-slate-400 uppercase mb-0.5">
-            Giám sát
-          </p>
-          <p className="font-medium text-slate-800">{getSupervisorName()}</p>
-        </div>
-        <div>
-          <p className="text-[11px] font-bold text-slate-400 uppercase mb-0.5">
             Đội thợ / Thợ
           </p>
           <p className="font-medium text-slate-800">{getWorkerName()}</p>
@@ -145,7 +118,7 @@ export default function ContractPreview({
               : "—"}
           </p>
         </div>
-        <div className="col-span-2">
+        <div>
           <p className="text-[11px] font-bold text-slate-400 uppercase mb-0.5">
             Trạng thái
           </p>
@@ -163,28 +136,8 @@ export default function ContractPreview({
       </div>
 
       {/* Chữ ký */}
-      {(getSurveySignatureImg(contract) || contract.customerSignatureImg) && (
+      {(contract.customerSignatureImg || contract.adminSignatureImg) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {getSurveySignatureImg(contract) && (
-            <div className="border border-blue-100 rounded-xl p-3 bg-blue-50/40">
-              <p className="text-[10px] font-bold text-blue-700 uppercase mb-2 tracking-wide">
-                Chữ ký Giám sát / Khảo sát viên
-              </p>
-              <div className="bg-white rounded-lg border border-blue-100 p-2 flex items-center justify-center min-h-[80px]">
-                <img
-                  src={getSurveySignatureImg(contract)}
-                  alt="Chữ ký giám sát"
-                  className="max-h-28 max-w-full object-contain"
-                />
-              </div>
-              {getSurveySignedAt(contract) && (
-                <p className="text-[10px] text-slate-500 mt-1.5">
-                  Ký lúc:{" "}
-                  {new Date(getSurveySignedAt(contract)).toLocaleString("vi-VN")}
-                </p>
-              )}
-            </div>
-          )}
           {contract.customerSignatureImg && (
             <div className="border border-emerald-100 rounded-xl p-3 bg-emerald-50/40">
               <p className="text-[10px] font-bold text-emerald-700 uppercase mb-2 tracking-wide">
@@ -201,6 +154,26 @@ export default function ContractPreview({
                 <p className="text-[10px] text-slate-500 mt-1.5">
                   Ký lúc:{" "}
                   {new Date(contract.customerSignedAt).toLocaleString("vi-VN")}
+                </p>
+              )}
+            </div>
+          )}
+          {contract.adminSignatureImg && (
+            <div className="border border-purple-100 rounded-xl p-3 bg-purple-50/40">
+              <p className="text-[10px] font-bold text-purple-700 uppercase mb-2 tracking-wide">
+                Chữ ký Đại diện Công ty (Admin)
+              </p>
+              <div className="bg-white rounded-lg border border-purple-100 p-2 flex items-center justify-center min-h-[80px]">
+                <img
+                  src={contract.adminSignatureImg}
+                  alt="Chữ ký Admin"
+                  className="max-h-28 max-w-full object-contain"
+                />
+              </div>
+              {contract.adminSignedAt && (
+                <p className="text-[10px] text-slate-500 mt-1.5">
+                  Ký lúc:{" "}
+                  {new Date(contract.adminSignedAt).toLocaleString("vi-VN")}
                 </p>
               )}
             </div>

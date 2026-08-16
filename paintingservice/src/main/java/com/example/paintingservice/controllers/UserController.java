@@ -121,13 +121,6 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF') or hasRole('TECHNICIAN') or hasRole('CUSTOMER')")
     public ResponseEntity<UserDto> update(@PathVariable Long id, @Valid @RequestBody UserDto dto,
             org.springframework.security.core.Authentication authentication) {
-
-        System.out.println("========== UPDATE USER ==========");
-        System.out.println("ID = " + id);
-        System.out.println("USERNAME = " + authentication.getName());
-        System.out.println("AUTHORITIES = " + authentication.getAuthorities());
-        System.out.println("================================");
-
         Optional<User> userOptional = userRepository.findById(id);
         if (userOptional.isEmpty()) {
             return ResponseEntity.notFound().build();

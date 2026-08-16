@@ -7,14 +7,10 @@ import OrderList from "../pages/admin/orders/OrderList";
 import OrderDetail from "../pages/admin/orders/OrderDetail";
 import ContractManagement from "../pages/admin/contracts/ContractManagement";
 import PaymentToStaff from "../pages/admin/payments/PaymentToStaff";
-import PaintingDashboard from "../pages/admin/painting/PaintingDashboard";
-import PaintingRequestList from "../pages/admin/painting/PaintingRequestList";
-import QuotationPage from "../pages/admin/painting/QuotationPage";
-import ProgressTrackingPage from "../pages/admin/painting/ProgressTrackingPage";
+import ServiceManagement from "../pages/admin/services/ServiceManagement";
 import AccountManagement from "../pages/admin/accounts/AccountManagement";
 import AdminRevenue from "../pages/admin/revenue/AdminRevenue";
 import AdminWallet from "../pages/admin/wallet/AdminWallet";
-import InspectionPage from "../pages/admin/painting/InspectionPage";
 
 export default function AdminRoutes({ user, onLogout, showToast }) {
   return (
@@ -27,22 +23,16 @@ export default function AdminRoutes({ user, onLogout, showToast }) {
         <Route path="employees" element={<EmployeeManagement />} />
         <Route path="accounts" element={<AccountManagement />} />
         <Route path="customers" element={<CustomerManagement />} />
-  {/* 1. Hỗ trợ URL mới /admin/bookings */}
         <Route path="bookings" element={<OrderList />} />
         <Route path="bookings/:id" element={<OrderDetail />} />
-
-        {/* 2. Hỗ trợ URL cũ /admin/orders (Giúp không bao giờ bị trang trắng nếu lỡ click link cũ) */}
-        {/* <Route path="orders" element={<OrderList />} /> */}
-        {/* <Route path="orders/:id" element={<OrderDetail />} /> */}
+        <Route path="orders" element={<OrderList />} />
+        <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="contracts" element={<ContractManagement />} />
         <Route path="payments" element={<PaymentToStaff />} />
         <Route path="revenue" element={<AdminRevenue />} />
         <Route path="wallet" element={<AdminWallet />} />
-        <Route path="painting" element={<PaintingDashboard />} />
-        <Route path="painting/requests" element={<PaintingRequestList />} />
-        <Route path="painting/quotes" element={<QuotationPage />} />
-        <Route path="painting/progress" element={<ProgressTrackingPage />} />
-        <Route path="painting/inspection" element={<InspectionPage />} />
+        <Route path="services" element={<ServiceManagement />} />
+        <Route path="painting" element={<ServiceManagement />} />
       </Route>
     </Routes>
   );

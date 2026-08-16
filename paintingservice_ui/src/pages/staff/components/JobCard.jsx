@@ -23,128 +23,128 @@ export default function JobCard({
   const isCancelled = status === "CANCELLED" || status === "WORKER_REJECTED";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition space-y-4">
-      <div className="flex justify-between items-start gap-3">
-        <div>
-          <span className="text-xs font-bold text-slate-400">ĐƠN #{job.id}</span>
-          <h3 className="font-bold text-slate-800 mt-1">
-            {job.title || job.serviceName || "Công trình"}
-          </h3>
+    <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4 group">
+      <div>
+        <div className="flex justify-between items-start gap-2 mb-3">
+          <div>
+            <span className="inline-block px-2.5 py-0.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-md tracking-wider">
+              #{job.id}
+            </span>
+            <h3 className="font-bold text-slate-900 text-base mt-1.5 line-clamp-1 group-hover:text-blue-600 transition">
+              {job.title || job.serviceName || "Dịch vụ sơn sửa nhà"}
+            </h3>
+          </div>
+          <StatusBadge status={status} />
         </div>
-        <StatusBadge status={status} />
+
+        <div className="space-y-2 text-sm bg-slate-50/80 p-3.5 rounded-xl border border-slate-100">
+          <div className="flex items-start gap-2">
+            <span className="text-slate-400 shrink-0 mt-0.5">📍</span>
+            <p className="text-slate-800 font-medium text-xs leading-relaxed">
+              {job.address || "Địa chỉ theo đơn đăng ký"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 shrink-0">👤</span>
+            <p className="text-slate-700 text-xs">
+              Khách hàng: <strong className="text-slate-900">{job.customerName || job.customer?.username || "Chưa cập nhật"}</strong>
+            </p>
+          </div>
+          {(job.appointmentDate || job.appointmentTime) && (
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 shrink-0">📅</span>
+              <p className="text-slate-700 text-xs">
+                Thời gian: <strong className="text-slate-900">{job.appointmentDate || "—"} {job.appointmentTime ? `(${job.appointmentTime})` : ""}</strong>
+              </p>
+            </div>
+          )}
+          {job.description && (
+            <div className="flex items-start gap-2 pt-1 border-t border-slate-200/60">
+              <span className="text-slate-400 shrink-0 mt-0.5">📝</span>
+              <p className="text-slate-600 text-xs line-clamp-2 italic">
+                "{job.description}"
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-2 text-sm text-slate-600">
-        <p>
-          <span className="font-semibold text-slate-400">📍 Địa chỉ:</span>{" "}
-          {job.address || "—"}
-        </p>
-        <p>
-          <span className="font-semibold text-slate-400">👤 Khách hàng:</span>{" "}
-          {job.customerName || job.customer?.username || "Không xác định"}
-        </p>
-        <p>
-          <span className="font-semibold text-slate-400">📅 Ngày khảo sát:</span>{" "}
-          {job.appointmentDate || "—"}
-        </p>
-        <p>
-          <span className="font-semibold text-slate-400">🕒 Giờ khảo sát:</span>{" "}
-          {job.appointmentTime || "—"}
-        </p>
-        <p>
-          <span className="font-semibold text-slate-400">📝 Mô tả:</span>{" "}
-          {job.description || "Không có mô tả"}
-        </p>
-        {(job.preferredTechnicianName || job.technicianName) && (
-          <p>
-            <span className="font-semibold text-slate-400">👷 Thợ:</span>{" "}
-            {job.technicianName || job.preferredTechnicianName}
-          </p>
+      <div>
+        {canAccept && (
+          <div className="flex gap-2 pt-2">
+            {canReject && (
+              <button
+                type="button"
+                onClick={() => onReject?.(job.id)}
+                className="flex-1 py-2.5 rounded-xl bg-rose-50 text-rose-700 font-bold hover:bg-rose-100 border border-rose-200 transition text-xs flex items-center justify-center gap-1.5"
+              >
+                <span>✕</span> Từ chối
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onAccept?.(job.id)}
+              className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-sm transition text-xs flex items-center justify-center gap-1.5"
+            >
+              <span>✓</span> Nhận việc
+            </button>
+          </div>
         )}
-      </div>
 
-      {/* Đã xóa toàn bộ block "Báo cáo tiến độ" */}
-
-      {canAccept && (
-        <div className="flex gap-2 pt-3 border-t border-slate-100">
-          {canReject && (
+        {status === "ACCEPTED" && (
+          <div className="space-y-2 pt-2">
             <button
               type="button"
-              onClick={() => onReject?.(job.id)}
-              className="flex-1 py-2 rounded-xl bg-red-50 text-red-600 font-semibold hover:bg-red-100 transition text-sm"
+              onClick={() => onStart?.(job)}
+              className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-sm transition text-xs flex items-center justify-center gap-1.5"
             >
-              ❌ Từ chối
+              <span>🚧</span> Bắt đầu thi công
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onAccept?.(job.id)}
-            className="flex-1 py-2 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 transition text-sm"
-          >
-            ✅ Nhận việc
-          </button>
-        </div>
-      )}
+            {canReject && (
+              <button
+                type="button"
+                onClick={() => onReject?.(job.id)}
+                className="w-full py-2 rounded-xl bg-slate-100 text-slate-600 font-semibold hover:bg-rose-50 hover:text-rose-600 transition text-xs"
+              >
+                Hủy / Từ chối nhận
+              </button>
+            )}
+          </div>
+        )}
 
-      {status === "ACCEPTED" && (
-        <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => onStart?.(job)}
-            className="w-full py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition text-sm"
-          >
-            🚧 Bắt đầu thi công
-          </button>
-          {canReject && (
+        {canComplete && (
+          <div className="pt-2">
             <button
               type="button"
-              onClick={() => onReject?.(job.id)}
-              className="w-full py-2 rounded-xl bg-red-50 text-red-600 font-semibold hover:bg-red-100 transition text-sm"
+              onClick={() => onComplete?.(job.id)}
+              className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-sm transition text-xs flex items-center justify-center gap-1.5"
             >
-              ❌ Từ chối
+              <span>🏁</span> Báo hoàn thành công trình
             </button>
-          )}
-        </div>
-      )}
-
-      {canComplete && (
-        <div className="pt-3 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => onComplete?.(job.id)}
-            className="w-full py-2 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition text-sm"
-          >
-            ✅ Hoàn thành công trình
-          </button>
-          <p className="text-[11px] text-slate-400 text-center mt-2">
-            Sau khi xác nhận, đơn chờ giám sát và chủ nhà nghiệm thu.
-          </p>
-        </div>
-      )}
-
-      {isWaitingAcceptance && (
-        <div className="pt-3 border-t border-slate-100">
-          <div className="text-center text-purple-600 font-semibold text-sm bg-purple-50 rounded-xl py-2">
-            🏁 Đã xong — chờ giám sát & chủ nhà nghiệm thu
+            <p className="text-[11px] text-slate-400 text-center mt-1.5">
+              Đơn sẽ chuyển sang bước Nghiệm thu với Giám sát &amp; Khách hàng.
+            </p>
           </div>
-        </div>
-      )}
+        )}
 
-      {isDone && (
-        <div className="pt-3 border-t border-slate-100">
-          <div className="text-center text-green-600 font-semibold text-sm">
-            🎉 Công trình đã hoàn thành
+        {isWaitingAcceptance && (
+          <div className="text-center text-purple-700 font-bold text-xs bg-purple-50 border border-purple-200 rounded-xl py-2.5">
+            ⏳ Đã hoàn thành — Chờ nghiệm thu &amp; tất toán
           </div>
-        </div>
-      )}
+        )}
 
-      {isCancelled && (
-        <div className="pt-3 border-t border-slate-100">
-          <div className="text-center text-slate-400 font-semibold text-sm">
+        {isDone && (
+          <div className="text-center text-emerald-700 font-bold text-xs bg-emerald-50 border border-emerald-200 rounded-xl py-2.5">
+            🎉 Công trình đã hoàn thành xuất sắc
+          </div>
+        )}
+
+        {isCancelled && (
+          <div className="text-center text-slate-500 font-medium text-xs bg-slate-100 rounded-xl py-2">
             {status === "WORKER_REJECTED" ? "Đã từ chối công trình" : "Đơn đã hủy"}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

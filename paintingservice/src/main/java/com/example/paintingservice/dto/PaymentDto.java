@@ -35,7 +35,7 @@ public class PaymentDto {
 
 
 
-    // ... các trường cũ ...
     private String paymentType; // DEPOSIT hoặc FINAL
-
+    private String proofImage;
+    private String note;
 }

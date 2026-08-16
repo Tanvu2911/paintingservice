@@ -106,11 +106,11 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   const currentMenuItems = isTechnician ? technicianMenuItems : surveyMenuItems;
 
   return (
-    <div className="flex min-h-screen bg-slate-950 font-sans antialiased text-slate-100">
+    <div className="flex min-h-screen bg-slate-50 font-sans antialiased text-slate-800">
       <Sidebar
         logoIcon={isTechnician ? "🛠️" : "📋"}
         logoTextPrimary={isTechnician ? "Kỹ Thuật" : "Khảo Sát"}
-        logoTextSecondary="247"
+        logoTextSecondary="Sơn Sửa 247"
         color={isTechnician ? "amber" : "blue"}
         activeTab={getActiveTab()}
         onTabChange={(tab) =>
@@ -122,19 +122,44 @@ export default function StaffLayout({ user, onLogout, showToast }) {
 
       {/* Area hiển thị Popover thông báo & Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex justify-end p-4 pb-0">
-          <NotificationPopover
-            notifications={notifications}
-            onMarkRead={handleMarkRead}
-            onDeleteAll={handleDeleteAll}
-            onDeleteOne={handleDeleteOne}
-            color={isTechnician ? "amber" : "blue"}
-          />
-        </div>
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${isTechnician ? "bg-amber-500" : "bg-blue-600"}`}></span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              {isTechnician ? "Hệ Thống Đội Thợ Thi Công" : "Hệ Thống Giám Sát Khảo Sát"}
+            </span>
+          </div>
 
-        <div className="flex-1 p-8 pt-4 overflow-y-auto">
+          <div className="flex items-center gap-3">
+            <NotificationPopover
+              notifications={notifications}
+              onMarkRead={handleMarkRead}
+              onDeleteAll={handleDeleteAll}
+              onDeleteOne={handleDeleteOne}
+              color={isTechnician ? "amber" : "blue"}
+            />
+            <div className="h-6 w-px bg-slate-200"></div>
+            <div className="flex items-center gap-2.5 pl-1">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs text-white ${
+                isTechnician ? "bg-amber-600" : "bg-blue-600"
+              }`}>
+                {(profile?.fullName || profile?.username || "S").charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-slate-800 leading-tight">
+                  {profile?.fullName || profile?.username || "Nhân viên"}
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  {isTechnician ? "Thợ thi công" : "Giám sát viên"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
           <Outlet context={{ user: profile, showToast, setNotifications }} />
-        </div>
+        </main>
       </div>
     </div>
   );

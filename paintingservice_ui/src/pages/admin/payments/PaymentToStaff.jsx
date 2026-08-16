@@ -39,6 +39,8 @@ export default function PaymentToStaff() {
       const bData = Array.isArray(bookingsRes.data)
         ? bookingsRes.data
         : bookingsRes.data?.content || [];
+      const bookingMap = new Map(bData.map((b) => [b.id, b]));
+
       setOrders(
         bData.filter((o) =>
           [
@@ -51,7 +53,16 @@ export default function PaymentToStaff() {
         )
       );
 
-      setPendingPayments(Array.isArray(pendingRes.data) ? pendingRes.data : []);
+      const rawPending = Array.isArray(pendingRes.data) ? pendingRes.data : [];
+      const enrichedPending = rawPending.map((p) => {
+        const matchedBooking = bookingMap.get(p.bookingId) || null;
+        return {
+          ...p,
+          booking: matchedBooking || p.booking,
+        };
+      });
+
+      setPendingPayments(enrichedPending);
       setSalaryHistories(Array.isArray(salaryRes.data) ? salaryRes.data : []);
     } catch {
       showToast?.("Không tải được dữ liệu thanh toán", "error");
@@ -281,14 +292,21 @@ export default function PaymentToStaff() {
                       <td className="py-4 px-6">
                         {p.paymentType === "DEPOSIT" ? (
                           <DepositCountdownBadge
-                            signedAt={booking.depositRequestedAt || booking.createdAt || booking.appointmentDate}
-                            deadline={booking.depositDeadline}
-                            isDepositPaid={
-                              booking.depositPaid ||
-                              booking.paymentStatus === "DEPOSIT_PAID" ||
-                              booking.paymentStatus === "FULLY_PAID"
+                            signedAt={
+                              p.booking?.depositRequestedAt ||
+                              p.booking?.createdAt ||
+                              p.booking?.appointmentDate ||
+                              p.paidAt
                             }
-                            isCancelled={booking.status === "CANCELLED"}
+                            deadline={p.booking?.depositDeadline}
+                            isDepositPaid={
+                              p.booking?.depositPaid ||
+                              p.booking?.paymentStatus === "DEPOSIT_PAID" ||
+                              p.booking?.paymentStatus === "FULLY_PAID" ||
+                              p.paymentStatus === "DEPOSIT_PAID" ||
+                              p.paymentStatus === "FULLY_PAID"
+                            }
+                            isCancelled={p.booking?.status === "CANCELLED"}
                           />
                         ) : (
                           <span className="text-xs text-slate-400">—</span>

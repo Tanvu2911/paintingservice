@@ -27,15 +27,11 @@ export default function ContractManagement() {
   const [bookingDetail, setBookingDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  // Helper getters for contract logic
-  const getSurveySigned = (c) => !!(c?.workerSigned || c?.surveySigned);
-
   const getStatus = (c) => {
     if (c.status) return c.status;
-    const surveySigned = getSurveySigned(c);
-    if (c.customerSigned && surveySigned) return "CONTRACT_CONFIRMED";
+    if (c.customerSigned && c.adminSigned) return "CONTRACT_CONFIRMED";
     if (c.customerSigned) return "CUSTOMER_SIGNED";
-    if (surveySigned) return "WORKER_SIGNED";
+    if (c.adminSigned) return "ADMIN_SIGNED";
     return "PENDING";
   };
 
@@ -203,7 +199,7 @@ export default function ContractManagement() {
                   <th className="py-4 px-6">Trạng thái</th>
                   <th className="py-4 px-6">Ngày lập</th>
                   <th className="py-4 px-6">Khách ký</th>
-                  <th className="py-4 px-6">Giám sát ký</th>
+                  <th className="py-4 px-6">Admin ký</th>
                   <th className="py-4 px-6 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -218,7 +214,6 @@ export default function ContractManagement() {
                   </tr>
                 ) : (
                   filteredContracts.map((c) => {
-                    const surveySigned = getSurveySigned(c);
                     return (
                       <tr key={c.id} className="hover:bg-slate-50/50 transition">
                         <td className="py-4 px-6 font-bold text-slate-800">
@@ -245,8 +240,8 @@ export default function ContractManagement() {
                           )}
                         </td>
                         <td className="py-4 px-6">
-                          {surveySigned ? (
-                            <span className="text-emerald-600 font-semibold text-xs">
+                          {c.adminSigned ? (
+                            <span className="text-purple-600 font-semibold text-xs">
                               Đã ký
                             </span>
                           ) : (

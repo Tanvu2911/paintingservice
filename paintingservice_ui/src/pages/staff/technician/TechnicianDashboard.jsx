@@ -5,38 +5,101 @@ import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import { formatMoney } from "../../../util/formatters";
 
 export default function TechnicianDashboard() {
-  const { showToast } = useOutletContext();
+  const { user, showToast } = useOutletContext();
   const { stats, loading } = useBookingHistory("technician", showToast);
 
-  if (loading) return <LoadingSpinner />;
-
-  const cards = [
-    {
-      title: "Công trình đang làm",
-      value: String(stats.inProgress),
-      icon: "🏗️",
-      color: "border-l-blue-500",
-    },
-    {
-      title: "Công trình hoàn thành",
-      value: String(stats.completed),
-      icon: "✅",
-      color: "border-l-emerald-500",
-    },
-    {
-      title: "Tổng giá trị",
-      value: formatMoney(stats.totalRevenue),
-      icon: "💰",
-      color: "border-l-amber-500",
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-slate-500">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mr-3"></div>
+        Đang tải dữ liệu thi công...
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">Tổng quan thi công</h1>
-      <StatisticCards data={cards} />
-      <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-sm">
-        <span className="font-bold">Lưu ý an toàn:</span> Hãy luôn nhớ mang đồ bảo hộ và che chắn nội thất của khách hàng trước khi bả matit/lăn sơn.
+    <div className="space-y-6 max-w-7xl">
+      {/* Welcome Banner */}
+      <div className="bg-gradient-to-r from-amber-500 via-orange-600 to-amber-600 p-6 md:p-8 rounded-3xl text-white shadow-lg shadow-amber-500/15 relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/20">
+              <span>🛠️</span> Bảng điều khiển Đội Thợ Thi Công
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight">
+              Xin chào, {user?.fullName || user?.username || "Đội thợ"}! 👋
+            </h1>
+            <p className="text-amber-100 text-sm mt-1 max-w-xl">
+              Quản lý các công trình được phân công, tiếp nhận việc, thi công và báo cáo hoàn thành công trình.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <a
+              href="/staff/technician/jobs"
+              className="px-5 py-2.5 bg-white text-amber-800 hover:bg-amber-50 font-bold rounded-2xl text-xs transition shadow-md flex items-center gap-2"
+            >
+              <span>🛠️</span> Xem công trình ({stats.inProgress || 0})
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Đang thi công
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg font-bold">
+              🏗️
+            </div>
+          </div>
+          <p className="text-3xl font-black text-blue-600 mt-3">{stats.inProgress}</p>
+          <p className="text-[11px] text-slate-400 mt-1">Công trình đang trong giai đoạn triển khai</p>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Đã hoàn thành
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold">
+              ✅
+            </div>
+          </div>
+          <p className="text-3xl font-black text-emerald-600 mt-3">{stats.completed}</p>
+          <p className="text-[11px] text-slate-400 mt-1">Công trình hoàn thành bàn giao</p>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Tổng giá trị nhận
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg font-bold">
+              💰
+            </div>
+          </div>
+          <p className="text-3xl font-black text-amber-600 mt-3">
+            {formatMoney(stats.totalRevenue)}
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">Tổng doanh số công trình phụ trách</p>
+        </div>
+      </div>
+
+      {/* Safety Alert */}
+      <div className="bg-amber-50/80 border border-amber-200/80 text-amber-900 p-5 rounded-2xl text-xs space-y-2">
+        <p className="font-bold flex items-center gap-2 text-amber-800">
+          <span>⚠️</span> Nguyên tắc an toàn lao động &amp; bảo vệ tài sản:
+        </p>
+        <ul className="list-disc list-inside space-y-1 text-slate-700 pl-1">
+          <li>Luôn che bạt, lót sàn và bảo vệ nội thất khách hàng trước khi bả matit/xả nhám.</li>
+          <li>Đeo khẩu trang, kính bảo hộ và kiểm tra giàn giáo/thang chữ A chắc chắn trước khi leo trèo.</li>
+          <li>Dọn dẹp vệ sinh sạch sẽ mặt sàn và bàn giao gọn gàng sau khi hoàn thành mỗi ngày.</li>
+        </ul>
       </div>
     </div>
   );

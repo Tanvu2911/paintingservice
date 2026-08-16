@@ -1,11 +1,15 @@
 package com.example.paintingservice.controllers;
 
 import com.example.paintingservice.dto.ContractDto;
+import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.Contract;
 import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.enums.BookingStatus;
+import com.example.paintingservice.entity.Payment;
+import com.example.paintingservice.enums.PaymentStatus;
 import com.example.paintingservice.mapper.ContractMapper;
 import com.example.paintingservice.repository.BookingRepository;
+import com.example.paintingservice.repository.PaymentRepository;
 import com.example.paintingservice.repository.UserRepository;
 import com.example.paintingservice.service.ContractService;
 import com.example.paintingservice.service.NotificationService;
@@ -18,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +36,7 @@ public class ContractController {
 
     private final ContractService contractService;
     private final BookingRepository bookingRepository;
+    private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
@@ -67,11 +73,11 @@ public class ContractController {
     }
 
     // =========================================================================
-    // 1. TẠO HỢP ĐỒNG (NV Giám sát lập hợp đồng sau khi khảo sát xong)
-    //    → Chuyển status đơn sang WAITING_CONTRACT_APPROVAL
+    // 1. TẠO HỢP ĐỒNG (Admin lập hợp đồng sau khi khách hàng đồng ý báo giá)
+    //    → Chuyển status đơn sang WAITING_CUSTOMER_SIGNATURE
     // =========================================================================
-   @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF') or hasRole('SUPERVISOR') or hasRole('TECHNICIAN')")
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> create(@Valid @RequestBody ContractDto dto, HttpServletRequest request) {
 
         // Validate booking
@@ -106,84 +112,26 @@ public class ContractController {
         Contract savedEntity = contractService.save(entity);
         ContractDto result = ContractMapper.toDto(savedEntity);
 
-        // Cập nhật status Booking → WAITING_CONTRACT_APPROVAL + notify Admin
+        // Cập nhật status Booking → WAITING_CUSTOMER_SIGNATURE + notify Customer
         bookingRepository.findById(savedEntity.getBooking().getId()).ifPresent(booking -> {
-            booking.setStatus(BookingStatus.WAITING_CONTRACT_APPROVAL);
+            booking.setStatus(BookingStatus.WAITING_CUSTOMER_SIGNATURE);
             bookingRepository.save(booking);
 
-            userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+            if (booking.getCustomer() != null) {
                 notificationService.save(Notification.builder()
-                        .user(admin)
-                        .title("Hợp đồng mới chờ duyệt #" + booking.getId())
-                        .content(String.format(
-                                "NV Giám sát đã lập hợp đồng %s cho đơn hàng #%d. Vui lòng kiểm tra và duyệt!",
-                                savedEntity.getContractCode(), booking.getId()))
+                        .user(booking.getCustomer())
+                        .title("Hợp đồng sẵn sàng ký #" + booking.getId())
+                        .content("Admin đã lập hợp đồng cho đơn hàng của bạn. Vui lòng vào app xem nội dung và ký điện tử.")
                         .createdAt(LocalDateTime.now())
                         .isRead(false)
                         .build());
-            });
+            }
         });
 
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
-    // =========================================================================
-    // 2. ADMIN DUYỆT HỢP ĐỒNG
-    //    → Chuyển sang CONTRACT_APPROVED + bàn giao đội thợ khách chọn
-    // =========================================================================
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> approveContract(@PathVariable Long id) {
-        return contractService.findById(id).map(contract -> {
-            var booking = contract.getBooking();
-            if (booking == null) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Hợp đồng không gắn với đơn hàng"));
-            }
 
-            if (booking.getStatus() != BookingStatus.WAITING_CONTRACT_APPROVAL) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("message", "Đơn không ở trạng thái chờ duyệt hợp đồng"));
-            }
-
-            // 1. Duyệt HĐ
-            booking.setStatus(BookingStatus.WAITING_CUSTOMER_SIGNATURE);
-
-            // 2. Gán sẵn đội thợ khách chọn (nếu có) — chưa cho phép thi công
-            if (booking.getPreferredTechnician() != null && booking.getTechnician() == null) {
-                booking.setTechnician(booking.getPreferredTechnician());
-            }
-
-            bookingRepository.save(booking);
-
-            // 3. Thông báo Đội thợ (chờ khách ký, chưa làm)
-            // if (booking.getTechnician() != null) {
-            //     notificationService.save(Notification.builder()
-            //             .user(booking.getTechnician())
-            //             .title("Đơn hàng đã duyệt HĐ #" + booking.getId())
-            //             .content("Hợp đồng đã được Admin duyệt. Vui lòng chờ khách hàng ký điện tử, sau đó bấm 'Nhận việc'.")
-            //             .createdAt(LocalDateTime.now())
-            //             .isRead(false)
-            //             .build());
-            // }
-
-            // 4. Thông báo Khách vào ký
-            if (booking.getCustomer() != null) {
-                notificationService.save(Notification.builder()
-                        .user(booking.getCustomer())
-                        .title("Hợp đồng sẵn sàng ký #" + booking.getId())
-                        .content("Admin đã duyệt hợp đồng. Vui lòng vào app đọc nội dung và ký điện tử.")
-                        .createdAt(LocalDateTime.now())
-                        .isRead(false)
-                        .build());
-            }
-
-            return ResponseEntity.ok(Map.of(
-                    "message", "Đã duyệt hợp đồng. Đang chờ khách hàng ký điện tử.",
-                    "bookingStatus", booking.getStatus().name()
-            ));
-        }).orElse(ResponseEntity.notFound().build());
-    }
 
     // =========================================================================
     // 3. CẬP NHẬT & KÝ HỢP ĐỒNG (Khách ký → PROCESSING)
@@ -249,33 +197,101 @@ public class ContractController {
             if (!wasSigned && isSigningNow) {
                 bookingRepository.findById(savedEntity.getBooking().getId()).ifPresent(booking -> {
 
-                    if (booking.getTechnician() != null) {
-                        booking.setStatus(BookingStatus.ASSIGNED);
+                    booking.setStatus(BookingStatus.WAITING_DEPOSIT);
 
+                    userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
                         notificationService.save(Notification.builder()
-                                .user(booking.getTechnician())
+                                .user(admin)
                                 .title("Khách hàng đã ký hợp đồng #" + booking.getId())
-                                .content("Khách hàng đã ký hợp đồng. Vui lòng vào hệ thống và bấm 'Nhận việc'.")
+                                .content("Khách hàng đã ký hợp đồng. Đang chờ khách hàng thanh toán cọc.")
                                 .createdAt(LocalDateTime.now())
                                 .isRead(false)
                                 .build());
-
-                    } else {
-                        booking.setStatus(BookingStatus.CONTRACT_APPROVED);
-
-                        userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
-                            notificationService.save(Notification.builder()
-                                    .user(admin)
-                                    .title("Cần phân công đội thợ #" + booking.getId())
-                                    .content("Khách hàng đã ký hợp đồng nhưng chưa có đội thợ.")
-                                    .createdAt(LocalDateTime.now())
-                                    .isRead(false)
-                                    .build());
-                        });
+                    });
+                    
+                    if (booking.getCustomer() != null) {
+                        notificationService.save(Notification.builder()
+                                .user(booking.getCustomer())
+                                .title("Ký hợp đồng thành công #" + booking.getId())
+                                .content("Vui lòng thanh toán cọc để hệ thống phân công đội thợ thi công.")
+                                .createdAt(LocalDateTime.now())
+                                .isRead(false)
+                                .build());
                     }
 
                     bookingRepository.save(booking);
                 });
+            }
+
+            return ResponseEntity.ok(result);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // =========================================================================
+    // 4. XÁC NHẬN CỌC & ADMIN KÝ HỢP ĐỒNG
+    // =========================================================================
+    @PostMapping("/{id}/confirm-deposit")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> confirmDeposit(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+        return contractService.findById(id).map(existing -> {
+            Booking booking = existing.getBooking();
+
+            if (booking.getStatus() != BookingStatus.WAITING_DEPOSIT) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Đơn hàng chưa ở trạng thái chờ cọc"));
+            }
+
+            // Admin ký
+            existing.setAdminSigned(true);
+            existing.setAdminSignedAt(LocalDateTime.now());
+            if (payload.get("adminSignatureImg") != null && !payload.get("adminSignatureImg").isBlank()) {
+                existing.setAdminSignatureImg(payload.get("adminSignatureImg"));
+            }
+
+            Contract savedEntity = contractService.save(existing);
+            ContractDto result = ContractMapper.toDto(savedEntity);
+
+            // Cập nhật booking status & payment status
+            booking.setStatus(BookingStatus.DEPOSIT_CONFIRMED);
+            booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+            bookingRepository.save(booking);
+
+            // Đồng bộ bản ghi thanh toán (Payment) của đơn hàng này
+            List<Payment> payments = paymentRepository.findAllByBooking_IdOrderByIdDesc(booking.getId());
+            boolean hasDepositPayment = false;
+            for (Payment p : payments) {
+                if ("DEPOSIT".equalsIgnoreCase(p.getPaymentType())) {
+                    p.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+                    p.setPaidAt(LocalDateTime.now());
+                    paymentRepository.save(p);
+                    hasDepositPayment = true;
+                }
+            }
+
+            // Nếu chưa có record Payment cọc thì tạo 1 record đã thanh toán
+            if (!hasDepositPayment) {
+                BigDecimal depositAmount = booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
+                        ? booking.getDepositAmount()
+                        : (booking.getTotalAmount() != null ? booking.getTotalAmount().multiply(new BigDecimal("0.3")) : BigDecimal.ZERO);
+                Payment newPayment = Payment.builder()
+                        .booking(booking)
+                        .amount(depositAmount)
+                        .paymentMethod("MANUAL_ADMIN")
+                        .paymentType("DEPOSIT")
+                        .paymentStatus(PaymentStatus.DEPOSIT_PAID)
+                        .transactionCode("COC-ADMIN-" + booking.getId() + "-" + System.currentTimeMillis())
+                        .paidAt(LocalDateTime.now())
+                        .build();
+                paymentRepository.save(newPayment);
+            }
+
+            if (booking.getCustomer() != null) {
+                notificationService.save(Notification.builder()
+                        .user(booking.getCustomer())
+                        .title("Đã nhận tiền cọc #" + booking.getId())
+                        .content("Admin đã xác nhận nhận tiền cọc và ký hợp đồng. Đơn hàng sẽ được phân công cho đội thợ trong thời gian tới.")
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
             }
 
             return ResponseEntity.ok(result);

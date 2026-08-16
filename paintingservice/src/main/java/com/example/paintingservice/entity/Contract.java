@@ -51,6 +51,11 @@ public class Contract {
     @Column(name = "customer_ip", length = 45)
     private String customerIp;
 
+    private Boolean adminSigned;
+    private LocalDateTime adminSignedAt;
+    @Column(columnDefinition = "TEXT")
+    private String adminSignatureImg;
+
     @Column(name = "survey_ip", length = 45)
     private String surveyIp;
 

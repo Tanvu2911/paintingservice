@@ -17,6 +17,9 @@ public class PaymentMapper {
                 .paymentStatus(payment.getPaymentStatus())
                 .transactionCode(payment.getTransactionCode())
                 .paidAt(payment.getPaidAt())
+                .paymentType(payment.getPaymentType())
+                .proofImage(payment.getProofImage())
+                .note(payment.getNote())
                 .build();
     }
 
@@ -31,6 +34,9 @@ public class PaymentMapper {
                 .paymentStatus(dto.getPaymentStatus())
                 .transactionCode(dto.getTransactionCode())
                 .paidAt(dto.getPaidAt())
+                .paymentType(dto.getPaymentType())
+                .proofImage(dto.getProofImage())
+                .note(dto.getNote())
                 .build();
         if (dto.getBookingId() != null) {
             payment.setBooking(Booking.builder().id(dto.getBookingId()).build());

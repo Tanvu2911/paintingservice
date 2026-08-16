@@ -9,8 +9,12 @@ import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.ServiceEntity;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.entity.Booking;
+import com.example.paintingservice.entity.BookingDetail;
+import com.example.paintingservice.entity.Contract;
 import com.example.paintingservice.repository.ServiceEntityRepository;
 import com.example.paintingservice.repository.UserRepository;
+import com.example.paintingservice.repository.ContractRepository;
+import com.example.paintingservice.repository.BookingDetailRepository;
 import jakarta.validation.Valid;
 import com.example.paintingservice.enums.BookingStatus;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +42,8 @@ public class BookingController {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final ServiceEntityRepository serviceEntityRepository;
+    private final ContractRepository contractRepository;
+    private final BookingDetailRepository bookingDetailRepository;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -310,6 +316,134 @@ public class BookingController {
                 "booking", BookingMapper.toDto(booking)));
     }
 
+    //
+    // ==================== ADMIN GỬI BÁO GIÁ & LẬP HỢP ĐỒNG CHI TIẾT
+    // ====================
+    @PostMapping("/{id}/send-quote")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> sendQuote(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Booking booking = bookingRepository.findById(id).orElse(null);
+        if (booking == null)
+            return ResponseEntity.notFound().build();
+
+        if (booking.getStatus() != BookingStatus.WAITING_ADMIN_QUOTE) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Đơn hàng không ở trạng thái chờ báo giá"));
+        }
+
+        if (payload.get("totalAmount") == null || payload.get("totalAmount").toString().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Thiếu thông tin tổng báo giá"));
+        }
+
+        java.math.BigDecimal total = new java.math.BigDecimal(payload.get("totalAmount").toString());
+        java.math.BigDecimal deposit;
+        if (payload.get("depositAmount") != null && !payload.get("depositAmount").toString().isBlank()) {
+            deposit = new java.math.BigDecimal(payload.get("depositAmount").toString());
+        } else {
+            deposit = total.multiply(new java.math.BigDecimal("0.3")).setScale(0, java.math.RoundingMode.HALF_UP);
+        }
+
+        if (total.compareTo(java.math.BigDecimal.ZERO) <= 0 || deposit.compareTo(java.math.BigDecimal.ZERO) < 0
+                || deposit.compareTo(total) > 0) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Số tiền báo giá không hợp lệ"));
+        }
+
+        booking.setTotalAmount(total);
+        booking.setDepositAmount(deposit);
+        booking.setRemainingAmount(total.subtract(deposit));
+        booking.setPaymentStatus(com.example.paintingservice.enums.PaymentStatus.UNPAID);
+
+        // ★ Tự động chuyển thẳng sang WAITING_CUSTOMER_SIGNATURE để Khách xem hợp đồng
+        // chi tiết & ký luôn
+        booking.setStatus(BookingStatus.WAITING_CUSTOMER_SIGNATURE);
+        bookingRepository.save(booking);
+
+        // ★ TẠO HỢP ĐỒNG CHI TIẾT
+        List<BookingDetail> details = bookingDetailRepository.findByBookingIdOrderByCreatedAtAsc(id);
+        String customerName = booking.getCustomer() != null ? booking.getCustomer().getUsername() : "Khách hàng";
+        String customerPhone = booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : "Chưa cung cấp";
+
+        java.text.NumberFormat nf = java.text.NumberFormat.getInstance(new java.util.Locale("vi", "VN"));
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\n");
+        sb.append("Độc lập - Tự do - Hạnh phúc\n\n");
+        sb.append("HỢP ĐỒNG THI CÔNG SƠN SỬA & DỊCH VỤ DÂN DỤNG\n");
+        sb.append("Mã đơn hàng: #").append(id).append("\n");
+        sb.append("Thời gian lập: ")
+                .append(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(LocalDateTime.now()))
+                .append("\n\n");
+
+        sb.append("THÔNG TIN CÁC BÊN:\n");
+        sb.append("Bên A (Khách hàng): ").append(customerName).append("\n");
+        sb.append("Số điện thoại: ").append(customerPhone).append("\n");
+        sb.append("Địa điểm thi công: ")
+                .append(booking.getAddress() != null ? booking.getAddress() : "Theo thông tin đăng ký").append("\n\n");
+
+        sb.append("Bên B (Đơn vị thi công): CÔNG TY DỊCH VỤ SƠN SỬA 24/7\n");
+        sb.append("Hotline hỗ trợ: 1900 1234 - 0355.880.362\n\n");
+
+        sb.append("I. HIỆN TRẠNG KHẢO SÁT & YÊU CẦU CÔNG TRÌNH:\n");
+        sb.append("- Mô tả ban đầu: ")
+                .append(booking.getDescription() != null ? booking.getDescription() : "Khách hàng không ghi chú")
+                .append("\n");
+        if (!details.isEmpty()) {
+            BookingDetail bd = details.get(0);
+            if (bd.getSurveyNote() != null && !bd.getSurveyNote().isBlank()) {
+                sb.append("- Ghi chú hiện trạng khảo sát: ").append(bd.getSurveyNote()).append("\n");
+            }
+            if (bd.getMaterialNote() != null && !bd.getMaterialNote().isBlank()) {
+                sb.append("- Chủng loại vật tư đề xuất: ").append(bd.getMaterialNote()).append("\n");
+            }
+        }
+        sb.append("\nII. GIÁ TRỊ HỢP ĐỒNG & PHƯƠNG THỨC THANH TOÁN:\n");
+        sb.append("- Tổng chi phí thi công: ").append(nf.format(total)).append(" VNĐ\n");
+        sb.append("- Số tiền đặt cọc (xác nhận đơn): ").append(nf.format(deposit)).append(" VNĐ\n");
+        sb.append("- Số tiền còn lại (thanh toán sau nghiệm thu): ").append(nf.format(booking.getRemainingAmount()))
+                .append(" VNĐ\n");
+        sb.append("- Phương thức thanh toán: Chuyển khoản VietQR / Tiền mặt.\n\n");
+
+        sb.append("III. QUY TRÌNH THI CÔNG & TIÊU CHUẨN KỸ THUẬT:\n");
+        sb.append("1. Che chắn cẩn thận sàn nhà, nội thất và tài sản xung quanh khu vực thi công.\n");
+        sb.append("2. Xử lý bề mặt: Sủi dơ, dặm vá bột trét tại các vị trí nứt vỡ, xả nhám phẳng mịn bề mặt.\n");
+        sb.append("3. Thi công lớp sơn lót kháng kiềm / chống thấm chuyên dụng (01 lớp chuẩn).\n");
+        sb.append("4. Thi công lớp sơn phủ hoàn thiện màu sắc theo đúng yêu cầu (02 lớp chuẩn kỹ thuật).\n");
+        sb.append("5. Vệ sinh công nghiệp khu vực thi công và bàn giao mặt bằng sạch đẹp.\n\n");
+
+        sb.append("IV. CHẾ ĐỘ BẢO HÀNH & CAM KẾT CHẤT LƯỢNG:\n");
+        sb.append("- Cam kết 100% sử dụng vật tư sơn chính hãng, đúng chủng loại thỏa thuận.\n");
+        sb.append("- Thời hạn bảo hành công trình: 12 tháng kể từ ngày ký biên bản nghiệm thu.\n");
+        sb.append("- Điều kiện bảo hành: Khắc phục miễn phí các lỗi bong tróc, bay màu do kỹ thuật thi công.\n\n");
+
+        sb.append("V. ĐIỀU KHOẢN KÝ KẾT:\n");
+        sb.append("- Hợp đồng có hiệu lực kể từ khi Bên A thực hiện ký điện tử và đặt cọc thành công.\n");
+        sb.append("- Bên B cam kết triển khai đúng tiến độ và nhân sự chuyên nghiệp sau khi xác nhận tiền cọc.");
+
+        Contract contract = contractRepository.findByBookingId(id).orElseGet(() -> Contract.builder()
+                .booking(booking)
+                .contractCode("HD-" + id + "-" + System.currentTimeMillis())
+                .createdAt(LocalDateTime.now())
+                .customerSigned(false)
+                .surveySigned(false)
+                .adminSigned(false)
+                .build());
+
+        contract.setContent(sb.toString());
+        contractRepository.save(contract);
+
+        if (booking.getCustomer() != null) {
+            notificationService.save(Notification.builder()
+                    .user(booking.getCustomer())
+                    .title("Hợp đồng & Báo giá sẵn sàng ký #" + id)
+                    .content("Admin đã lập hợp đồng chi tiết và báo giá cho đơn hàng #" + id
+                            + ". Vui lòng vào ứng dụng xem nội dung và ký điện tử.")
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Đã gửi báo giá và tạo hợp đồng cho khách ký"));
+    }
+
     // ==================== PHÂN CÔNG ĐỘI THỢ (dùng khi cần gán lại)
     // ====================
     @PostMapping("/{id}/assign-team")
@@ -325,15 +459,23 @@ public class BookingController {
         if (booking == null)
             return ResponseEntity.notFound().build();
 
+        boolean canAssign = booking.getStatus() == BookingStatus.DEPOSIT_CONFIRMED
+                || booking.getStatus() == BookingStatus.WORKER_REJECTED
+                || booking.getStatus() == BookingStatus.ASSIGNED
+                || booking.getStatus() == BookingStatus.CONTRACT_APPROVED
+                || booking.getStatus() == BookingStatus.WAITING_CUSTOMER_SIGNATURE;
+
+        if (!canAssign) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Chỉ được phân công thợ khi đơn hàng đã xác nhận cọc hoặc thợ từ chối cần gán lại."));
+        }
+
         User technician = userRepository.findById(technicianId).orElse(null);
         if (technician == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Kỹ thuật viên không tồn tại"));
         }
 
         booking.setTechnician(technician);
-
-        // nếu đơn bị từ chối hoặc chưa có thợ
-        booking.setStatus(BookingStatus.CONTRACT_APPROVED);
+        booking.setStatus(BookingStatus.ASSIGNED); // Đổi thành ASSIGNED thay vì CONTRACT_APPROVED
 
         bookingRepository.save(booking);
 
@@ -409,12 +551,18 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.completeJob(id, principal.getName()));
     }
 
-    // ==================== HELPER ====================
     private String mapBookingStatusToVietnamese(BookingStatus status) {
         return switch (status) {
             case PENDING -> "Đang chờ xử lý";
-            case SURVEY_ASSIGNED -> "Đã phân công giám sát";
-            case WAITING_CONTRACT_APPROVAL -> "Chờ duyệt hợp đồng";
+            case SURVEY_ASSIGNED -> "Đã phân công khảo sát";
+            case SURVEY_REJECTED -> "Từ chối khảo sát";
+            case WAITING_ADMIN_QUOTE -> "Chờ Admin gửi báo giá";
+            case WAITING_CONTRACT_APPROVAL -> "Chờ duyệt hợp đồng (Cũ)";
+            case WAITING_CUSTOMER_QUOTE_APPROVAL -> "Chờ khách hàng duyệt báo giá";
+            case CUSTOMER_ACCEPTED_QUOTE -> "Khách hàng đã đồng ý báo giá";
+            case WAITING_CUSTOMER_SIGNATURE -> "Chờ khách hàng ký hợp đồng";
+            case WAITING_DEPOSIT -> "Chờ thanh toán cọc";
+            case DEPOSIT_CONFIRMED -> "Đã thanh toán cọc";
             case CONTRACT_APPROVED -> "Đã duyệt hợp đồng";
             case ASSIGNED -> "Đã phân công kỹ thuật viên";
             case ACCEPTED -> "Kỹ thuật viên đã nhận việc";

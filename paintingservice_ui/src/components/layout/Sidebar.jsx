@@ -11,16 +11,29 @@ export default function Sidebar({
 
   const accentMap = {
     blue: {
-      logoBg: "bg-blue-600",
+      logoBg: "bg-gradient-to-tr from-blue-600 to-indigo-600",
+      active: "bg-blue-600 text-white shadow-md shadow-blue-500/25 font-bold",
+      hover: "hover:bg-blue-50 hover:text-blue-700",
+      dot: "bg-blue-500",
+    },
+    amber: {
+      logoBg: "bg-gradient-to-tr from-amber-500 to-orange-600",
+      active: "bg-amber-600 text-white shadow-md shadow-amber-500/25 font-bold",
+      hover: "hover:bg-amber-50 hover:text-amber-700",
+      dot: "bg-amber-500",
+    },
+    emerald: {
+      logoBg: "bg-gradient-to-tr from-emerald-600 to-teal-600",
+      active: "bg-emerald-600 text-white shadow-md shadow-emerald-500/25 font-bold",
+      hover: "hover:bg-emerald-50 hover:text-emerald-700",
+      dot: "bg-emerald-500",
     },
   };
   const accent = accentMap[color] || accentMap.blue;
 
   return (
     <aside
-      className={`w-64 flex flex-col min-h-screen sticky top-0 ${
-        "bg-white border-r border-slate-200"
-      }`}
+      className="w-64 flex flex-col min-h-screen sticky top-0 bg-white border-r border-slate-200 shadow-xs z-20"
     >
       <div className={`p-5 border-b ${ "border-slate-100"}`}>
         <div className="flex items-center gap-3">

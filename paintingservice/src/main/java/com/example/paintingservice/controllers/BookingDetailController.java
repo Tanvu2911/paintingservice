@@ -22,11 +22,14 @@ public class BookingDetailController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF') or hasRole('SUPERVISOR')")
     public ResponseEntity<BookingDetailDto> create(@RequestBody BookingDetailDto request, Principal principal) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(bookingDetailService.create(request, principal.getName()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(bookingDetailService.create(request, principal.getName()));
     }
 
     @GetMapping("/{id}")
-    public BookingDetailDto getById(@PathVariable Long id, Principal principal) { return bookingDetailService.getById(id, principal.getName()); }
+    public BookingDetailDto getById(@PathVariable Long id, Principal principal) {
+        return bookingDetailService.getById(id, principal.getName());
+    }
 
     @GetMapping("/booking/{bookingId}")
     public List<BookingDetailDto> getByBookingId(@PathVariable Long bookingId, Principal principal) {
@@ -49,10 +52,10 @@ public class BookingDetailController {
     @PutMapping(value = "/{id}/survey", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('STAFF') or hasRole('SUPERVISOR') or hasRole('ADMIN')")
     public BookingDetailDto updateSurvey(@PathVariable Long id,
-                                         @RequestParam(required = false) String surveyNote,
-                                         @RequestParam(required = false) String materialNote,
-                                         @RequestParam(required = false) List<MultipartFile> files,
-                                         Principal principal) {
+            @RequestParam(required = false) String surveyNote,
+            @RequestParam(required = false) String materialNote,
+            @RequestParam(required = false) List<MultipartFile> files,
+            Principal principal) {
         return bookingDetailService.updateSurvey(id, BookingDetailDto.builder()
                 .surveyNote(surveyNote).materialNote(materialNote).build(), files, principal.getName());
     }
@@ -60,8 +63,8 @@ public class BookingDetailController {
     @PutMapping("/{id}/material-shortage")
     @PreAuthorize("hasRole('STAFF') or hasRole('SUPERVISOR') or hasRole('TECHNICIAN')")
     public BookingDetailDto reportMaterialShortage(@PathVariable Long id,
-                                                    @RequestBody BookingDetailDto request,
-                                                    Principal principal) {
+            @RequestBody BookingDetailDto request,
+            Principal principal) {
         return bookingDetailService.reportMaterialShortage(id, request.getMaterialShortage(), principal.getName());
     }
 

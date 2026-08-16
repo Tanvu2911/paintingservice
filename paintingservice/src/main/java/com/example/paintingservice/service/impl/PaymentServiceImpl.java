@@ -423,6 +423,7 @@ import com.example.paintingservice.enums.BookingStatus;
 import com.example.paintingservice.enums.PaymentStatus;
 import com.example.paintingservice.enums.SalaryStatus;
 import com.example.paintingservice.repository.BookingRepository;
+import com.example.paintingservice.repository.ContractRepository;
 import com.example.paintingservice.repository.PaymentRepository;
 import com.example.paintingservice.repository.SalaryHistoryRepository;
 import com.example.paintingservice.repository.UserRepository;
@@ -448,6 +449,7 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
+    private final ContractRepository contractRepository;
     private final SalaryHistoryRepository salaryHistoryRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
@@ -457,6 +459,7 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
     public PaymentServiceImpl(
             PaymentRepository paymentRepository,
             BookingRepository bookingRepository,
+            ContractRepository contractRepository,
             SalaryHistoryRepository salaryHistoryRepository,
             UserRepository userRepository,
             NotificationService notificationService,
@@ -465,6 +468,7 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
         super(paymentRepository);
         this.paymentRepository = paymentRepository;
         this.bookingRepository = bookingRepository;
+        this.contractRepository = contractRepository;
         this.salaryHistoryRepository = salaryHistoryRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
@@ -695,6 +699,22 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
         if ("DEPOSIT".equals(type)) {
             payment.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
             booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+
+            // Cập nhật trạng thái đơn hàng sang DEPOSIT_CONFIRMED để OrderDetail và thợ thi công gán được
+            if (booking.getStatus() == BookingStatus.WAITING_DEPOSIT
+                    || booking.getStatus() == BookingStatus.WAITING_CUSTOMER_SIGNATURE
+                    || booking.getStatus() == BookingStatus.PENDING) {
+                booking.setStatus(BookingStatus.DEPOSIT_CONFIRMED);
+            }
+
+            // Đồng bộ hợp đồng nếu có
+            contractRepository.findByBookingId(booking.getId()).ifPresent(c -> {
+                if (!Boolean.TRUE.equals(c.getAdminSigned())) {
+                    c.setAdminSigned(true);
+                    c.setAdminSignedAt(LocalDateTime.now());
+                    contractRepository.save(c);
+                }
+            });
         } else {
             payment.setPaymentStatus(PaymentStatus.FULLY_PAID);
             booking.setPaymentStatus(PaymentStatus.FULLY_PAID);

@@ -13,11 +13,14 @@ export default function AdminLayout({ user, onLogout, showToast }) {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes("/employees")) return "employees";
+    if (path.includes("/accounts")) return "accounts";
     if (path.includes("/customers")) return "customers";
-    if (path.includes("/bookings")) return "orders";
+    if (path.includes("/bookings") || path.includes("/orders")) return "bookings";
     if (path.includes("/contracts")) return "contracts";
     if (path.includes("/payments")) return "payments";
-    if (path.includes("/painting")) return "painting";
+    if (path.includes("/services") || path.includes("/painting")) return "services";
+    if (path.includes("/revenue")) return "revenue";
+    if (path.includes("/wallet")) return "wallet";
     if (path.includes("/notifications")) return "notifications";
     return "dashboard";
   };
@@ -78,11 +81,11 @@ export default function AdminLayout({ user, onLogout, showToast }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans antialiased">
+    <div className="flex min-h-screen bg-slate-50 font-sans antialiased text-slate-800">
       <Sidebar
-        logoIcon="S"
+        logoIcon="👑"
         logoTextPrimary="Quản Trị"
-        logoTextSecondary="247"
+        logoTextSecondary="Sơn Sửa 247"
         color="blue"
         activeTab={getActiveTab()}
         onTabChange={(tab) => navigate(`/admin/${tab === "dashboard" ? "" : tab}`)}
@@ -94,24 +97,47 @@ export default function AdminLayout({ user, onLogout, showToast }) {
           { label: "Quản Lý Yêu Cầu", icon: "📋", value: "bookings" },
           { label: "Hợp Đồng", icon: "📄", value: "contracts" },
           { label: "Thanh Toán NV", icon: "💰", value: "payments" },
-          { label: "Dịch Vụ Sơn Nhà", icon: "🎨", value: "painting" },
+          { label: "Quản Lý Dịch Vụ", icon: "🎨", value: "services" },
         ]}
       />
 
-      <div className="flex-1 flex flex-col">
-        <div className="flex justify-end p-4 pb-0">
-          <NotificationPopover
-            notifications={notifications}
-            onMarkRead={handleMarkRead}
-            onDeleteAll={handleDeleteAll}
-            onDeleteOne={handleDeleteOne}
-            color="blue"
-          />
-        </div>
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Trung Tâm Quản Trị Hệ Thống Sơn Sửa 247
+            </span>
+          </div>
 
-        <div className="flex-1 p-8 pt-4 overflow-y-auto">
+          <div className="flex items-center gap-3">
+            <NotificationPopover
+              notifications={notifications}
+              onMarkRead={handleMarkRead}
+              onDeleteAll={handleDeleteAll}
+              onDeleteOne={handleDeleteOne}
+              color="blue"
+            />
+            <div className="h-6 w-px bg-slate-200"></div>
+            <div className="flex items-center gap-2.5 pl-1">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs text-white bg-blue-600 shadow-sm shadow-blue-500/20">
+                {(profile?.fullName || profile?.username || "A").charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-slate-800 leading-tight">
+                  {profile?.fullName || profile?.username || "Quản trị viên"}
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  Administrator
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
           <Outlet context={{ user: profile, showToast, setNotifications }} />
-        </div>
+        </main>
       </div>
     </div>
   );
