@@ -3,15 +3,30 @@ import { useOutletContext } from "react-router-dom";
 import AxiosConfig from "../../../util/AxiosConfig";
 import { formatMoney } from "../../../util/formatters";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
+import DashboardHeader from "../../../components/layout/DashboardHeader";
+import Modal from "../../../components/common/Modal";
+import Pagination from "../../../components/common/Pagination";
+import {
+  Paintbrush,
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  CheckCircle2,
+  Layers,
+  ShieldCheck,
+} from "lucide-react";
 
 export default function ServiceManagement() {
-  const { showToast } = useOutletContext();
+  const { user, showToast } = useOutletContext();
 
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("newest");
-  const [viewMode, setViewMode] = useState("grid"); // "grid" | "table"
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -28,7 +43,7 @@ export default function ServiceManagement() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // 1. Fetch Services
+  // Fetch Services
   const fetchServices = async () => {
     try {
       setLoading(true);
@@ -51,7 +66,29 @@ export default function ServiceManagement() {
     fetchServices();
   }, []);
 
-  // 2. Open Create / Edit Modal
+  // Filtered services
+  const filteredServices = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return services;
+    return services.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(term) ||
+        s.description?.toLowerCase().includes(term)
+    );
+  }, [services, searchTerm]);
+
+  // Reset page on search
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Paginated slice
+  const totalPages = Math.ceil(filteredServices.length / itemsPerPage) || 1;
+  const paginatedServices = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredServices.slice(start, start + itemsPerPage);
+  }, [filteredServices, currentPage, itemsPerPage]);
+
   const handleOpenCreate = () => {
     setEditingService(null);
     setFormData({
@@ -81,7 +118,6 @@ export default function ServiceManagement() {
     setFormErrors({});
   };
 
-  // 3. Form Validation
   const validateForm = () => {
     const errors = {};
     if (!formData.name?.trim()) {
@@ -98,37 +134,31 @@ export default function ServiceManagement() {
     return Object.keys(errors).length === 0;
   };
 
-  // 4. Save Service (Create or Update)
-  const handleSave = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    try {
-      setSubmitting(true);
-      const payload = {
-        name: formData.name.trim(),
-        basePrice: Number(formData.basePrice),
-        description: formData.description.trim(),
-      };
+    setSubmitting(true);
+    const payload = {
+      name: formData.name.trim(),
+      basePrice: Number(formData.basePrice),
+      description: formData.description.trim(),
+    };
 
+    try {
       if (editingService) {
-        // Update
-        const res = await AxiosConfig.put(`/services/${editingService.id}`, payload);
-        showToast?.("Cập nhật dịch vụ thành công!", "success");
-        setServices((prev) =>
-          prev.map((s) => (s.id === editingService.id ? res.data : s))
-        );
+        await AxiosConfig.put(`/services/${editingService.id}`, payload);
+        showToast?.("Cập nhật dịch vụ thành công", "success");
       } else {
-        // Create
-        const res = await AxiosConfig.post("/services", payload);
-        showToast?.("Thêm dịch vụ mới thành công!", "success");
-        setServices((prev) => [res.data, ...prev]);
+        await AxiosConfig.post("/services", payload);
+        showToast?.("Tạo dịch vụ mới thành công", "success");
       }
       handleCloseModal();
+      fetchServices();
     } catch (err) {
       console.error(err);
       showToast?.(
-        err.response?.data?.message || "Lưu dịch vụ thất bại",
+        err.response?.data?.message || "Thao tác không thành công",
         "error"
       );
     } finally {
@@ -136,15 +166,14 @@ export default function ServiceManagement() {
     }
   };
 
-  // 5. Delete Service
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      setDeleting(true);
       await AxiosConfig.delete(`/services/${deleteTarget.id}`);
-      showToast?.(`Đã xóa dịch vụ "${deleteTarget.name}"`, "success");
-      setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      showToast?.("Đã xóa dịch vụ thành công", "success");
       setDeleteTarget(null);
+      fetchServices();
     } catch (err) {
       console.error(err);
       showToast?.(
@@ -156,510 +185,224 @@ export default function ServiceManagement() {
     }
   };
 
-  // 6. Filter & Sort Services
-  const filteredServices = useMemo(() => {
-    let result = [...services];
-
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      result = result.filter(
-        (s) =>
-          s.name?.toLowerCase().includes(q) ||
-          s.description?.toLowerCase().includes(q) ||
-          String(s.id).includes(q)
-      );
-    }
-
-    if (sortBy === "price_asc") {
-      result.sort((a, b) => (Number(a.basePrice) || 0) - (Number(b.basePrice) || 0));
-    } else if (sortBy === "price_desc") {
-      result.sort((a, b) => (Number(b.basePrice) || 0) - (Number(a.basePrice) || 0));
-    } else if (sortBy === "name_asc") {
-      result.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    } else {
-      // newest
-      result.sort((a, b) => (b.id || 0) - (a.id || 0));
-    }
-
-    return result;
-  }, [services, searchTerm, sortBy]);
-
-  // 7. Stats Calculation
-  const stats = useMemo(() => {
-    const total = services.length;
-    if (total === 0) return { total: 0, avgPrice: 0, minPrice: 0, maxPrice: 0 };
-    const prices = services.map((s) => Number(s.basePrice) || 0);
-    const sum = prices.reduce((acc, p) => acc + p, 0);
-    return {
-      total,
-      avgPrice: Math.round(sum / total),
-      minPrice: Math.min(...prices),
-      maxPrice: Math.max(...prices),
-    };
-  }, [services]);
-
-  const getServiceIcon = (name = "") => {
-    const lower = name.toLowerCase();
-    if (lower.includes("chống thấm")) return "🛡️";
-    if (lower.includes("nội thất") || lower.includes("trong nhà")) return "🛋️";
-    if (lower.includes("ngoại thất") || lower.includes("ngoài trời")) return "🏡";
-    if (lower.includes("cải tạo") || lower.includes("sửa")) return "🔨";
-    if (lower.includes("trọn gói")) return "✨";
-    return "🎨";
-  };
-
   return (
-    <div className="space-y-6 max-w-7xl">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/90 shadow-xs">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold mb-2">
-            <span>🎨</span> Danh mục dịch vụ hệ thống
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
-            Quản Lý Dịch Vụ Sơn Sửa
-          </h1>
-          <p className="text-xs md:text-sm text-slate-500 mt-1">
-            Thiết lập danh mục dịch vụ, đơn giá định mức chuẩn và thông tin mô tả chi tiết cho khách hàng.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <DashboardHeader
+        title="Quản Lý Dịch Vụ Sơn"
+        subtitle="Cấu hình các gói dịch vụ thi công sơn nhà và đơn giá cơ sở."
+        userName={user?.username}
+        userRole="Quản trị viên"
+        avatarChar={(user?.username || "A").charAt(0).toUpperCase()}
+      />
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={fetchServices}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition flex items-center gap-2"
-          >
-            <span>🔄</span> Làm mới
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-blue-500/20 flex items-center gap-2"
-          >
-            <span>➕</span> Thêm Dịch Vụ Mới
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Tổng số dịch vụ
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg font-bold">
-              🎨
-            </div>
-          </div>
-          <p className="text-3xl font-black text-blue-600 mt-3">{stats.total}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Gói dịch vụ đang hiển thị phục vụ đặt lịch</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Đơn giá trung bình
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold">
-              💰
-            </div>
-          </div>
-          <p className="text-3xl font-black text-emerald-600 mt-3">
-            {formatMoney(stats.avgPrice)}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Mức giá định mức trung bình/gói</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Khoảng giá dao động
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg font-bold">
-              📊
-            </div>
-          </div>
-          <p className="text-2xl font-black text-purple-600 mt-3">
-            {formatMoney(stats.minPrice)} ~ {formatMoney(stats.maxPrice)}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Từ gói cơ bản đến trọn gói cao cấp</p>
-        </div>
-      </div>
-
-      {/* Filter & Controls Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="relative flex-1">
+      {/* Control Bar */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
+            placeholder="Tìm kiếm gói dịch vụ..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Tìm kiếm dịch vụ theo tên, mã số, mô tả chi tiết..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition"
           />
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-            🔍
-          </span>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Sắp xếp:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              <option value="newest">Mới nhất</option>
-              <option value="name_asc">Tên dịch vụ (A - Z)</option>
-              <option value="price_asc">Đơn giá (Thấp đến cao)</option>
-              <option value="price_desc">Đơn giá (Cao đến thấp)</option>
-            </select>
-          </div>
-
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === "grid"
-                  ? "bg-white text-blue-600 shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-              title="Dạng lưới"
-            >
-              ▦ Lưới
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === "table"
-                  ? "bg-white text-blue-600 shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-              title="Dạng bảng"
-            >
-              ☰ Bảng
-            </button>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={handleOpenCreate}
+          className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Thêm dịch vụ mới</span>
+        </button>
       </div>
 
-      {/* Main Content Area */}
+      {/* Grid Layout gọn gàng */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-3"></div>
-          <p className="text-sm font-semibold">Đang tải danh sách dịch vụ...</p>
-        </div>
-      ) : filteredServices.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-slate-200/90 text-center text-slate-400 space-y-3">
-          <div className="text-5xl">🎨</div>
-          <p className="text-base font-bold text-slate-700">
-            {services.length === 0
-              ? "Chưa có dịch vụ nào trong hệ thống"
-              : "Không tìm thấy dịch vụ phù hợp với từ khóa"}
-          </p>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            {services.length === 0
-              ? "Nhấn nút 'Thêm Dịch Vụ Mới' ở trên để khởi tạo các gói dịch vụ sơn nhà chuyên nghiệp."
-              : "Thử tìm kiếm với tên hoặc từ khóa khác."}
-          </p>
-          {services.length === 0 && (
-            <button
-              type="button"
-              onClick={handleOpenCreate}
-              className="mt-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition"
-            >
-              + Thêm dịch vụ đầu tiên
-            </button>
-          )}
-        </div>
-      ) : viewMode === "grid" ? (
-        /* GRID VIEW */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredServices.map((service) => (
-            <div
-              key={service.id}
-              className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-xs hover:shadow-lg hover:border-blue-300 transition-all duration-200 flex flex-col justify-between group space-y-5"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center text-2xl shadow-xs group-hover:scale-105 transition-transform">
-                    {getServiceIcon(service.name)}
-                  </div>
-                  <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg tracking-wider">
-                    #{service.id}
-                  </span>
-                </div>
-
-                <h3 className="text-lg font-black text-slate-900 leading-snug group-hover:text-blue-600 transition">
-                  {service.name}
-                </h3>
-
-                <div className="mt-3 inline-block px-3 py-1.5 bg-emerald-50 border border-emerald-200/80 rounded-xl">
-                  <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">
-                    Đơn giá cơ bản:
-                  </span>
-                  <p className="text-lg font-black text-emerald-600">
-                    {formatMoney(service.basePrice)}
-                  </p>
-                </div>
-
-                <p className="text-xs text-slate-600 mt-4 line-clamp-3 leading-relaxed whitespace-pre-wrap">
-                  {service.description || "Chưa có thông tin mô tả chi tiết cho dịch vụ này."}
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-                <span className="text-[11px] text-slate-400">
-                  {service.createdAt
-                    ? `Tạo: ${new Date(service.createdAt).toLocaleDateString("vi-VN")}`
-                    : "—"}
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEdit(service)}
-                    className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl text-xs transition flex items-center gap-1"
-                  >
-                    <span>✏️</span> Sửa
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTarget(service)}
-                    className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl text-xs transition flex items-center gap-1"
-                  >
-                    <span>🗑️</span> Xóa
-                  </button>
-                </div>
-              </div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs animate-pulse space-y-4">
+              <div className="w-12 h-12 bg-emerald-50 rounded-2xl" />
+              <div className="h-5 bg-slate-200 rounded w-2/3" />
+              <div className="h-4 bg-slate-100 rounded w-full" />
+              <div className="h-10 bg-slate-100 rounded-xl mt-6" />
             </div>
           ))}
         </div>
+      ) : paginatedServices.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200">
+          <Paintbrush className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-700 font-bold text-sm">Không tìm thấy dịch vụ nào</p>
+          <p className="text-xs text-slate-400 mt-1">Thử đổi từ khóa hoặc thêm gói mới</p>
+        </div>
       ) : (
-        /* TABLE VIEW */
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50/80 text-xs uppercase font-bold text-slate-500 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-4">Mã</th>
-                  <th className="px-6 py-4">Tên dịch vụ</th>
-                  <th className="px-6 py-4">Đơn giá cơ bản</th>
-                  <th className="px-6 py-4">Mô tả</th>
-                  <th className="px-6 py-4">Ngày tạo</th>
-                  <th className="px-6 py-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredServices.map((service) => (
-                  <tr key={service.id} className="hover:bg-slate-50/60 transition">
-                    <td className="px-6 py-4 font-bold text-slate-500">
-                      #{service.id}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{getServiceIcon(service.name)}</span>
-                        <span className="font-bold text-slate-900">
-                          {service.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-black text-emerald-600">
-                      {formatMoney(service.basePrice)}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 text-xs max-w-xs truncate">
-                      {service.description || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-400">
-                      {service.createdAt
-                        ? new Date(service.createdAt).toLocaleDateString("vi-VN")
-                        : "—"}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(service)}
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-xs transition"
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(service)}
-                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg text-xs transition"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* CREATE / EDIT MODAL */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 md:p-8 space-y-6 relative overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">
-                  {editingService ? "✏️" : "➕"}
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-800">
-                    {editingService ? "Chỉnh Sửa Dịch Vụ" : "Thêm Dịch Vụ Mới"}
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    {editingService
-                      ? `Cập nhật thông tin dịch vụ #${editingService.id}`
-                      : "Điền thông tin và đơn giá để tạo dịch vụ mới"}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm font-bold transition"
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedServices.map((srv) => (
+              <div
+                key={srv.id}
+                className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs hover:shadow-md hover:border-emerald-300 transition-all duration-200 flex flex-col justify-between group"
               >
-                ✕
-              </button>
-            </div>
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                      <Paintbrush className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+                      ID: #{srv.id}
+                    </span>
+                  </div>
 
-            {/* Modal Form */}
-            <form onSubmit={handleSave} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Tên Dịch Vụ <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  placeholder="Ví dụ: Sơn Nhà Trọn Gói, Sơn Chống Thấm..."
-                  className={`w-full px-4 py-3 rounded-2xl border text-sm font-medium focus:outline-none focus:ring-2 ${
-                    formErrors.name
-                      ? "border-rose-400 focus:ring-rose-500/20 bg-rose-50/30"
-                      : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/50"
-                  }`}
-                />
-                {formErrors.name && (
-                  <p className="text-xs text-rose-500 font-semibold mt-1">
-                    {formErrors.name}
+                  <h3 className="font-bold text-slate-900 text-base mb-2">
+                    {srv.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-3">
+                    {srv.description || "Dịch vụ sơn sửa chất lượng cao, độ bền vượt trội."}
                   </p>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Đơn Giá Cơ Bản (VNĐ) <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={formData.basePrice}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        basePrice: e.target.value,
-                      }))
-                    }
-                    placeholder="50000"
-                    className={`w-full pl-4 pr-12 py-3 rounded-2xl border text-sm font-bold ${
-                      formErrors.basePrice
-                        ? "border-rose-400 focus:ring-rose-500/20 bg-rose-50/30"
-                        : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/50 text-emerald-600"
-                    }`}
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                    VNĐ
-                  </span>
+                  <div className="space-y-1.5 mb-6 text-xs text-slate-600">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Sơn chính hãng 100%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Bảo hành theo hợp đồng</span>
+                    </div>
+                  </div>
                 </div>
-                {formErrors.basePrice && (
-                  <p className="text-xs text-rose-500 font-semibold mt-1">
-                    {formErrors.basePrice}
-                  </p>
-                )}
-                {formData.basePrice && !isNaN(Number(formData.basePrice)) && (
-                  <p className="text-xs text-emerald-600 font-bold mt-1">
-                    Hiển thị: {formatMoney(formData.basePrice)}
-                  </p>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Mô Tả Chi Tiết
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="Nhập mô tả quy trình thi công, vật tư sử dụng, chế độ bảo hành..."
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-slate-50/50 text-sm font-normal focus:outline-none"
-                />
-              </div>
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
+                      Đơn giá cơ sở
+                    </span>
+                    <span className="text-sm font-black text-emerald-700">
+                      {srv.basePrice ? `${formatMoney(srv.basePrice)} / m²` : "Khảo sát báo giá"}
+                    </span>
+                  </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  disabled={submitting}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-100 transition text-xs"
-                >
-                  Hủy Bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold transition text-xs shadow-md shadow-blue-500/20 flex items-center gap-2"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Đang lưu...</span>
-                    </>
-                  ) : (
-                    <span>{editingService ? "Lưu Thay Đổi" : "Tạo Dịch Vụ"}</span>
-                  )}
-                </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(srv)}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+                      title="Chỉnh sửa dịch vụ"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(srv)}
+                      className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition cursor-pointer"
+                      title="Xóa dịch vụ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
-            </form>
+            ))}
+          </div>
+
+          <div className="bg-white p-4 rounded-3xl border border-slate-200">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredServices.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(page) => setCurrentPage(page)}
+            />
           </div>
         </div>
       )}
 
-      {/* DELETE CONFIRM DIALOG */}
+      {/* Modal Create/Edit Service */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={handleCloseModal}
+        title={editingService ? `Sửa gói dịch vụ #${editingService.id}` : "Thêm gói dịch vụ mới"}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">
+              Tên dịch vụ <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="VD: Sơn nội thất Dulux 5in1"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition ${
+                formErrors.name ? "border-rose-300" : "border-slate-200"
+              }`}
+            />
+            {formErrors.name && (
+              <p className="text-[11px] text-rose-500 mt-1">{formErrors.name}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">
+              Đơn giá cơ sở (VNĐ / m²) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              placeholder="VD: 55000"
+              value={formData.basePrice}
+              onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
+              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition ${
+                formErrors.basePrice ? "border-rose-300" : "border-slate-200"
+              }`}
+            />
+            {formErrors.basePrice && (
+              <p className="text-[11px] text-rose-500 mt-1">{formErrors.basePrice}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">
+              Mô tả chi tiết hạng mục
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Mô tả chất lượng sơn, bề mặt thi công, bảo hành..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleCloseModal}
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 transition cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
+            >
+              {submitting ? "Đang lưu..." : editingService ? "Lưu thay đổi" : "Tạo dịch vụ"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={Boolean(deleteTarget)}
-        onClose={() => !deleting && setDeleteTarget(null)}
+        isOpen={!!deleteTarget}
+        title="Xác nhận xóa gói dịch vụ"
+        message={`Bạn có chắc chắn muốn xóa dịch vụ "${deleteTarget?.name}" khỏi hệ thống?`}
         onConfirm={handleDeleteConfirm}
-        title="Xác nhận xóa dịch vụ"
-        message={
-          deleteTarget
-            ? `Bạn có chắc chắn muốn xóa dịch vụ "${deleteTarget.name}" (Mã #${deleteTarget.id}) khỏi hệ thống? Thao tác này không thể hoàn tác.`
-            : ""
-        }
-        confirmText={deleting ? "Đang xóa..." : "Xác nhận xóa"}
-        cancelText="Hủy"
-        confirmColor="bg-rose-600 hover:bg-rose-700"
+        onCancel={() => setDeleteTarget(null)}
+        isLoading={deleting}
       />
     </div>
   );

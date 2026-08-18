@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import BookingDetail from "./pages/customer/BookingDetail";
+import VNPayCallback from "./pages/customer/VNPayCallback";
 import Toast from "./components/Toast";
 
 import AdminRoutes from "./routes/AdminRoutes";
@@ -91,6 +92,11 @@ function App() {
           element={
             <Home user={user} onLogout={handleLogout} showToast={showToast} />
           }
+        />
+
+        <Route
+          path="/customer/payment-callback"
+          element={<VNPayCallback />}
         />
 
         <Route

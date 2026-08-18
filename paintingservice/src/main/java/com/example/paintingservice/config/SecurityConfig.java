@@ -51,7 +51,7 @@ public class SecurityConfig {
         httpSecurity.cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/login", "/api/register", "/status", "/health","/api/payments/zalopay/callback").permitAll()
+                        .requestMatchers("/api/login", "/api/register", "/status", "/health", "/api/payments/vnpay/**", "/api/payments/momo/ipn", "/api/payments/zalopay/callback").permitAll()
                         .anyRequest().authenticated()
                 ).sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

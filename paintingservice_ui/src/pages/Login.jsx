@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import AxiosConfig from "../util/AxiosConfig";
 import { API_ENDPOINTS } from "../util/ApiEndpoints";
 import { getRedirectPath } from "../util/roleUtils";
@@ -9,6 +9,7 @@ function Login({ onLogin, showToast }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -30,7 +31,15 @@ function Login({ onLogin, showToast }) {
 
       onLogin(resData);
       showToast?.("Đăng nhập thành công!", "success");
-      navigate(getRedirectPath(resData));
+      
+      const targetPath = location.state?.redirectTo || getRedirectPath(resData);
+      navigate(targetPath, { 
+        state: { 
+          serviceId: location.state?.serviceId,
+          serviceName: location.state?.serviceName 
+        },
+        replace: true 
+      });
     } catch (error) {
       console.error("Lỗi đăng nhập:", error);
       showToast?.(

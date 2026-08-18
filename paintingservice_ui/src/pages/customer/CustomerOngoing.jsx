@@ -1052,7 +1052,7 @@ export default function OngoingBookings() {
                                                         className="text-xs text-slate-500 mt-1 truncate"
                                                         title={booking.address}
                                                     >
-                                                        📍 {booking.address || "Chưa có địa chỉ"}
+                                                        {booking.address || "Chưa có địa chỉ"}
                                                     </div>
                                                 </td>
 

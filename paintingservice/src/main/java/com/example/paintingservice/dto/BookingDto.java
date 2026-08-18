@@ -58,6 +58,10 @@ public class BookingDto {
     private BigDecimal remainingAmount;
     private PaymentStatus paymentStatus;
 
+    private Integer estimatedDays;
+    private Integer warrantyYears;
+    private LocalDate expectedStartDate;
+
     /** Tiện cho frontend BookingDetail */
     private Boolean depositPaid;
     private Boolean finalPaid;

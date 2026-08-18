@@ -6,10 +6,12 @@ import CustomerWallet from "../pages/customer/CustomerWallet";
 import CustomerDashboard from "../pages/customer/CustomerDashboard";
 import CustomerBooking from "../pages/customer/CustomerBooking";
 import OngoingBookings from "../pages/customer/CustomerOngoing";
+import VNPayCallback from "../pages/customer/VNPayCallback";
 
 export default function CustomerRoutes({ user, onLogout, showToast }) {
   return (
     <Routes>
+      <Route path="payment-callback" element={<VNPayCallback />} />
       <Route
         element={
           <CustomerLayout user={user} onLogout={onLogout} showToast={showToast} />

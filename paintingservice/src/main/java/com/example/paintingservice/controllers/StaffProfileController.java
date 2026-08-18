@@ -6,6 +6,7 @@ import com.example.paintingservice.entity.Role;
 import com.example.paintingservice.entity.StaffProfile;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.enums.BookingStatus;
+import com.example.paintingservice.enums.StaffType;
 import com.example.paintingservice.enums.UserStatus;
 import com.example.paintingservice.mapper.StaffProfileMapper;
 import com.example.paintingservice.repository.BookingRepository;
@@ -82,21 +83,59 @@ public class StaffProfileController {
         StaffProfile profile = profileOpt.get();
         User user = profile.getUser();
 
-        StaffProfileDto dto = StaffProfileDto.builder()
-                .id(profile.getId())
-                .userId(user != null ? user.getId() : null)
-                .username(user != null ? user.getUsername() : null)
-                .email(user != null ? user.getEmail() : null)
-                .phoneNumber(user != null ? user.getPhoneNumber() : null)
-                .address(user != null ? user.getAddress() : null)
-                .specialty(profile.getSpecialty())
-                .experienceYears(profile.getExperienceYears())
-                .rating(profile.getRating())
-                .available(profile.getAvailable())
-                .staffType(profile.getStaffType())
-                .build();
-
+        StaffProfileDto dto = StaffProfileMapper.toDto(profile);
         return ResponseEntity.ok(dto);
+    }
+
+    // 2.1 READ: Lấy thông tin StaffProfile của chính mình
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
+    public ResponseEntity<?> getMyStaffProfile(Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+        Optional<StaffProfile> profileOpt = staffProfileRepository.findByUser_Id(currentUser.getId());
+        if (profileOpt.isEmpty()) {
+            return ResponseEntity.ok(StaffProfileDto.builder()
+                    .userId(currentUser.getId())
+                    .username(currentUser.getUsername())
+                    .email(currentUser.getEmail())
+                    .phoneNumber(currentUser.getPhoneNumber())
+                    .address(currentUser.getAddress())
+                    .build());
+        }
+        return ResponseEntity.ok(StaffProfileMapper.toDto(profileOpt.get()));
+    }
+
+    // 2.2 UPDATE: Nhân viên tự cập nhật khu vực hoạt động & thông tin ngân hàng của mình
+    @PutMapping("/me")
+    @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
+    public ResponseEntity<?> updateMyStaffProfile(@RequestBody StaffProfileDto dto, Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+        
+        if (dto.getEmail() != null) currentUser.setEmail(dto.getEmail());
+        if (dto.getPhoneNumber() != null) currentUser.setPhoneNumber(dto.getPhoneNumber());
+        if (dto.getAddress() != null) currentUser.setAddress(dto.getAddress());
+        userRepository.save(currentUser);
+
+        StaffProfile profile = staffProfileRepository.findByUser_Id(currentUser.getId())
+                .orElseGet(() -> {
+                    StaffProfile p = new StaffProfile();
+                    p.setUser(currentUser);
+                    p.setStaffType(StaffType.WORKER);
+                    p.setRating(5.0);
+                    p.setAvailable(true);
+                    return p;
+                });
+
+        if (dto.getSpecialty() != null) profile.setSpecialty(dto.getSpecialty());
+        if (dto.getExperienceYears() != null) profile.setExperienceYears(dto.getExperienceYears());
+        if (dto.getAvailable() != null) profile.setAvailable(dto.getAvailable());
+        if (dto.getServiceArea() != null) profile.setServiceArea(dto.getServiceArea());
+        if (dto.getBankName() != null) profile.setBankName(dto.getBankName());
+        if (dto.getBankAccountNumber() != null) profile.setBankAccountNumber(dto.getBankAccountNumber());
+        if (dto.getBankAccountName() != null) profile.setBankAccountName(dto.getBankAccountName());
+
+        StaffProfile saved = staffProfileRepository.save(profile);
+        return ResponseEntity.ok(StaffProfileMapper.toDto(saved));
     }
 
     // 3. CREATE: Tạo mới Staff (Tạo cả User và StaffProfile)
@@ -134,6 +173,10 @@ public class StaffProfileController {
         profile.setRating(5.0);
         profile.setAvailable(dto.getAvailable() != null ? dto.getAvailable() : true);
         profile.setStaffType(dto.getStaffType());
+        profile.setServiceArea(dto.getServiceArea());
+        profile.setBankName(dto.getBankName());
+        profile.setBankAccountNumber(dto.getBankAccountNumber());
+        profile.setBankAccountName(dto.getBankAccountName());
         StaffProfile savedProfile = staffProfileRepository.save(profile);
 
         dto.setId(savedProfile.getId());
@@ -178,6 +221,14 @@ public class StaffProfileController {
             profile.setAvailable(dto.getAvailable());
         if (dto.getStaffType() != null)
             profile.setStaffType(dto.getStaffType());
+        if (dto.getServiceArea() != null)
+            profile.setServiceArea(dto.getServiceArea());
+        if (dto.getBankName() != null)
+            profile.setBankName(dto.getBankName());
+        if (dto.getBankAccountNumber() != null)
+            profile.setBankAccountNumber(dto.getBankAccountNumber());
+        if (dto.getBankAccountName() != null)
+            profile.setBankAccountName(dto.getBankAccountName());
 
         StaffProfile updatedProfile = staffProfileRepository.save(profile);
 

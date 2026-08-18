@@ -25,6 +25,33 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final MoMoService moMoService;
+    private final com.example.paintingservice.service.VNPayService vnPayService;
+
+    // ===== VNPAY SANDBOX =====
+
+    @PostMapping("/vnpay/create")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> createVNPayOrder(
+            @RequestParam Long bookingId,
+            @RequestParam(defaultValue = "DEPOSIT") String paymentType,
+            jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(vnPayService.createVNPayPaymentUrl(bookingId, paymentType, request));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/vnpay/return")
+    public ResponseEntity<?> vnPayReturn(@RequestParam Map<String, String> allParams) {
+        try {
+            Map<String, Object> result = vnPayService.processVNPayCallback(allParams);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", e.getMessage(), "success", false));
+        }
+    }
 
     // ===== MOMO =====
 

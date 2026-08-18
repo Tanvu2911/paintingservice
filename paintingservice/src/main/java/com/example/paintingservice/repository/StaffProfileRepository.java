@@ -12,9 +12,11 @@ import java.util.Optional;
 public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long> {
 
     Optional<StaffProfile> findByUserId(Long userId);
+    Optional<StaffProfile> findByUser_Id(Long userId);
     Optional<StaffProfile> findByUser(User user);
 
-   List<StaffProfile> findByStaffTypeAndAvailableTrue(StaffType staffType);
+    List<StaffProfile> findByStaffTypeAndAvailableTrue(StaffType staffType);
+    List<StaffProfile> findByServiceAreaContaining(String area);
 
     boolean existsByUserId(Long userId);
 

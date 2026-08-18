@@ -1,24 +1,43 @@
 const STATUS_MAP = {
   // Booking & Survey Statuses
-  PENDING: { label: "Chờ nhận việc", className: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  SURVEY_ASSIGNED: { label: "Đã phân công khảo sát", className: "bg-blue-100 text-blue-800 border-blue-200" },
-  SURVEY_REJECTED: { label: "Từ chối khảo sát", className: "bg-rose-100 text-rose-800 border-rose-200" },
-  ACCEPTED: { label: "Đã nhận việc", className: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-  SURVEYING: { label: "Đang khảo sát", className: "bg-purple-100 text-purple-800 border-purple-200" },
-  WAITING_CONTRACT_APPROVAL: { label: "Chờ duyệt HĐ", className: "bg-cyan-100 text-cyan-800 border-cyan-200" },
-  WAITING_CUSTOMER_SIGNATURE: { label: "Chờ khách ký HĐ", className: "bg-amber-100 text-amber-800 border-amber-200" },
-  CONTRACT_APPROVED: { label: "HĐ đã duyệt", className: "bg-green-100 text-green-800 border-green-200" },
-  ASSIGNED: { label: "Đã phân công thợ", className: "bg-teal-100 text-teal-800 border-teal-200" },
-  PROCESSING: { label: "Đang thi công", className: "bg-orange-100 text-orange-800 border-orange-200" },
-  WORKER_REJECTED: { label: "Thợ từ chối", className: "bg-red-100 text-red-800 border-red-200" },
-  WORKER_COMPLETED: { label: "Thợ hoàn thành", className: "bg-purple-100 text-purple-800 border-purple-200" },
-  COMPLETED: { label: "Hoàn thành", className: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-  CANCELLED: { label: "Đã hủy", className: "bg-rose-100 text-rose-800 border-rose-200" },
+  PENDING: { label: "Chờ tiếp nhận", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  SURVEY_ASSIGNED: { label: "Đã phân công khảo sát", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  SURVEY_REJECTED: { label: "Từ chối khảo sát", className: "bg-rose-50 text-rose-700 border-rose-200" },
+  ACCEPTED: { label: "Đã nhận khảo sát", className: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  SURVEYING: { label: "Đang khảo sát", className: "bg-purple-50 text-purple-700 border-purple-200" },
+  WAITING_ADMIN_QUOTE: { label: "Chờ duyệt báo giá", className: "bg-sky-50 text-sky-700 border-sky-200" },
+  WAITING_CUSTOMER_QUOTE_APPROVAL: { label: "Chờ khách duyệt giá", className: "bg-sky-50 text-sky-700 border-sky-200" },
+  CUSTOMER_ACCEPTED_QUOTE: { label: "Đã chốt báo giá", className: "bg-teal-50 text-teal-700 border-teal-200" },
+  WAITING_CONTRACT_APPROVAL: { label: "Chờ duyệt hợp đồng", className: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+  WAITING_CUSTOMER_SIGNATURE: { label: "Chờ khách ký HĐ", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  WAITING_DEPOSIT: { label: "Chờ thanh toán cọc", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  DEPOSIT_CONFIRMED: { label: "Đã xác nhận cọc", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  CONTRACT_APPROVED: { label: "Hợp đồng đã duyệt", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  ASSIGNED: { label: "Đã phân công thợ", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  PROCESSING: { label: "Đang thi công", className: "bg-orange-50 text-orange-700 border-orange-200" },
+  WORKER_COMPLETED: { label: "Chờ nghiệm thu", className: "bg-purple-50 text-purple-700 border-purple-200" },
+  WAITING_FINAL_PAYMENT: { label: "Chờ tất toán (70%)", className: "bg-amber-50 text-amber-800 border-amber-300 font-bold" },
+  COMPLETED: { label: "Hoàn thành", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  CANCELLED: { label: "Đã hủy", className: "bg-rose-50 text-rose-700 border-rose-200" },
+  PAID_TO_STAFF: { label: "Đã quyết toán", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
 
   // Contract Specific Statuses
-  WORKER_SIGNED: { label: "Giám sát đã ký", className: "bg-blue-100 text-blue-800 border-blue-200" },
-  CUSTOMER_SIGNED: { label: "Khách hàng đã ký", className: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-  CONTRACT_CONFIRMED: { label: "Hợp đồng hoàn tất", className: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  WORKER_SIGNED: { label: "Giám sát đã ký", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  CUSTOMER_SIGNED: { label: "Khách hàng đã ký", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  CONTRACT_CONFIRMED: { label: "Hợp đồng hoàn tất", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+
+  // Payment Statuses
+  UNPAID: { label: "Chưa thanh toán", className: "bg-slate-100 text-slate-700 border-slate-200" },
+  PENDING_CONFIRMATION: { label: "Chờ duyệt thanh toán", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  DEPOSIT_PAID: { label: "Đã thanh toán cọc", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  FULLY_PAID: { label: "Đã thanh toán 100%", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+
+  // User / Account Statuses
+  ACTIVE: { label: "Đang hoạt động", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  RESTRICTED: { label: "Đang bị khóa", className: "bg-rose-50 text-rose-700 border-rose-200" },
+
+  // Salary Statuses
+  PAID: { label: "Đã thanh toán", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
 };
 
 export default function StatusBadge({ status, className = "" }) {

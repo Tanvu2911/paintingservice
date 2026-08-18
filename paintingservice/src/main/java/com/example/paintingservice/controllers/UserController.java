@@ -136,21 +136,23 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        dto.setId(id);
-        User userEntity = UserMapper.toEntity(dto);
+        // Cập nhật thông tin được phép
+        if (dto.getEmail() != null) existingUser.setEmail(dto.getEmail());
+        if (dto.getPhoneNumber() != null) existingUser.setPhoneNumber(dto.getPhoneNumber());
+        if (dto.getAddress() != null) existingUser.setAddress(dto.getAddress());
 
         // Logic kiểm tra mật khẩu:
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            // Nếu admin nhập mật khẩu mới -> Tiến hành mã hóa mật khẩu mới đó
-            userEntity.setPassword(passwordEncoder.encode(dto.getPassword()));
-        } else {
-            // Nếu admin để trống mật khẩu -> Giữ lại chuỗi mật khẩu đã mã hóa cũ từ cơ sở
-            // dữ liệu
-            userEntity.setPassword(existingUser.getPassword());
+            existingUser.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
 
-        UserDto result = UserMapper.toDto(userService.save(userEntity));
-        return ResponseEntity.ok(result);
+        // Chỉ Admin mới được đổi status hoặc role
+        if (isAdmin && dto.getStatus() != null) {
+            existingUser.setStatus(dto.getStatus());
+        }
+
+        User saved = userRepository.save(existingUser);
+        return ResponseEntity.ok(UserMapper.toDto(saved));
     }
 
     @DeleteMapping("/{id}")

@@ -10,9 +10,12 @@ public class SalaryHistoryMapper {
         if (history == null) {
             return null;
         }
+        User worker = history.getWorker();
         return SalaryHistoryDto.builder()
                 .id(history.getId())
-                .workerId(history.getWorker() != null ? history.getWorker().getId() : null)
+                .workerId(worker != null ? worker.getId() : null)
+                .workerName(worker != null ? worker.getUsername() : null)
+                .workerPhone(worker != null ? worker.getPhoneNumber() : null)
                 .bookingId(history.getBooking() != null ? history.getBooking().getId() : null)
                 .roleInBooking(history.getRoleInBooking())
                 .amountEarned(history.getAmountEarned())

@@ -30,9 +30,8 @@ public class UserDto {
     private String phoneNumber;
     private String address;
     private UserStatus status;
-
-    @NotNull(message = "roleId is required")
     private Integer roleId;
-
+    private String role;
+    private String staffType;
     private LocalDateTime createdAt;
 }

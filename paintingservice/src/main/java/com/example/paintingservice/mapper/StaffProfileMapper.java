@@ -30,6 +30,10 @@ public class StaffProfileMapper {
                 .rating(staffProfile.getRating())
                 .available(staffProfile.getAvailable())
                 .staffType(staffProfile.getStaffType())
+                .serviceArea(staffProfile.getServiceArea())
+                .bankName(staffProfile.getBankName())
+                .bankAccountNumber(staffProfile.getBankAccountNumber())
+                .bankAccountName(staffProfile.getBankAccountName())
 
                 .build();
     }
@@ -47,6 +51,10 @@ public class StaffProfileMapper {
                 .rating(dto.getRating())
                 .available(dto.getAvailable())
                 .staffType(dto.getStaffType())
+                .serviceArea(dto.getServiceArea())
+                .bankName(dto.getBankName())
+                .bankAccountNumber(dto.getBankAccountNumber())
+                .bankAccountName(dto.getBankAccountName())
                 .build();
 
         // Chỉ cần gán userId

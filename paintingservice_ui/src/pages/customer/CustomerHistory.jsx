@@ -7,12 +7,12 @@ export default function CustomerHistory() {
   return (
     <BookingHistoryPage
       role="customer"
-      title="Lịch sử yêu cầu"
-      subtitle="Theo dõi các yêu cầu đã hoàn thành"
+      title="Lịch sử đơn đã hoàn thành"
+      subtitle="Danh sách các công trình sơn nhà đã hoàn tất thi công và nghiệm thu"
       showToast={showToast}
       detailPath="/customer/bookings/:id"
-      emptyMessage="Bạn chưa có yêu cầu nào đã hoàn thành."
-      statusFilter={["COMPLETED"]} // Thuộc tính này giờ đã hoạt động!
+      emptyMessage="Bạn chưa có công trình nào đã hoàn thành."
+      statusFilter={["COMPLETED"]}
     />
   );
 }

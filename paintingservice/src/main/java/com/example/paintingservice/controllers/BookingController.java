@@ -27,10 +27,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import com.example.paintingservice.entity.Payment;
+import com.example.paintingservice.enums.PaymentStatus;
+import com.example.paintingservice.repository.PaymentRepository;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -44,6 +48,7 @@ public class BookingController {
     private final ServiceEntityRepository serviceEntityRepository;
     private final ContractRepository contractRepository;
     private final BookingDetailRepository bookingDetailRepository;
+    private final PaymentRepository paymentRepository;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -280,36 +285,45 @@ public class BookingController {
         return ResponseEntity.noContent().build();
     }
 
-    // ==================== PHÂN CÔNG GIÁM SÁT → SURVEY_ASSIGNED
-    // ====================
+    // ==================== PHÂN CÔNG GIÁM SÁT KHẢO SÁT ====================
     @PostMapping("/{id}/assign-supervisor")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> assignSupervisor(
-            @PathVariable Long id,
-            @RequestBody Map<String, Object> payload) {
-
+    public ResponseEntity<?> assignSupervisor(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         if (payload.get("supervisorId") == null) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Thiếu supervisorId"));
+            return ResponseEntity.badRequest().body(Map.of("message", "Thiếu supervisorId"));
         }
 
         Long supervisorId = Long.valueOf(payload.get("supervisorId").toString());
+        Booking booking = bookingRepository.findById(id).orElse(null);
+        if (booking == null)
+            return ResponseEntity.notFound().build();
 
-        Booking booking = bookingService.assignSupervisor(id, supervisorId);
+        // ★ Kiểm tra nếu Giám Sát đã khảo sát & gửi báo cáo thì KHÔNG ĐƯỢC ĐỔI NỮA
+        boolean canChangeSupervisor = booking.getStatus() == BookingStatus.PENDING
+                || booking.getStatus() == BookingStatus.SURVEY_ASSIGNED
+                || booking.getStatus() == BookingStatus.ACCEPTED;
 
-        // ★ Chuyển status → SURVEY_ASSIGNED
+        if (!canChangeSupervisor) {
+            return ResponseEntity.badRequest().body(Map.of("message",
+                    "Giám sát đã hoàn thành khảo sát và gửi báo cáo cho Admin. Không thể thay đổi giám sát viên nữa."));
+        }
+
+        User supervisor = userRepository.findById(supervisorId).orElse(null);
+        if (supervisor == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Không tìm thấy giám sát viên #" + supervisorId));
+        }
+
+        booking.setSurveyor(supervisor);
         booking.setStatus(BookingStatus.SURVEY_ASSIGNED);
         bookingRepository.save(booking);
 
-        if (booking.getSurveyor() != null) {
-            notificationService.save(Notification.builder()
-                    .user(booking.getSurveyor())
-                    .title("Phân công khảo sát #" + id)
-                    .content("Bạn được phân công khảo sát đơn hàng #" + id)
-                    .createdAt(LocalDateTime.now())
-                    .isRead(false)
-                    .build());
-        }
+        notificationService.save(Notification.builder()
+                .user(supervisor)
+                .title("Phân công khảo sát #" + id)
+                .content("Bạn được phân công khảo sát đơn hàng #" + id)
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build());
 
         return ResponseEntity.ok(Map.of(
                 "message", "Phân công giám sát thành công",
@@ -347,13 +361,27 @@ public class BookingController {
             return ResponseEntity.badRequest().body(Map.of("message", "Số tiền báo giá không hợp lệ"));
         }
 
+        Integer estimatedDays = 3;
+        if (payload.get("estimatedDays") != null && !payload.get("estimatedDays").toString().isBlank()) {
+            try {
+                estimatedDays = Integer.parseInt(payload.get("estimatedDays").toString());
+            } catch (Exception ignored) {}
+        }
+        Integer warrantyYears = 2;
+        if (payload.get("warrantyYears") != null && !payload.get("warrantyYears").toString().isBlank()) {
+            try {
+                warrantyYears = Integer.parseInt(payload.get("warrantyYears").toString());
+            } catch (Exception ignored) {}
+        }
+
         booking.setTotalAmount(total);
         booking.setDepositAmount(deposit);
         booking.setRemainingAmount(total.subtract(deposit));
+        booking.setEstimatedDays(estimatedDays);
+        booking.setWarrantyYears(warrantyYears);
         booking.setPaymentStatus(com.example.paintingservice.enums.PaymentStatus.UNPAID);
 
-        // ★ Tự động chuyển thẳng sang WAITING_CUSTOMER_SIGNATURE để Khách xem hợp đồng
-        // chi tiết & ký luôn
+        // ★ Tự động chuyển sang WAITING_CUSTOMER_SIGNATURE để Khách xem hợp đồng chi tiết, chọn ngày làm & ký cọc
         booking.setStatus(BookingStatus.WAITING_CUSTOMER_SIGNATURE);
         bookingRepository.save(booking);
 
@@ -382,10 +410,14 @@ public class BookingController {
         sb.append("Bên B (Đơn vị thi công): CÔNG TY DỊCH VỤ SƠN SỬA 24/7\n");
         sb.append("Hotline hỗ trợ: 1900 1234 - 0355.880.362\n\n");
 
-        sb.append("I. HIỆN TRẠNG KHẢO SÁT & YÊU CẦU CÔNG TRÌNH:\n");
+        sb.append("I. HIỆN TRẠNG KHẢO SÁT & TIẾN ĐỘ THI CÔNG:\n");
         sb.append("- Mô tả ban đầu: ")
                 .append(booking.getDescription() != null ? booking.getDescription() : "Khách hàng không ghi chú")
                 .append("\n");
+        sb.append("- Thời gian thi công dự kiến: ").append(estimatedDays).append(" ngày làm việc.\n");
+        if (booking.getExpectedStartDate() != null) {
+            sb.append("- Ngày bắt đầu thi công cam kết: ").append(booking.getExpectedStartDate()).append("\n");
+        }
         if (!details.isEmpty()) {
             BookingDetail bd = details.get(0);
             if (bd.getSurveyNote() != null && !bd.getSurveyNote().isBlank()) {
@@ -400,7 +432,7 @@ public class BookingController {
         sb.append("- Số tiền đặt cọc (xác nhận đơn): ").append(nf.format(deposit)).append(" VNĐ\n");
         sb.append("- Số tiền còn lại (thanh toán sau nghiệm thu): ").append(nf.format(booking.getRemainingAmount()))
                 .append(" VNĐ\n");
-        sb.append("- Phương thức thanh toán: Chuyển khoản VietQR / Tiền mặt.\n\n");
+        sb.append("- Phương thức thanh toán: Chuyển khoản VNPay / VietQR.\n\n");
 
         sb.append("III. QUY TRÌNH THI CÔNG & TIÊU CHUẨN KỸ THUẬT:\n");
         sb.append("1. Che chắn cẩn thận sàn nhà, nội thất và tài sản xung quanh khu vực thi công.\n");
@@ -411,12 +443,12 @@ public class BookingController {
 
         sb.append("IV. CHẾ ĐỘ BẢO HÀNH & CAM KẾT CHẤT LƯỢNG:\n");
         sb.append("- Cam kết 100% sử dụng vật tư sơn chính hãng, đúng chủng loại thỏa thuận.\n");
-        sb.append("- Thời hạn bảo hành công trình: 12 tháng kể từ ngày ký biên bản nghiệm thu.\n");
+        sb.append("- Thời hạn bảo hành công trình: ").append(warrantyYears).append(" năm kể từ ngày ký biên bản nghiệm thu.\n");
         sb.append("- Điều kiện bảo hành: Khắc phục miễn phí các lỗi bong tróc, bay màu do kỹ thuật thi công.\n\n");
 
         sb.append("V. ĐIỀU KHOẢN KÝ KẾT:\n");
         sb.append("- Hợp đồng có hiệu lực kể từ khi Bên A thực hiện ký điện tử và đặt cọc thành công.\n");
-        sb.append("- Bên B cam kết triển khai đúng tiến độ và nhân sự chuyên nghiệp sau khi xác nhận tiền cọc.");
+        sb.append("- Bên B cam kết triển khai đúng tiến độ và phân công nhân sự chuyên nghiệp sau khi xác nhận tiền cọc.");
 
         Contract contract = contractRepository.findByBookingId(id).orElseGet(() -> Contract.builder()
                 .booking(booking)
@@ -444,8 +476,78 @@ public class BookingController {
         return ResponseEntity.ok(Map.of("message", "Đã gửi báo giá và tạo hợp đồng cho khách ký"));
     }
 
-    // ==================== PHÂN CÔNG ĐỘI THỢ (dùng khi cần gán lại)
-    // ====================
+    // ==================== ADMIN XÁC NHẬN CỌC & KÝ HỢP ĐỒNG ====================
+    @PostMapping("/{id}/confirm-deposit")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> confirmDeposit(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+        Booking booking = bookingRepository.findById(id).orElse(null);
+        if (booking == null) return ResponseEntity.notFound().build();
+
+        Contract contract = contractRepository.findByBookingId(id).orElseGet(() -> Contract.builder()
+                .booking(booking)
+                .contractCode("HD-" + id + "-" + System.currentTimeMillis())
+                .createdAt(LocalDateTime.now())
+                .customerSigned(true)
+                .build());
+
+        String signature = payload.get("adminSignatureImg") != null ? payload.get("adminSignatureImg") : payload.get("adminSignature");
+        contract.setAdminSigned(true);
+        contract.setAdminSignedAt(LocalDateTime.now());
+        if (signature != null && !signature.isBlank()) {
+            contract.setAdminSignatureImg(signature);
+        }
+        contractRepository.save(contract);
+
+        booking.setStatus(BookingStatus.DEPOSIT_CONFIRMED);
+        booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+        bookingRepository.save(booking);
+
+        // Tạo/đồng bộ bản ghi thanh toán cọc
+        List<Payment> payments = paymentRepository.findAllByBooking_IdOrderByIdDesc(booking.getId());
+        boolean hasDepositPayment = false;
+        for (Payment p : payments) {
+            if ("DEPOSIT".equalsIgnoreCase(p.getPaymentType())) {
+                p.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+                p.setPaidAt(LocalDateTime.now());
+                paymentRepository.save(p);
+                hasDepositPayment = true;
+            }
+        }
+
+        if (!hasDepositPayment) {
+            BigDecimal depositAmount = booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
+                    ? booking.getDepositAmount()
+                    : (booking.getTotalAmount() != null ? booking.getTotalAmount().multiply(new BigDecimal("0.3")) : BigDecimal.ZERO);
+            Payment newPayment = Payment.builder()
+                    .booking(booking)
+                    .amount(depositAmount)
+                    .paymentMethod("VNPAY_SANDBOX")
+                    .paymentType("DEPOSIT")
+                    .paymentStatus(PaymentStatus.DEPOSIT_PAID)
+                    .transactionCode("VNPAY-CONFIRMED-" + booking.getId() + "-" + System.currentTimeMillis())
+                    .paidAt(LocalDateTime.now())
+                    .build();
+            paymentRepository.save(newPayment);
+        }
+
+        if (booking.getCustomer() != null) {
+            notificationService.save(Notification.builder()
+                    .user(booking.getCustomer())
+                    .title("Hợp đồng đã ký duyệt & Xác nhận cọc #" + booking.getId())
+                    .content("Admin đã ký duyệt hợp đồng và xác nhận tiền cọc thành công. Hệ thống tiến hành bàn giao đội thợ thi công.")
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Đã xác nhận tiền cọc và Admin đã ký duyệt hợp đồng thành công!",
+                "bookingStatus", booking.getStatus(),
+                "adminSigned", true
+        ));
+    }
+
+    // ==================== PHÂN CÔNG ĐỘI THỢ (KÝ XONG MỚI ĐƯỢC PHÂN) ====================
     @PostMapping("/{id}/assign-team")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignTeam(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
@@ -459,14 +561,26 @@ public class BookingController {
         if (booking == null)
             return ResponseEntity.notFound().build();
 
-        boolean canAssign = booking.getStatus() == BookingStatus.DEPOSIT_CONFIRMED
-                || booking.getStatus() == BookingStatus.WORKER_REJECTED
-                || booking.getStatus() == BookingStatus.ASSIGNED
-                || booking.getStatus() == BookingStatus.CONTRACT_APPROVED
-                || booking.getStatus() == BookingStatus.WAITING_CUSTOMER_SIGNATURE;
+        // ★ Không được phân/đổi thợ khi công trình đã bắt đầu thi công hoặc đã hoàn tất
+        if (booking.getStatus() == BookingStatus.PROCESSING ||
+            booking.getStatus() == BookingStatus.WORKER_COMPLETED ||
+            booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT ||
+            booking.getStatus() == BookingStatus.COMPLETED ||
+            booking.getStatus() == BookingStatus.PAID_TO_STAFF) {
+            return ResponseEntity.badRequest().body(Map.of("message",
+                    "Công trình đã bắt đầu thi công hoặc đã hoàn thành, không thể thay đổi đội thợ!"));
+        }
 
-        if (!canAssign) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Chỉ được phân công thợ khi đơn hàng đã xác nhận cọc hoặc thợ từ chối cần gán lại."));
+        // ★ BẮT BUỘC: Admin PHẢI ký hợp đồng trước khi phân thợ thi công
+        Contract contract = contractRepository.findByBookingId(id).orElse(null);
+        if (contract == null || !Boolean.TRUE.equals(contract.getAdminSigned())) {
+            return ResponseEntity.badRequest().body(Map.of("message",
+                    "Admin chưa ký hợp đồng! Vui lòng ký duyệt hợp đồng và xác nhận cọc trước khi phân công đội thợ thi công."));
+        }
+
+        if (!Boolean.TRUE.equals(contract.getCustomerSigned())) {
+            return ResponseEntity.badRequest().body(Map.of("message",
+                    "Khách hàng chưa ký hợp đồng! Chưa thể phân công thợ thi công."));
         }
 
         User technician = userRepository.findById(technicianId).orElse(null);
@@ -475,7 +589,7 @@ public class BookingController {
         }
 
         booking.setTechnician(technician);
-        booking.setStatus(BookingStatus.ASSIGNED); // Đổi thành ASSIGNED thay vì CONTRACT_APPROVED
+        booking.setStatus(BookingStatus.ASSIGNED);
 
         bookingRepository.save(booking);
 

@@ -87,4 +87,13 @@ public class Booking {
     private User preferredTechnician; // Đội thợ mà khách hàng chọn khi tạo đơn
 
     private LocalDateTime depositDeadline;
+
+    @Column(name = "estimated_days")
+    private Integer estimatedDays;
+
+    @Column(name = "warranty_years")
+    private Integer warrantyYears;
+
+    @Column(name = "expected_start_date")
+    private LocalDate expectedStartDate;
 }

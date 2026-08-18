@@ -27,6 +27,9 @@ public class BookingMapper {
                 .totalAmount(booking.getTotalAmount())
                 .depositAmount(booking.getDepositAmount())
                 .remainingAmount(booking.getRemainingAmount())
+                .estimatedDays(booking.getEstimatedDays())
+                .warrantyYears(booking.getWarrantyYears())
+                .expectedStartDate(booking.getExpectedStartDate())
                 .paymentStatus(paymentStatus)
                 .depositPaid(depositPaid)
                 .finalPaid(finalPaid)
@@ -83,6 +86,9 @@ public class BookingMapper {
                 .totalAmount(dto.getTotalAmount())
                 .depositAmount(dto.getDepositAmount())
                 .remainingAmount(dto.getRemainingAmount())
+                .estimatedDays(dto.getEstimatedDays())
+                .warrantyYears(dto.getWarrantyYears())
+                .expectedStartDate(dto.getExpectedStartDate())
                 .paymentStatus(dto.getPaymentStatus())
                 .address(dto.getAddress())
                 .description(dto.getDescription())
@@ -125,6 +131,9 @@ public class BookingMapper {
         booking.setTotalAmount(dto.getTotalAmount());
         booking.setDepositAmount(dto.getDepositAmount());
         booking.setRemainingAmount(dto.getRemainingAmount());
+        if (dto.getEstimatedDays() != null) booking.setEstimatedDays(dto.getEstimatedDays());
+        if (dto.getWarrantyYears() != null) booking.setWarrantyYears(dto.getWarrantyYears());
+        if (dto.getExpectedStartDate() != null) booking.setExpectedStartDate(dto.getExpectedStartDate());
         booking.setPaymentStatus(dto.getPaymentStatus());
         booking.setAddress(dto.getAddress());
         booking.setDescription(dto.getDescription());

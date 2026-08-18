@@ -1,12 +1,50 @@
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import useBookingHistory from "../../../hooks/useBookingHistory";
 import StatisticCards from "../components/StatisticCards";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import { formatMoney } from "../../../util/formatters";
+import AxiosConfig from "../../../util/AxiosConfig";
 
 export default function TechnicianDashboard() {
   const { user, showToast } = useOutletContext();
   const { stats, loading } = useBookingHistory("technician", showToast);
+
+  const [available, setAvailable] = useState(true);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await AxiosConfig.get("/staff/me");
+        if (res.data && res.data.available !== undefined) {
+          setAvailable(res.data.available);
+        }
+      } catch (err) {
+        console.error("Load staff profile error:", err);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const handleToggleAvailability = async () => {
+    try {
+      setToggling(true);
+      const nextStatus = !available;
+      await AxiosConfig.put("/staff/me", { available: nextStatus });
+      setAvailable(nextStatus);
+      showToast?.(
+        nextStatus
+          ? "Đã bật trạng thái sẵn sàng nhận đơn thi công mới!"
+          : "Đã tạm tắt nhận đơn thi công!",
+        "success"
+      );
+    } catch (err) {
+      showToast?.(err.response?.data?.message || "Lỗi cập nhật trạng thái hoạt động", "error");
+    } finally {
+      setToggling(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -35,7 +73,29 @@ export default function TechnicianDashboard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Toggle Trạng Thái Nhận Việc */}
+            <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/20">
+              <span className="text-xs font-semibold text-white/90">Trạng thái:</span>
+              <button
+                type="button"
+                disabled={toggling}
+                onClick={handleToggleAvailability}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  available
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : "bg-slate-700 hover:bg-slate-600 text-slate-300"
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    available ? "bg-white animate-pulse" : "bg-rose-400"
+                  }`}
+                ></span>
+                <span>{available ? "🟢 Đang nhận đơn" : "🔴 Tạm nghỉ nhận đơn"}</span>
+              </button>
+            </div>
+
             <a
               href="/staff/technician/jobs"
               className="px-5 py-2.5 bg-white text-amber-800 hover:bg-amber-50 font-bold rounded-2xl text-xs transition shadow-md flex items-center gap-2"
@@ -98,7 +158,7 @@ export default function TechnicianDashboard() {
         <ul className="list-disc list-inside space-y-1 text-slate-700 pl-1">
           <li>Luôn che bạt, lót sàn và bảo vệ nội thất khách hàng trước khi bả matit/xả nhám.</li>
           <li>Đeo khẩu trang, kính bảo hộ và kiểm tra giàn giáo/thang chữ A chắc chắn trước khi leo trèo.</li>
-          <li>Dọn dẹp vệ sinh sạch sẽ mặt sàn và bàn giao gọn gàng sau khi hoàn thành mỗi ngày.</li>
+          <li>Dọn dẹp mặt bằng sạch sẽ sau mỗi ca thi công, xếp gọn đồ nghề và lau sạch bụi sơn bám dính.</li>
         </ul>
       </div>
     </div>

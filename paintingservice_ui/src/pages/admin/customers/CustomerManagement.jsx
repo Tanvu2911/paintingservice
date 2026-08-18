@@ -7,6 +7,7 @@ import Modal from "../../../components/common/Modal";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import DepositCountdownBadge from "../../../components/payment/DepositCountdownBadge";
 import StatusBadge from "../../../components/common/StatusBadge";
+import Pagination from "../../../components/common/Pagination";
 import { formatMoney } from "../../../util/formatters";
 
 export default function CustomerManagement() {
@@ -19,9 +20,11 @@ export default function CustomerManagement() {
   const [allContracts, setAllContracts] = useState([]);
   const [allPayments, setAllPayments] = useState([]);
 
-  // Search & Filters
+  // Search & Filters & Pagination
   const [searchKeyword, setSearchKeyword] = useState("");
   const [depositStatusFilter, setDepositStatusFilter] = useState("ALL"); // ALL, PENDING_DEPOSIT, URGENT, EXPIRED, DEPOSIT_PAID, COMPLETED
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Detail Modal State
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -174,6 +177,18 @@ export default function CustomerManagement() {
       return true;
     });
   }, [customers, searchKeyword, depositStatusFilter]);
+
+  // Reset pagination when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchKeyword, depositStatusFilter]);
+
+  // Paginated slice
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage) || 1;
+  const paginatedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredCustomers.slice(start, start + itemsPerPage);
+  }, [filteredCustomers, currentPage, itemsPerPage]);
 
   // Thống kê dựa trên dữ liệu thật
   const stats = useMemo(() => {
@@ -440,7 +455,7 @@ export default function CustomerManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredCustomers.length === 0 ? (
+                {paginatedCustomers.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="text-center py-12 text-slate-400 text-xs">
                       {customers.length === 0
@@ -449,7 +464,7 @@ export default function CustomerManagement() {
                     </td>
                   </tr>
                 ) : (
-                  filteredCustomers.map((c) => {
+                  paginatedCustomers.map((c) => {
                     const latestBooking = (c.bookings || [])[0];
                     const isDepositPaid =
                       latestBooking?.paymentStatus === "DEPOSIT_PAID" ||
@@ -468,11 +483,11 @@ export default function CustomerManagement() {
                         {/* Khách hàng */}
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 font-black flex items-center justify-center text-sm shadow-inner">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 font-black flex items-center justify-center text-sm shadow-inner border border-emerald-200">
                               {(c.username || "K").charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <div className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                              <div className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
                                 @{c.username}
                               </div>
                               <div className="text-[11px] text-slate-400">
@@ -499,7 +514,7 @@ export default function CustomerManagement() {
                         <td className="py-4 px-6">
                           {latestBooking ? (
                             <div>
-                              <div className="font-bold text-xs text-blue-700">
+                              <div className="font-bold text-xs text-emerald-800">
                                 #{latestBooking.id} · {latestBooking.serviceName || "Dịch vụ sơn"}
                               </div>
                               <div className="text-xs text-rose-600 font-semibold mt-0.5">
@@ -531,7 +546,7 @@ export default function CustomerManagement() {
                           <span
                             className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                               c.status === "ACTIVE"
-                                ? "bg-emerald-50 text-emerald-600"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 : "bg-slate-100 text-slate-500"
                             }`}
                           >
@@ -550,7 +565,7 @@ export default function CustomerManagement() {
                               setSelectedCustomer(c);
                               setDetailTab("bookings");
                             }}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-lg text-xs transition cursor-pointer"
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold rounded-lg text-xs transition cursor-pointer border border-emerald-200"
                           >
                             👁️ Chi tiết
                           </button>
@@ -564,9 +579,9 @@ export default function CustomerManagement() {
                           <button
                             type="button"
                             onClick={() => handleDelete(c.id)}
-                            className="px-2.5 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold rounded-lg text-xs transition cursor-pointer"
+                            className="px-2.5 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold rounded-lg text-xs transition cursor-pointer border border-rose-200"
                           >
-                            🗑️
+                            🗑️ Xóa
                           </button>
                         </td>
                       </tr>
@@ -575,6 +590,16 @@ export default function CustomerManagement() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="p-4 bg-slate-50/50 border-t border-slate-100">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredCustomers.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(page) => setCurrentPage(page)}
+            />
           </div>
         </div>
       )}

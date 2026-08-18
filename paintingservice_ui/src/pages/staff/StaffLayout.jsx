@@ -132,6 +132,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
 
           <div className="flex items-center gap-3">
             <NotificationPopover
+              user={profile || user}
               notifications={notifications}
               onMarkRead={handleMarkRead}
               onDeleteAll={handleDeleteAll}

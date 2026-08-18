@@ -35,4 +35,15 @@ public class StaffProfile {
     @Column(nullable = false)
     private StaffType staffType;
 
+    @Column(name = "service_area", columnDefinition = "TEXT")
+    private String serviceArea; // Khu vực hoạt động (các quận/huyện tại Hà Nội)
+
+    @Column(name = "bank_name", length = 100)
+    private String bankName; // Tên ngân hàng (VD: MB Bank, Vietcombank, Techcombank)
+
+    @Column(name = "bank_account_number", length = 50)
+    private String bankAccountNumber; // Số tài khoản ngân hàng
+
+    @Column(name = "bank_account_name", length = 100)
+    private String bankAccountName; // Tên chủ tài khoản
 }

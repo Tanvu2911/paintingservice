@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import AxiosConfig from "../../../util/AxiosConfig";
 import DashboardHeader from "../../../components/layout/DashboardHeader";
@@ -6,6 +6,27 @@ import StatusBadge from "../../../components/common/StatusBadge";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import Modal from "../../../components/common/Modal";
 import OrderTimeline from "./OrderTimeline";
+import { parseHanoiAddress } from "../../../data/hanoiLocations";
+import {
+  UserCheck,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  Calendar,
+  MapPin,
+  Clock,
+  Send,
+  PenTool,
+  ShieldCheck,
+  User,
+  Building,
+  Check,
+  Sparkles,
+  ArrowLeft,
+  Printer,
+  Download,
+} from "lucide-react";
+import { exportContractPDF } from "../../../util/contractPdfExport";
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -17,6 +38,7 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [supervisors, setSupervisors] = useState([]);
   const [workers, setWorkers] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
   const [assignModal, setAssignModal] = useState(null); // 'supervisor' | 'worker'
   const [selectedId, setSelectedId] = useState("");
 
@@ -33,11 +55,21 @@ export default function OrderDetail() {
   const [quoteModalOpen, setQuoteModalOpen] = useState(false);
   const [quoteTotal, setQuoteTotal] = useState("");
   const [quoteDeposit, setQuoteDeposit] = useState("");
+  const [quoteEstimatedDays, setQuoteEstimatedDays] = useState("3");
+  const [quoteWarrantyYears, setQuoteWarrantyYears] = useState("2");
+
+  // Modal Filter Tabs
+  const [workerModalTab, setWorkerModalTab] = useState("all"); // 'all' | 'district' | 'idle'
+  const [supervisorModalTab, setSupervisorModalTab] = useState("all"); // 'all' | 'district' | 'idle'
 
   // Deposit Confirm & Admin Sign
   const [confirmDepositModal, setConfirmDepositModal] = useState(false);
   const adminSigCanvasRef = useRef(null);
   const [hasAdminSignature, setHasAdminSignature] = useState(false);
+
+  // Payments
+  const [payments, setPayments] = useState([]);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Init canvas drawing
   useEffect(() => {
@@ -127,8 +159,6 @@ export default function OrderDetail() {
     return Number(value).toLocaleString("vi-VN") + " đ";
   };
 
-  const [payments, setPayments] = useState([]);
-
   const fetchOrder = useCallback(async () => {
     try {
       const res = await AxiosConfig.get(`/bookings/${id}`);
@@ -196,10 +226,11 @@ export default function OrderDetail() {
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        const [orderRes, supRes, workerRes] = await Promise.all([
+        const [orderRes, supRes, workerRes, allBRes] = await Promise.all([
           AxiosConfig.get(`/bookings/${id}`),
           AxiosConfig.get("/staff?staffType=SUPERVISOR").catch(() => ({ data: [] })),
           AxiosConfig.get("/staff?staffType=WORKER").catch(() => ({ data: [] })),
+          AxiosConfig.get("/bookings").catch(() => ({ data: [] })),
         ]);
 
         if (!isMounted) return;
@@ -208,6 +239,7 @@ export default function OrderDetail() {
 
         const rawSupList = supRes.data?.content || supRes.data?.data || supRes.data || [];
         const rawWorkerList = workerRes.data?.content || workerRes.data?.data || workerRes.data || [];
+        const rawAllB = allBRes.data?.content || allBRes.data?.data || allBRes.data || [];
 
         const availableWorkers = (Array.isArray(rawWorkerList) ? rawWorkerList : []).filter(
           (s) => s.available !== false && s.staffType !== "SUPERVISOR"
@@ -215,6 +247,7 @@ export default function OrderDetail() {
 
         setSupervisors(Array.isArray(rawSupList) ? rawSupList : []);
         setWorkers(availableWorkers);
+        setAllBookings(Array.isArray(rawAllB) ? rawAllB : []);
 
         await Promise.all([
           fetchBookingDetail(id),
@@ -233,7 +266,44 @@ export default function OrderDetail() {
     return () => {
       isMounted = false;
     };
-  }, [id, fetchBookingDetail, fetchContract, fetchDailyReports, showToast]);
+  }, [id, fetchBookingDetail, fetchContract, fetchDailyReports, fetchPayments, showToast]);
+
+  // Compute Active Workloads per Staff
+  const activeSupervisorJobs = useMemo(() => {
+    const map = {};
+    allBookings.forEach((b) => {
+      if (
+        b.supervisorId &&
+        !["COMPLETED", "CANCELLED", "FULLY_PAID", "PAID_TO_STAFF"].includes(b.status)
+      ) {
+        const sId = String(b.supervisorId);
+        map[sId] = (map[sId] || 0) + 1;
+      }
+    });
+    return map;
+  }, [allBookings]);
+
+  const activeWorkerJobs = useMemo(() => {
+    const map = {};
+    allBookings.forEach((b) => {
+      const wId = b.technicianId || b.preferredTechnicianId;
+      if (
+        wId &&
+        !["COMPLETED", "CANCELLED", "FULLY_PAID", "PAID_TO_STAFF"].includes(b.status)
+      ) {
+        const key = String(wId);
+        map[key] = (map[key] || 0) + 1;
+      }
+    });
+    return map;
+  }, [allBookings]);
+
+  // Extract District of Customer Order Address
+  const projectDistrict = useMemo(() => {
+    if (!order?.address) return "";
+    const parsed = parseHanoiAddress(order.address);
+    return parsed.district || "";
+  }, [order?.address]);
 
   // Phân công Giám sát (POST /api/bookings/{id}/assign-supervisor)
   const handleAssignSupervisor = async () => {
@@ -245,7 +315,7 @@ export default function OrderDetail() {
       await AxiosConfig.post(`/bookings/${id}/assign-supervisor`, {
         supervisorId: Number(selectedId),
       });
-      showToast?.("Đã phân công Giám sát đi khảo sát!");
+      showToast?.("Đã phân công Giám sát đi khảo sát!", "success");
       setAssignModal(null);
       fetchOrder();
     } catch (err) {
@@ -272,9 +342,10 @@ export default function OrderDetail() {
         technicianId: Number(targetWorkerId),
       });
       showToast?.(
-        customerSigned
+        contract?.customerSigned
           ? "Đã bàn giao đơn cho Đội thợ!"
-          : "Đã gán đội thợ thành công!"
+          : "Đã gán đội thợ thành công!",
+        "success"
       );
       setAssignModal(null);
       fetchOrder();
@@ -286,11 +357,20 @@ export default function OrderDetail() {
     }
   };
 
-  // Cập nhật trạng thái Booking (cho các bước trung gian)
+  // Tổng hợp phân công Giám sát / Đội thợ
+  const handleAssign = async () => {
+    if (assignModal === "supervisor") {
+      await handleAssignSupervisor();
+    } else {
+      await handleAssignWorker();
+    }
+  };
+
+  // Cập nhật trạng thái Booking
   const handleUpdateStatus = async (newStatus) => {
     try {
       await AxiosConfig.put(`/bookings/${id}`, { ...order, status: newStatus });
-      showToast?.("Cập nhật trạng thái thành công!");
+      showToast?.("Cập nhật trạng thái thành công!", "success");
       fetchOrder();
     } catch (err) {
       showToast?.(err.response?.data?.message || "Lỗi cập nhật trạng thái", "error");
@@ -304,7 +384,7 @@ export default function OrderDetail() {
         bookingId: Number(id),
         content: `Hợp đồng thi công cho đơn ${id}\nTổng tiền: ${order.totalAmount || 0} VNĐ\nTiền cọc: ${order.depositAmount || 0} VNĐ`,
       });
-      showToast?.("Đã lập hợp đồng thành công, chờ khách ký!");
+      showToast?.("Đã lập hợp đồng thành công, chờ khách ký!", "success");
       fetchOrder();
       fetchContract(id);
     } catch (err) {
@@ -319,11 +399,15 @@ export default function OrderDetail() {
       return;
     }
     try {
-      const payload = { totalAmount: Number(quoteTotal) };
+      const payload = {
+        totalAmount: Number(quoteTotal),
+        estimatedDays: Number(quoteEstimatedDays) || 3,
+        warrantyYears: Number(quoteWarrantyYears) || 2,
+      };
       if (quoteDeposit) payload.depositAmount = Number(quoteDeposit);
 
       await AxiosConfig.post(`/bookings/${id}/send-quote`, payload);
-      showToast?.("Đã gửi báo giá cho khách hàng!");
+      showToast?.("Đã gửi báo giá và lập hợp đồng chi tiết cho khách hàng!", "success");
       setQuoteModalOpen(false);
       fetchOrder();
     } catch (err) {
@@ -331,7 +415,7 @@ export default function OrderDetail() {
     }
   };
 
-  // Xác nhận cọc (deposit) và Admin ký HĐ
+  // Xác nhận cọc và Admin ký HĐ
   const handleConfirmDeposit = async () => {
     if (!hasAdminSignature) {
       showToast?.("Vui lòng ký tên xác nhận trước khi gửi!", "error");
@@ -348,692 +432,980 @@ export default function OrderDetail() {
     }
 
     try {
-      if (contract && contract.id) {
-        await AxiosConfig.post(`/contracts/${contract.id}/confirm-deposit`, {
-          adminSignatureImg: signature
-        });
-        showToast?.("Xác nhận cọc và Admin ký hợp đồng thành công!");
-      } else {
-        // fallback
-        await AxiosConfig.put(`/bookings/${id}`, { ...order, status: "DEPOSIT_CONFIRMED" });
-      }
+      await AxiosConfig.post(`/bookings/${id}/confirm-deposit`, {
+        adminSignature: signature,
+      });
+      showToast?.("Đã xác nhận tiền cọc & ký duyệt hợp đồng thành công!", "success");
       setConfirmDepositModal(false);
       fetchOrder();
       fetchContract(id);
-      fetchPayments(id);
     } catch (err) {
-      showToast?.(err.response?.data?.message || "Lỗi xác nhận cọc", "error");
+      showToast?.(err.response?.data?.message || "Lỗi xác nhận tiền cọc", "error");
     }
   };
 
+  const status = order?.status;
+  const isDepositPaid = order?.paymentStatus === "DEPOSIT_PAID" || order?.depositPaid;
+  const isFullyPaid = order?.paymentStatus === "FULLY_PAID";
+  const isContractSignedByBoth = Boolean(contract?.adminSigned && contract?.customerSigned);
 
-  // Thanh toán thù lao cho nhân viên (POST /api/bookings/{id}/pay-staff)
-  const handlePayStaff = async () => {
-    if (
-      !window.confirm(
-        "Xác nhận đã thanh toán tiền công cho Giám sát và Đội thợ?"
-      )
-    ) {
-      return;
-    }
-    try {
-      await AxiosConfig.post(`/bookings/${id}/pay-staff`);
-      showToast?.("Đã xác nhận thanh toán thành công");
-      fetchOrder();
-    } catch (err) {
-      showToast?.(
-        err.response?.data?.message || "Lỗi xử lý thanh toán",
-        "error"
-      );
-    }
-  };
+  // Chỉ cho phép gán/đổi Giám sát khi đơn chưa khảo sát xong & chưa nộp báo cáo
+  const canChangeSupervisor = ["PENDING", "SURVEY_ASSIGNED", "ACCEPTED", "SURVEYING"].includes(status);
+
+  // Đơn đã bắt đầu thi công hoặc đã hoàn tất
+  const isWorkStartedOrCompleted = ["PROCESSING", "WORKER_COMPLETED", "WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(status);
+
+  // Điều kiện để phân công / đổi thợ thi công: Admin VÀ Khách đều PHẢI ký hợp đồng & đã cọc tiền & CHƯA bắt đầu thi công
+  const canAssignWorker = Boolean(
+    isContractSignedByBoth &&
+    (order?.depositPaid || order?.paymentStatus === "DEPOSIT_PAID" || ["DEPOSIT_CONFIRMED", "ASSIGNED"].includes(status)) &&
+    !isWorkStartedOrCompleted
+  );
+
+  const orderServiceName = order?.serviceName || order?.service?.name || "";
+
+  // Báo cáo khảo sát từ Giám sát viên
+  const surveyDetail = bookingDetails && bookingDetails.length > 0 ? bookingDetails[0] : null;
+  const surveyImages = useMemo(() => {
+    if (!surveyDetail?.surveyImages) return [];
+    return parseImageUrls(surveyDetail.surveyImages);
+  }, [surveyDetail?.surveyImages]);
+
+  // 1. Chỉ thợ CÙNG DỊCH VỤ khách chọn và ĐANG BẬT TRẠNG THÁI HOẠT ĐỘNG
+  const eligibleWorkers = useMemo(() => {
+    return workers.filter((w) => {
+      // Phải bật trạng thái hoạt động
+      const isAvailable = w.available === true || w.available !== false;
+      if (!isAvailable) return false;
+
+      // Cùng chuyên môn dịch vụ khách chọn
+      if (orderServiceName) {
+        const specs = w.specialty ? w.specialty.toLowerCase() : "";
+        const cleanSrv = orderServiceName.toLowerCase().trim();
+        if (!specs.includes(cleanSrv) && !cleanSrv.includes(specs)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [workers, orderServiceName]);
+
+  // Thợ cùng khu vực
+  const districtWorkers = useMemo(() => {
+    if (!projectDistrict) return eligibleWorkers;
+    const cleanDistrict = projectDistrict.replace("Quận ", "").replace("Huyện ", "").replace("Thị xã ", "").toLowerCase();
+    return eligibleWorkers.filter((w) => w.serviceArea?.toLowerCase().includes(cleanDistrict));
+  }, [eligibleWorkers, projectDistrict]);
+
+  // Thợ đang rảnh (0 đơn đang làm)
+  const idleWorkers = useMemo(() => {
+    return eligibleWorkers.filter((w) => {
+      const wId = String(w.userId || w.id);
+      return (activeWorkerJobs[wId] || 0) === 0;
+    });
+  }, [eligibleWorkers, activeWorkerJobs]);
+
+  // Danh sách thợ hiển thị theo tab đã chọn
+  const displayWorkers = useMemo(() => {
+    let list = eligibleWorkers;
+    if (workerModalTab === "district") list = districtWorkers;
+    else if (workerModalTab === "idle") list = idleWorkers;
+
+    // Sắp xếp ưu tiên cùng khu vực và rảnh
+    return [...list].sort((a, b) => {
+      const aId = String(a.userId || a.id);
+      const bId = String(b.userId || b.id);
+      const aDistrictMatch = projectDistrict && a.serviceArea?.toLowerCase().includes(projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase());
+      const bDistrictMatch = projectDistrict && b.serviceArea?.toLowerCase().includes(projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase());
+      if (aDistrictMatch && !bDistrictMatch) return -1;
+      if (!aDistrictMatch && bDistrictMatch) return 1;
+
+      const aLoad = activeWorkerJobs[aId] || 0;
+      const bLoad = activeWorkerJobs[bId] || 0;
+      return aLoad - bLoad;
+    });
+  }, [eligibleWorkers, districtWorkers, idleWorkers, workerModalTab, projectDistrict, activeWorkerJobs]);
+
+  // 1. Chỉ Giám sát ĐANG BẬT TRẠNG THÁI HOẠT ĐỘNG
+  const eligibleSupervisors = useMemo(() => {
+    return supervisors.filter((s) => {
+      return s.available === true || s.available !== false;
+    });
+  }, [supervisors]);
+
+  // Giám sát cùng khu vực
+  const districtSupervisors = useMemo(() => {
+    if (!projectDistrict) return eligibleSupervisors;
+    const cleanDistrict = projectDistrict
+      .replace("Quận ", "")
+      .replace("Huyện ", "")
+      .replace("Thị xã ", "")
+      .toLowerCase();
+    return eligibleSupervisors.filter((s) =>
+      s.serviceArea?.toLowerCase().includes(cleanDistrict)
+    );
+  }, [eligibleSupervisors, projectDistrict]);
+
+  // Giám sát đang rảnh (0 đơn đang làm)
+  const idleSupervisors = useMemo(() => {
+    return eligibleSupervisors.filter((s) => {
+      const sId = String(s.userId || s.id);
+      return (activeSupervisorJobs[sId] || 0) === 0;
+    });
+  }, [eligibleSupervisors, activeSupervisorJobs]);
+
+  // Danh sách giám sát hiển thị theo tab đã chọn
+  const displaySupervisors = useMemo(() => {
+    let list = eligibleSupervisors;
+    if (supervisorModalTab === "district") list = districtSupervisors;
+    else if (supervisorModalTab === "idle") list = idleSupervisors;
+
+    return [...list].sort((a, b) => {
+      const aId = String(a.userId || a.id);
+      const bId = String(b.userId || b.id);
+      const cleanDistrict = projectDistrict
+        ? projectDistrict.replace("Quận ", "").replace("Huyện ", "").replace("Thị xã ", "").toLowerCase()
+        : "";
+      const aDistrictMatch = cleanDistrict && a.serviceArea?.toLowerCase().includes(cleanDistrict);
+      const bDistrictMatch = cleanDistrict && b.serviceArea?.toLowerCase().includes(cleanDistrict);
+      if (aDistrictMatch && !bDistrictMatch) return -1;
+      if (!aDistrictMatch && bDistrictMatch) return 1;
+
+      const aLoad = activeSupervisorJobs[aId] || 0;
+      const bLoad = activeSupervisorJobs[bId] || 0;
+      return aLoad - bLoad;
+    });
+  }, [
+    eligibleSupervisors,
+    districtSupervisors,
+    idleSupervisors,
+    supervisorModalTab,
+    projectDistrict,
+    activeSupervisorJobs,
+  ]);
 
   if (loading) return <LoadingSpinner />;
   if (!order) {
     return (
-      <p className="text-center text-slate-400 py-20">
-        Không tìm thấy đơn hàng
-      </p>
+      <div className="p-8 text-center bg-white rounded-3xl border border-slate-200">
+        <p className="text-slate-500 font-semibold">Không tìm thấy yêu cầu này.</p>
+        <button
+          onClick={() => navigate("/admin/bookings")}
+          className="mt-4 px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs"
+        >
+          Quay lại danh sách
+        </button>
+      </div>
     );
   }
 
-  const customerSigned = !!contract?.customerSigned;
-  const hasTechnician = !!(order.technicianId || order.technician);
-  const isWorkerRejected = order.status === "WORKER_REJECTED";
-
-  const canAssignSupervisor = order.status === "PENDING";
-  const canAssignWorker = [
-    "WAITING_CUSTOMER_SIGNATURE",
-    "DEPOSIT_CONFIRMED",
-    "CONTRACT_APPROVED",
-    "WORKER_REJECTED",
-    "ASSIGNED",
-  ].includes(order.status);
-  const canViewContract = !!contract;
-  const canPayStaff =
-    order.status === "WORKER_COMPLETED" || order.status === "FULLY_PAID";
-  const canViewDailyReports = [
-    "CONTRACT_APPROVED",
-    "ASSIGNED",
-    "ACCEPTED",
-    "PROCESSING",
-    "WORKER_COMPLETED",
-    "COMPLETED",
-    "WAITING_CUSTOMER_SIGNATURE",
-  ].includes(order.status);
-
-  const currentList = assignModal === "supervisor" ? supervisors : workers;
-
-  const preferredWorkerName =
-    order.preferredTechnicianName ||
-    order.preferredTechnician?.fullName ||
-    order.preferredTechnician?.username ||
-    null;
-
-  const preferredWorkerId =
-    order.preferredTechnicianId || order.preferredTechnician?.id || null;
-
-  // Lấy dữ liệu chi tiết báo cáo từ BookingDetails API nếu có
-  const latestDetail = bookingDetails.length > 0 ? bookingDetails[0] : null;
-  const surveyNoteText = latestDetail?.surveyNote || order.surveyNote;
-  const materialNoteText = latestDetail?.materialNote || order.materialNote;
-  const materialShortageText = latestDetail?.materialShortage || order.materialShortage;
-  const surveyImages = parseImageUrls(latestDetail?.surveyImages || order.surveyImages);
-
   return (
-    <div className="space-y-5">
-      {/* Back */}
-      <button
-        onClick={() => navigate("/admin/bookings")}
-        className="text-sm text-blue-600 hover:underline"
-      >
-        ← Quay lại danh sách
-      </button>
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Nút Quay Lại Danh Sách Yêu Cầu */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => navigate("/admin/bookings")}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-2xl text-xs border border-slate-200 shadow-xs transition hover:border-emerald-300 cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 text-emerald-600" />
+          <span>Quay lại danh sách yêu cầu</span>
+        </button>
+      </div>
 
       <DashboardHeader
-        title={`Chi tiết đơn #${order.id}`}
-        subtitle={order.address}
+        title={`Chi Tiết Yêu Cầu #${order.id}`}
+        subtitle={`Quản lý toàn bộ tiến độ công trình, hợp đồng và phân công nhân sự.`}
         userName={user?.username}
         userRole="Quản trị viên"
         avatarChar={(user?.username || "A").charAt(0).toUpperCase()}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ========== CỘT TRÁI ========== */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Thông tin đơn */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-800">Thông tin đơn hàng</h3>
-              <StatusBadge status={order.status} />
+      {/* Tiến độ trạng thái (OrderTimeline) */}
+      <OrderTimeline status={status} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Cột trái: Thông tin đơn hàng & Khách hàng */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="font-black text-slate-900 text-lg">Mã đơn: #{order.id}</span>
+                <StatusBadge status={status} />
+              </div>
+              <div className="text-xs text-slate-400 font-medium">
+                Ngày đăng ký: {order.createdAt ? new Date(order.createdAt).toLocaleDateString("vi-VN") : "—"}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <InfoItem
-                label="Khách hàng"
-                value={
-                  order.customerName ||
-                  order.customer?.fullName ||
-                  order.customer?.username ||
-                  "—"
-                }
-              />
-              <InfoItem
-                label="Số điện thoại"
-                value={
-                  order.customerPhone ||
-                  order.phoneNumber ||
-                  order.customer?.phoneNumber ||
-                  "—"
-                }
-              />
-              <InfoItem
-                label="Giám sát"
-                value={
-                  order.surveyorName ||
-                  order.supervisorName ||
-                  order.surveyor?.username ||
-                  "—"
-                }
-              />
-              <InfoItem
-                label="Thợ phụ trách"
-                value={
-                  order.technicianName ||
-                  order.technician?.username ||
-                  "—"
-                }
-              />
-              <div className="col-span-2">
-                <InfoItem
-                  label="Đội thợ khách chọn"
-                  value={
-                    preferredWorkerName ||
-                    "Không chỉ định (hệ thống tự chọn)"
-                  }
-                  highlight
-                />
-              </div>
-
-              {(order.totalAmount != null || order.depositAmount != null) && (
-                <div className="col-span-2 flex flex-wrap gap-3 text-xs bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
-                  <span>
-                    <strong>Tổng:</strong> {formatMoney(order.totalAmount)}
-                  </span>
-                  <span>
-                    <strong>Cọc:</strong> {formatMoney(order.depositAmount)}
-                  </span>
-                  <span>
-                    <strong>Còn lại:</strong>{" "}
-                    {formatMoney(order.remainingAmount)}
-                  </span>
+            {/* Thông tin Khách hàng & Công trình */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                  <User className="w-4 h-4 text-emerald-600" />
+                  <span>Thông tin khách hàng</span>
                 </div>
-              )}
+                <div className="text-xs space-y-1">
+                  <div className="font-bold text-slate-900">
+                    {order.customerName || order.customer?.fullName || order.customer?.username || "Khách vảng lai"}
+                  </div>
+                  <div className="text-slate-500">SĐT: {order.customerPhone || order.customer?.phoneNumber || "Chưa cập nhật"}</div>
+                  <div className="text-slate-500 truncate">Email: {order.customerEmail || order.customer?.email || "—"}</div>
+                </div>
+              </div>
 
-              <div className="col-span-2">
-                <p className="text-[11px] font-bold text-slate-400 uppercase mb-0.5">
-                  Mô tả từ khách
-                </p>
-                <p className="text-slate-700 text-sm">
-                  {order.description || "Không có ghi chú"}
-                </p>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                  <MapPin className="w-4 h-4 text-emerald-600" />
+                  <span>Địa chỉ công trình (HN)</span>
+                </div>
+                <div className="text-xs space-y-1">
+                  <div className="font-bold text-slate-900 leading-snug">{order.address || "—"}</div>
+                  {projectDistrict && (
+                    <span className="inline-block text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Khu vực: {projectDistrict}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Báo cáo khảo sát */}
-            {(surveyNoteText || materialNoteText || materialShortageText || surveyImages.length > 0) && (
-              <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                <p className="text-[11px] font-bold text-slate-400 uppercase">
-                  Báo cáo khảo sát
-                </p>
-                {surveyNoteText && (
-                  <p className="text-sm text-slate-700">
-                    <span className="font-semibold">Ghi chú: </span>
-                    {surveyNoteText}
-                  </p>
+            {/* Mô tả hiện trạng ban đầu */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                <FileText className="w-4 h-4 text-emerald-600" />
+                <span>Hạng mục &amp; Yêu cầu ban đầu từ khách</span>
+              </div>
+              <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                {order.description || "Không có ghi chú mô tả"}
+              </p>
+            </div>
+
+            {/* BÁO CÁO KHẢO SÁT HIỆN TRẠNG TỪ GIÁM SÁT VIÊN */}
+            {surveyDetail ? (
+              <div className="p-5 rounded-3xl bg-blue-50/40 border border-blue-200/80 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                      📋
+                    </div>
+                    <div>
+                      <h4 className="font-black text-slate-900 text-sm">
+                        Báo Cáo Khảo Sát Hiện Trạng
+                      </h4>
+                      <span className="text-[11px] text-blue-800 font-semibold">
+                        Lập bởi Giám sát: @{order.supervisorName || order.surveyorName || "Giám sát viên"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {surveyDetail.updatedAt && (
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {new Date(surveyDetail.updatedAt).toLocaleString("vi-VN")}
+                      </span>
+                    )}
+                    {surveyDetail.supervisorAccepted && (
+                      <span className="text-[10.5px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        ✓ Đã duyệt hiện trạng
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Ghi chú khảo sát */}
+                  <div className="p-3.5 rounded-2xl bg-white border border-blue-100 space-y-1.5 shadow-xs">
+                    <span className="font-bold text-slate-900 block flex items-center gap-1.5 text-blue-900">
+                      <span>🔍</span> Hiện trạng tường &amp; bề mặt:
+                    </span>
+                    <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
+                      {surveyDetail.surveyNote || "Chưa có ghi chú chi tiết."}
+                    </p>
+                  </div>
+
+                  {/* Đề xuất vật tư */}
+                  <div className="p-3.5 rounded-2xl bg-white border border-blue-100 space-y-1.5 shadow-xs">
+                    <span className="font-bold text-slate-900 block flex items-center gap-1.5 text-blue-900">
+                      <span>🧱</span> Đề xuất vật tư &amp; kỹ thuật:
+                    </span>
+                    <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
+                      {surveyDetail.materialNote || "Không có đề xuất vật tư."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Vật tư phát sinh / thiếu hụt nếu có */}
+                {surveyDetail.materialShortage && (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-1">
+                    <span className="font-bold text-amber-900 block flex items-center gap-1.5">
+                      <span>⚠️</span> Báo cáo thiếu hụt / phát sinh vật tư:
+                    </span>
+                    <p className="text-amber-800 leading-relaxed font-medium whitespace-pre-wrap">
+                      {surveyDetail.materialShortage}
+                    </p>
+                  </div>
                 )}
-                {materialNoteText && (
-                  <p className="text-sm text-slate-700">
-                    <span className="font-semibold">Vật tư: </span>
-                    {materialNoteText}
-                  </p>
-                )}
-                {materialShortageText && (
-                  <p className="text-sm text-amber-700">
-                    <span className="font-semibold">Báo thiếu vật tư: </span>
-                    {materialShortageText}
-                  </p>
-                )}
+
+                {/* Album hình ảnh khảo sát hiện trạng */}
                 {surveyImages.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 pt-1">
-                    {surveyImages.map((url, i) => (
-                      <a
-                        key={i}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="aspect-square rounded-lg overflow-hidden border border-slate-200"
-                      >
-                        <img
-                          src={url}
-                          alt={`survey-${i}`}
-                          className="w-full h-full object-cover hover:scale-105 transition"
-                        />
-                      </a>
-                    ))}
+                  <div className="space-y-2 pt-1">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <span>📸</span> Hình ảnh chụp hiện trạng ({surveyImages.length} ảnh):
+                    </span>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
+                      {surveyImages.map((imgUrl, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setPreviewImage(imgUrl)}
+                          className="aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-white hover:opacity-90 hover:scale-105 transition cursor-pointer shadow-xs group relative"
+                        >
+                          <img
+                            src={imgUrl}
+                            alt={`Ảnh khảo sát ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "https://placehold.co/150x150?text=Anh+KS";
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[11px] font-bold">
+                            🔍 Xem
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-500 flex items-center gap-2">
+                <span className="text-base">⏳</span>
+                <span>
+                  {order.supervisorId
+                    ? "Giám sát viên đang tiến hành khảo sát hiện trạng, chưa nộp báo cáo."
+                    : "Chưa phân công giám sát viên khảo sát công trình."}
+                </span>
+              </div>
             )}
 
-            {/* Ảnh chuyển khoản / Biên lai từ khách hàng */}
-            {payments.length > 0 && payments.some(p => p.proofImage) && (
-              <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  💳 Biên lai chuyển khoản từ khách hàng
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {payments.filter(p => p.proofImage).map((p, i) => (
-                    <div key={p.id || i} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                      <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                        <span>{p.paymentType === "DEPOSIT" ? "Thanh toán Cọc" : "Thanh toán Tất toán"}</span>
-                        <span className="text-emerald-600">{formatMoney(p.amount)}</span>
-                      </div>
-                      {p.note && <p className="text-xs text-slate-600 italic">"{p.note}"</p>}
-                      <a
-                        href={p.proofImage}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block rounded-lg overflow-hidden border border-slate-200 max-h-48 bg-black/5"
-                      >
-                        <img
-                          src={p.proofImage}
-                          alt={`proof-${i}`}
-                          className="w-full h-full object-contain max-h-48 hover:scale-105 transition"
-                        />
-                      </a>
-                    </div>
-                  ))}
+            {/* Chi tiết tài chính & Hợp đồng */}
+            <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 space-y-3">
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                  Tài chính công trình
+                </span>
+                <span className="text-xs font-bold text-emerald-800">
+                  {isFullyPaid ? "✓ Tất toán 100%" : isDepositPaid ? "✓ Đã cọc 30%" : "Chờ cọc"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-500 block">Tổng dự toán</span>
+                  <span className="font-black text-slate-900 text-sm">
+                    {order.totalAmount ? formatMoney(order.totalAmount) : "Chưa báo giá"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Tiền cọc (30%)</span>
+                  <span className="font-bold text-emerald-700 text-sm">
+                    {order.depositAmount ? formatMoney(order.depositAmount) : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Còn lại (70%)</span>
+                  <span className="font-bold text-slate-800 text-sm">
+                    {order.totalAmount && order.depositAmount
+                      ? formatMoney(order.totalAmount - order.depositAmount)
+                      : "—"}
+                  </span>
                 </div>
               </div>
-            )}
-
-            {!customerSigned && hasTechnician && (
-              <p className="mt-3 text-[11px] text-amber-600">
-                Đã gán thợ sẵn — chờ khách ký HĐ mới chính thức bàn giao.
-              </p>
-            )}
-            {isWorkerRejected && (
-              <div className="mt-3 p-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs">
-                <strong>Đội thợ đã từ chối.</strong> Vui lòng gán thợ khác.
-              </div>
-            )}
+            </div>
           </div>
 
-          {/* Báo cáo ngày (preview) */}
-          {canViewDailyReports && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-slate-800">
-                  Báo cáo tiến độ ngày
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    fetchDailyReports(id);
-                    setReportsModalOpen(true);
-                  }}
-                  className="text-xs font-semibold text-orange-600 hover:text-orange-700"
-                >
-                  Xem tất cả ({dailyReports.length})
-                </button>
+          {/* Card Báo Cáo Tiến Độ Hàng Ngày */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider">
+                  Nhật Ký &amp; Báo Cáo Thi Công Hàng Ngày
+                </h4>
               </div>
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                {dailyReports.length} báo cáo
+              </span>
+            </div>
 
-              {loadingReports ? (
-                <p className="text-sm text-slate-400 py-4 text-center">
-                  Đang tải...
-                </p>
-              ) : dailyReports.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">
-                  Chưa có báo cáo ngày nào.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {dailyReports.slice(0, 3).map((r, idx) => {
-                    const imgs = parseImageUrls(r.progressImages);
-                    return (
-                      <div
-                        key={r.id || idx}
-                        className="flex gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50/50"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-                            <span className="font-semibold text-slate-700">
-                              #{dailyReports.length - idx}
+            {loadingReports ? (
+              <div className="py-6 text-center text-xs text-slate-400">
+                Đang tải báo cáo nhật ký...
+              </div>
+            ) : dailyReports.length === 0 ? (
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-500 flex items-center gap-2">
+                <span className="text-base">📝</span>
+                <span>
+                  {["ASSIGNED", "PROCESSING"].includes(status)
+                    ? "Đội thợ đang thi công, chưa có báo cáo nhật ký trong ngày được nộp."
+                    : "Chưa có báo cáo nhật ký thi công nào cho đơn hàng này."}
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {dailyReports.map((report, index) => {
+                  const reportImages = parseImageUrls(report.progressImages);
+                  return (
+                    <div
+                      key={report.id || index}
+                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900 bg-slate-200/80 px-2 py-0.5 rounded-md">
+                            📅 Báo cáo ngày #{dailyReports.length - index}
+                          </span>
+                          <span className="text-xs text-slate-600 font-medium">
+                            Lập bởi: <strong className="text-slate-900">@{report.reporterName || "Thợ thi công"}</strong>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {report.progressPercentage != null && (
+                            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                              Tiến độ: {report.progressPercentage}%
                             </span>
-                            <span>·</span>
-                            <span>{r.reporterName || "—"}</span>
-                            {r.createdAt && (
-                              <>
-                                <span>·</span>
-                                <span>
-                                  {new Date(r.createdAt).toLocaleString(
-                                    "vi-VN",
-                                    {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    }
-                                  )}
-                                </span>
-                              </>
-                            )}
-                            {r.progressPercentage != null && (
-                              <span className="ml-auto font-bold text-orange-600">
-                                {r.progressPercentage}%
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-slate-700 line-clamp-2">
-                            {r.content || "Không có nội dung"}
-                          </p>
-                          {imgs.length > 0 && (
-                            <p className="text-[11px] text-slate-400 mt-1">
-                              📷 {imgs.length} ảnh
-                            </p>
+                          )}
+                          {report.createdAt && (
+                            <span className="text-[10.5px] text-slate-400 font-medium">
+                              {new Date(report.createdAt).toLocaleString("vi-VN")}
+                            </span>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
-                  {dailyReports.length > 3 && (
-                    <button
-                      type="button"
-                      onClick={() => setReportsModalOpen(true)}
-                      className="w-full text-xs text-slate-500 hover:text-slate-700 py-1"
-                    >
-                      + {dailyReports.length - 3} báo cáo khác
-                    </button>
+
+                      {/* Thanh Progress bar mini nếu có tiến độ */}
+                      {report.progressPercentage != null && (
+                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, Math.max(0, report.progressPercentage))}%` }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Nội dung báo cáo */}
+                      <div className="text-xs text-slate-700 font-medium whitespace-pre-wrap leading-relaxed">
+                        {report.content}
+                      </div>
+
+                      {/* Vật tư phát sinh / thiếu nếu có */}
+                      {report.materialShortage && (
+                        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
+                          <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                            <span>⚠️</span> Vật tư phát sinh / thiếu hụt:
+                          </span>
+                          <p className="text-amber-800 font-medium whitespace-pre-wrap">
+                            {report.materialShortage}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Hình ảnh tiến độ */}
+                      {reportImages.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                            <span>📸</span> Ảnh tiến độ ({reportImages.length} ảnh):
+                          </span>
+                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                            {reportImages.map((imgUrl, imgIdx) => (
+                              <div
+                                key={imgIdx}
+                                onClick={() => setPreviewImage(imgUrl)}
+                                className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white hover:opacity-90 hover:scale-105 transition cursor-pointer shadow-xs group relative"
+                              >
+                                <img
+                                  src={imgUrl}
+                                  alt={`Tiến độ ${imgIdx + 1}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = "https://placehold.co/150x150?text=Anh+TD";
+                                  }}
+                                />
+                                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-bold">
+                                  🔍 Xem
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Cột phải: Bảng điều phối nhân sự & Hành động nhanh */}
+        <div className="space-y-6">
+          {/* Card Phân công Giám sát & Thợ sơn */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-emerald-600" />
+              <span>Điều Phối Nhân Sự</span>
+            </h4>
+
+            {/* Giám sát viên */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="text-xs font-bold text-slate-700">
+                Giám sát khảo sát:
+              </div>
+              <div className="font-bold text-sm text-slate-900">
+                {order.supervisorName || order.supervisor?.fullName || order.supervisor?.username ? (
+                  `@${order.supervisorName || order.supervisor?.username}`
+                ) : (
+                  <span className="text-amber-700 text-xs font-semibold">Chưa phân công</span>
+                )}
+              </div>
+              {canChangeSupervisor ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(order.supervisorId ? String(order.supervisorId) : "");
+                    setSupervisorModalTab("all");
+                    setAssignModal("supervisor");
+                  }}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
+                >
+                  {order.supervisorId ? "Đổi Giám Sát Phụ Trách" : "+ Gán Giám Sát Viên"}
+                </button>
+              ) : (
+                <div className="p-2 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-xl border border-emerald-200 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Giám sát đã nộp báo cáo (Khóa đổi)</span>
+                </div>
+              )}
+            </div>
+
+            {/* Đội thợ sơn */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="text-xs font-bold text-slate-700">
+                Đội thợ thi công:
+              </div>
+              <div className="font-bold text-sm text-slate-900">
+                {order.technicianName || order.technician?.fullName || order.technician?.username ? (
+                  `@${order.technicianName || order.technician?.username}`
+                ) : (
+                  <span className="text-amber-700 text-xs font-semibold">Chưa bàn giao thợ</span>
+                )}
+              </div>
+
+              {canAssignWorker ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(order.technicianId ? String(order.technicianId) : "");
+                    setWorkerModalTab("all");
+                    setAssignModal("worker");
+                  }}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
+                >
+                  {order.technicianId ? "Đổi Đội Thợ Thi Công" : "+ Gán Đội Thợ Sơn"}
+                </button>
+              ) : isWorkStartedOrCompleted ? (
+                <div className="p-2 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-xl border border-emerald-200 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>
+                    {status === "PROCESSING"
+                      ? "Đội thợ đang thi công (Khóa đổi thợ)"
+                      : "Công trình đã hoàn thành (Khóa đổi thợ)"}
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-1.5 pt-1">
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-2 bg-slate-200 text-slate-400 font-bold rounded-xl text-xs cursor-not-allowed"
+                  >
+                    + Gán Đội Thợ Sơn (Khóa)
+                  </button>
+                  {!contract?.customerSigned ? (
+                    <p className="text-[10.5px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-medium leading-snug">
+                      🔒 Chờ khách hàng chọn ngày và ký hợp đồng điện tử.
+                    </p>
+                  ) : !contract?.adminSigned ? (
+                    <p className="text-[10.5px] text-rose-800 bg-rose-50 p-2 rounded-xl border border-rose-200 font-bold leading-snug">
+                      ⚠️ Admin chưa ký hợp đồng! Vui lòng bấm nút <strong>"Xác Nhận Nộp Cọc &amp; Ký HĐ"</strong> bên dưới để ký hợp đồng trước khi phân thợ.
+                    </p>
+                  ) : (
+                    <p className="text-[10.5px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-medium leading-snug">
+                      🔒 Chờ xác nhận tiền cọc để phân công thợ thi công.
+                    </p>
                   )}
                 </div>
               )}
             </div>
-          )}
+          </div>
 
-          <OrderTimeline history={order.history || []} />
-        </div>
+          {/* Các hành động xử lý bước tiếp theo */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider border-b border-slate-100 pb-3">
+              Xử Lý Bước Tiếp Theo
+            </h4>
 
-        {/* ========== CỘT PHẢI: HÀNH ĐỘNG ========== */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm sticky top-4">
-            <h3 className="font-bold text-slate-800 mb-4 pb-3 border-b border-slate-100">
-              Hành động
-            </h3>
+            {status === "WAITING_ADMIN_QUOTE" && (
+              <button
+                type="button"
+                onClick={() => setQuoteModalOpen(true)}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4 text-white" />
+                <span>Gửi Báo Giá Cho Khách</span>
+              </button>
+            )}
 
-            <div className="space-y-2.5">
-              {canAssignSupervisor && (
-                <ActionBtn
-                  color="blue"
-                  onClick={() => {
-                    setSelectedId("");
-                    setAssignModal("supervisor");
-                  }}
-                >
-                  Phân công Giám sát khảo sát
-                </ActionBtn>
-              )}
-
-              {order.status === "SURVEY_ASSIGNED" && (
-                <HintBox color="amber">
-                  <strong>Đang khảo sát.</strong> Giám sát đo đạc và lập HĐ.
-                </HintBox>
-              )}
-
-              {order.status === "WAITING_ADMIN_QUOTE" && (
-                <>
-                  <HintBox color="indigo">
-                    <strong>Chờ duyệt báo cáo.</strong> Giám sát đã gửi báo cáo, hãy duyệt và gửi báo giá.
-                  </HintBox>
-                  <ActionBtn color="emerald" onClick={() => setQuoteModalOpen(true)}>
-                    📨 Gửi báo giá cho khách
-                  </ActionBtn>
-                </>
-              )}
-
-              {order.status === "CUSTOMER_ACCEPTED_QUOTE" && (
-                <>
-                  <HintBox color="indigo">
-                    <strong>Khách đã đồng ý.</strong> Vui lòng tạo hợp đồng.
-                  </HintBox>
-                  <ActionBtn color="blue" onClick={handleCreateContract}>
-                    📝 Lập hợp đồng
-                  </ActionBtn>
-                </>
-              )}
-
-              {order.status === "WAITING_DEPOSIT" && (
-                <>
-                  <HintBox color="amber">
-                    <strong>Chờ khách thanh toán cọc.</strong>
-                  </HintBox>
-                  <ActionBtn color="emerald" onClick={() => setConfirmDepositModal(true)}>
-                    💰 Xác nhận đã nhận cọc &amp; Ký HĐ
-                  </ActionBtn>
-                </>
-              )}
-
-              {order.status === "DEPOSIT_CONFIRMED" && (
-                <HintBox color="emerald">
-                  <strong>Đã xác nhận tiền cọc!</strong> Vui lòng phân công Đội thợ thi công bên dưới.
-                </HintBox>
-              )}
-
-              {order.status === "WAITING_CUSTOMER_SIGNATURE" && (
-                <>
-                  <HintBox color="amber">
-                    <strong>Chờ khách ký.</strong> Đã duyệt HĐ, đang chờ ký điện
-                    tử.
-                  </HintBox>
-                  {canViewContract && (
-                    <ActionBtn
-                      color="slate"
-                      onClick={() => setContractModalOpen(true)}
-                    >
-                      📜 Xem hợp đồng
-                    </ActionBtn>
-                  )}
-                </>
-              )}
-
-              {order.status === "CONTRACT_APPROVED" && customerSigned && (
-                <>
-                  <HintBox color="emerald">
-                    <strong>Khách đã ký.</strong> Có thể bàn giao / bắt đầu thi
-                    công.
-                  </HintBox>
-                  {canViewContract && (
-                    <ActionBtn
-                      color="slate"
-                      onClick={() => setContractModalOpen(true)}
-                    >
-                      📜 Xem hợp đồng
-                    </ActionBtn>
-                  )}
-                </>
-              )}
-
-              {isWorkerRejected && (
-                <HintBox color="red">
-                  <strong>Thợ từ chối.</strong> Gán đội thợ khác.
-                </HintBox>
-              )}
-
-              {canAssignWorker && (
-                <ActionBtn
-                  color="teal"
-                  onClick={() => {
-                    setSelectedId(String(preferredWorkerId || ""));
-                    setAssignModal("worker");
-                  }}
-                >
-                  {isWorkerRejected || !hasTechnician
-                    ? "Gán Đội thợ thi công"
-                    : "Thay đổi / Gán lại Đội thợ"}
-                </ActionBtn>
-              )}
-
-              {order.status === "PROCESSING" && (
-                <>
-                  <HintBox color="blue">
-                    <strong>Đang thi công.</strong> Đội thợ cập nhật nhật ký
-                    ngày.
-                  </HintBox>
-                  {canViewContract && (
-                    <ActionBtn
-                      color="slate"
-                      onClick={() => setContractModalOpen(true)}
-                    >
-                      📜 Xem hợp đồng
-                    </ActionBtn>
-                  )}
-                </>
-              )}
-
-              {order.status === "WORKER_COMPLETED" && (
-                <HintBox color="purple">
-                  <strong>Thợ hoàn thành.</strong> Chờ nghiệm thu / thanh toán.
-                </HintBox>
-              )}
-
-              {canPayStaff && (
-                <ActionBtn color="emerald" onClick={handlePayStaff}>
-                  Xác nhận thanh toán tiền công
-                </ActionBtn>
-              )}
-
-              {canViewDailyReports && (
-                <ActionBtn
-                  color="orange"
-                  onClick={() => {
-                    fetchDailyReports(id);
-                    setReportsModalOpen(true);
-                  }}
-                >
-                  📅 Báo cáo ngày ({dailyReports.length})
-                </ActionBtn>
-              )}
-
-              {canViewContract &&
-                ![
-                  "WAITING_CONTRACT_APPROVAL",
-                  "WAITING_CUSTOMER_SIGNATURE",
-                  "CONTRACT_APPROVED",
-                  "PROCESSING",
-                ].includes(order.status) && (
-                  <ActionBtn
-                    color="slate"
-                    onClick={() => setContractModalOpen(true)}
-                  >
-                    📜 Xem hợp đồng
-                  </ActionBtn>
+            {(status === "WAITING_DEPOSIT" || (contract?.customerSigned && !contract?.adminSigned)) && (
+              <div className="space-y-2">
+                {isDepositPaid && !contract?.adminSigned && (
+                  <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-2xl text-[11px] leading-snug">
+                    <span className="font-bold flex items-center gap-1.5 text-emerald-800 mb-1">
+                      <span>🎉</span> Khách hàng đã chuyển cọc 30%!
+                    </span>
+                    Admin vui lòng ký duyệt hợp đồng điện tử để hoàn tất thủ tục và kích hoạt quyền phân công thợ thi công.
+                  </div>
                 )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDepositModal(true)}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2 animate-pulse"
+                >
+                  <PenTool className="w-4 h-4 text-white" />
+                  <span>
+                    {isDepositPaid ? "✍️ Ký Duyệt Hợp Đồng Cọc" : "Xác Nhận Nộp Cọc & Ký HĐ"}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {contract ? (
+              <button
+                type="button"
+                onClick={() => setContractModalOpen(true)}
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2 border border-slate-200"
+              >
+                <FileText className="w-4 h-4 text-emerald-600" />
+                <span>Xem Hợp Đồng Điện Tử</span>
+              </button>
+            ) : (
+              <div className="text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center font-medium">
+                📄 Hợp đồng sẽ tự động sinh sau khi Admin gửi báo giá.
+              </div>
+            )}
+
+            {dailyReports.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setReportsModalOpen(true)}
+                className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs transition cursor-pointer border border-emerald-200 flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>Báo Cáo Nhật Ký ({dailyReports.length})</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Modal chọn NV */}
+      {/* Modal Phân Công Nhân Sự (Ưu tiên theo Khu vực & Tải công việc) */}
       <Modal
         isOpen={!!assignModal}
         onClose={() => setAssignModal(null)}
         title={
           assignModal === "supervisor"
             ? "Phân công Giám sát khảo sát"
-            : "Gán / đổi Đội thợ thi công"
+            : "Phân công Đội thợ thi công"
         }
+        size="lg"
       >
         <div className="space-y-4">
-          {currentList.length === 0 ? (
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-sm space-y-2">
-              <p className="font-semibold">
-                Không tìm thấy{" "}
-                {assignModal === "supervisor" ? "Giám sát" : "Thợ"} khả dụng.
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate("/admin/employees")}
-                className="px-3 py-1.5 bg-amber-600 text-white font-bold rounded-lg text-xs hover:bg-amber-700"
-              >
-                + Thêm nhân viên
-              </button>
+          {assignModal === "supervisor" ? (
+            <div className="space-y-3">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-950 leading-relaxed">
+                <span className="font-bold block">💡 Hướng dẫn phân công Giám Sát:</span>
+                • Hệ thống hiển thị các Giám sát viên đang <strong>BẬT trạng thái hoạt động</strong>.
+                <br />
+                • Ưu tiên chọn giám sát cùng khu vực <strong>{projectDistrict || "Hà Nội"}</strong> hoặc đang rảnh để khảo sát nhanh nhất.
+              </div>
+
+              {/* 3 Mục lọc Giám sát */}
+              <div className="flex border-b border-slate-200 gap-1 pb-2">
+                <button
+                  type="button"
+                  onClick={() => setSupervisorModalTab("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    supervisorModalTab === "all"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Tất cả ({eligibleSupervisors.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSupervisorModalTab("district")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    supervisorModalTab === "district"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  ★ Cùng khu vực ({districtSupervisors.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSupervisorModalTab("idle")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    supervisorModalTab === "idle"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  ⚡ Đang rảnh ({idleSupervisors.length})
+                </button>
+              </div>
             </div>
           ) : (
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                {assignModal === "supervisor" ? "Giám sát viên" : "Đội thợ"}
-              </label>
-              <select
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                value={selectedId}
-                onChange={(e) => setSelectedId(e.target.value)}
-              >
-                <option value="">-- Chọn --</option>
-                {currentList.map((s) => {
-                  const sId = String(s.userId || s.id);
-                  const isPreferred =
-                    assignModal === "worker" &&
-                    preferredWorkerId &&
-                    String(preferredWorkerId) === sId;
-                  return (
-                    <option key={sId} value={sId}>
-                      {s.fullName || s.username || `NV #${sId}`}
-                      {isPreferred ? " ★ (Khách chọn)" : ""}
-                      {s.specialty ? ` – ${s.specialty}` : ""}
-                      {s.available === false ? " (Bận)" : ""}
-                    </option>
-                  );
-                })}
-              </select>
-              {assignModal === "worker" && !customerSigned && (
-                <p className="text-[11px] text-amber-600 mt-2">
-                  Gán sẵn. Chỉ sau khi khách ký HĐ mới chính thức bàn giao.
-                </p>
-              )}
+            <div className="space-y-3">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-950 leading-relaxed">
+                <span className="font-bold block">💡 Hướng dẫn phân công Đội Thợ:</span>
+                • Dịch vụ yêu cầu: <strong className="text-emerald-800">{orderServiceName || "Tất cả"}</strong>.
+                <br />
+                • Hệ thống <strong>chỉ hiển thị thợ cùng chuyên môn dịch vụ</strong> và đang <strong>BẬT trạng thái hoạt động</strong>.
+              </div>
+
+              {/* 3 Mục lọc thợ */}
+              <div className="flex border-b border-slate-200 gap-1 pb-2">
+                <button
+                  type="button"
+                  onClick={() => setWorkerModalTab("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    workerModalTab === "all"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Tất cả ({eligibleWorkers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkerModalTab("district")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    workerModalTab === "district"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  ★ Cùng khu vực ({districtWorkers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkerModalTab("idle")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    workerModalTab === "idle"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  ⚡ Đang rảnh ({idleWorkers.length})
+                </button>
+              </div>
             </div>
           )}
 
-          <div className="flex gap-3 pt-1">
+          <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+            {((assignModal === "supervisor" ? displaySupervisors : displayWorkers).length === 0) ? (
+              <p className="text-xs text-slate-400 py-6 text-center">
+                Không tìm thấy nhân viên phù hợp với tiêu chí này
+              </p>
+            ) : (
+              (assignModal === "supervisor" ? displaySupervisors : displayWorkers).map((s) => {
+                const sId = String(s.userId || s.id);
+                const isSelected = selectedId === sId;
+
+                const isDistrictMatch =
+                  projectDistrict &&
+                  s.serviceArea?.toLowerCase().includes(projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase());
+
+                const currentLoad =
+                  assignModal === "supervisor"
+                    ? (activeSupervisorJobs[sId] || 0)
+                    : (activeWorkerJobs[sId] || 0);
+
+                return (
+                  <div
+                    key={sId}
+                    onClick={() => setSelectedId(sId)}
+                    className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${isSelected
+                        ? "border-emerald-600 bg-emerald-50/60 shadow-xs"
+                        : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"
+                      }`}
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-xs truncate">
+                          @{s.username} {s.fullName ? `(${s.fullName})` : ""}
+                        </span>
+
+                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                          Đang hoạt động
+                        </span>
+
+                        {isDistrictMatch && (
+                          <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
+                            ★ Cùng khu vực
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span>Chuyên môn: <strong className="text-slate-700">{s.specialty || "Sơn nhà"}</strong></span>
+                        <span>
+                          Khu vực: <strong className="text-slate-700">{s.serviceArea || "Toàn Hà Nội"}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`text-xs font-bold px-2.5 py-1 rounded-xl block ${currentLoad === 0
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-slate-100 text-slate-700"
+                          }`}
+                      >
+                        {currentLoad === 0 ? "⚡ Đang rảnh (0 đơn)" : `Đang làm: ${currentLoad} đơn`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={() => setAssignModal(null)}
-              className="flex-1 py-2 bg-slate-100 font-bold text-slate-600 rounded-xl text-sm hover:bg-slate-200"
+              className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
             >
               Hủy
             </button>
-            {currentList.length > 0 && (
-              <button
-                type="button"
-                onClick={
-                  assignModal === "supervisor"
-                    ? handleAssignSupervisor
-                    : handleAssignWorker
-                }
-                className="flex-1 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700"
-              >
-                Xác nhận
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleAssign}
+              disabled={!selectedId}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
+            >
+              Xác Nhận Phân Công
+            </button>
           </div>
         </div>
       </Modal>
 
-      {/* Modal gửi báo giá */}
+      {/* Modal Gửi Báo Giá */}
       <Modal
         isOpen={quoteModalOpen}
         onClose={() => setQuoteModalOpen(false)}
-        title="Báo giá cho khách hàng"
+        title="Gửi báo giá &amp; Thời gian thi công cho khách"
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-              Tổng báo giá (VNĐ) *
-            </label>
-            <input
-              type="number"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold text-blue-600"
-              value={quoteTotal}
-              onChange={(e) => setQuoteTotal(e.target.value)}
-              placeholder="VD: 15000000"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-              Tiền cọc yêu cầu (VNĐ)
-            </label>
-            <input
-              type="number"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              value={quoteDeposit}
-              onChange={(e) => setQuoteDeposit(e.target.value)}
-              placeholder="Để trống = Mặc định 30%"
-            />
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Dựa trên báo cáo khảo sát từ Giám sát viên, Admin nhập tổng giá trị dự toán, số ngày thi công và thời hạn bảo hành. Khi gửi, hệ thống sẽ tự động tạo Hợp đồng điện tử để khách duyệt &amp; ký.
+          </p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Tổng giá trị dự toán (VNĐ) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={quoteTotal}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setQuoteTotal(val);
+                  if (val && !isNaN(val)) {
+                    setQuoteDeposit(String(Math.round(Number(val) * 0.3)));
+                  } else {
+                    setQuoteDeposit("");
+                  }
+                }}
+                placeholder="Ví dụ: 15000000"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Tiền cọc yêu cầu (30%)
+              </label>
+              <input
+                type="number"
+                value={quoteDeposit}
+                readOnly
+                className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-emerald-700 font-bold outline-none cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Số ngày làm việc dự kiến <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quoteEstimatedDays}
+                  onChange={(e) => setQuoteEstimatedDays(e.target.value)}
+                  placeholder="3"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none font-bold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Thời hạn bảo hành (năm) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quoteWarrantyYears}
+                  onChange={(e) => setQuoteWarrantyYears(e.target.value)}
+                  placeholder="2"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none font-bold"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={() => setQuoteModalOpen(false)}
-              className="flex-1 py-2 bg-slate-100 font-bold text-slate-600 rounded-xl text-sm hover:bg-slate-200"
+              className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="button"
               onClick={handleSendQuote}
-              className="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-xl text-sm hover:bg-emerald-700"
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
             >
-              Gửi báo giá
+              Gửi Báo Giá &amp; Sinh Hợp Đồng
             </button>
           </div>
         </div>
@@ -1043,48 +1415,31 @@ export default function OrderDetail() {
       <Modal
         isOpen={confirmDepositModal}
         onClose={() => setConfirmDepositModal(false)}
-        title="Xác nhận nhận cọc & Ký hợp đồng"
+        title="Ký duyệt hợp đồng &amp; Xác nhận cọc"
       >
         <div className="space-y-4">
-          {/* Hiển thị ảnh biên lai cọc nếu khách đã tải lên */}
-          {payments.filter(p => p.proofImage && p.paymentType === "DEPOSIT").length > 0 && (
-            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
-              <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">
-                📸 Ảnh biên lai chuyển khoản do khách hàng gửi:
-              </p>
-              {payments.filter(p => p.proofImage && p.paymentType === "DEPOSIT").map((p, idx) => (
-                <div key={idx} className="space-y-1.5">
-                  <a
-                    href={p.proofImage}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded-lg overflow-hidden border border-blue-200 bg-white max-h-52"
-                  >
-                    <img
-                      src={p.proofImage}
-                      alt="Biên lai cọc"
-                      className="w-full h-full object-contain max-h-52"
-                    />
-                  </a>
-                  {p.note && <p className="text-xs text-slate-600 italic">Ghi chú: {p.note}</p>}
-                </div>
-              ))}
+          {isDepositPaid ? (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 leading-relaxed font-medium">
+              <span className="font-bold block text-emerald-900 mb-0.5">✓ Khách hàng đã chuyển cọc 30% thành công qua VNPay Sandbox!</span>
+              Số tiền cọc: <strong className="text-emerald-700">{order.depositAmount ? formatMoney(order.depositAmount) : "—"}</strong>.
+              <br />
+              Admin tiến hành ký chữ ký điện tử đại diện Công ty vào khung bên dưới để hợp đồng có đầy đủ pháp lý và kích hoạt quyền phân công thợ.
             </div>
+          ) : (
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Khách hàng thực hiện nộp cọc 30% trực tuyến qua cổng VNPay Sandbox. Sau khi xác nhận tiền cọc, Admin tiến hành ký chữ ký điện tử đóng dấu hợp đồng.
+            </p>
           )}
-
-          <p className="text-sm text-slate-700">
-            Vui lòng xác nhận rằng bạn đã nhận được tiền cọc từ khách hàng và ký tên đóng dấu với tư cách đại diện công ty (Admin).
-          </p>
 
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="block text-xs font-bold text-slate-700">
-                Chữ ký của Admin (Đại diện công ty) *
+                Chữ ký Admin (Đại diện công ty) <span className="text-rose-500">*</span>
               </label>
               <button
                 type="button"
                 onClick={clearAdminSignature}
-                className="text-xs text-rose-600 hover:underline font-bold"
+                className="text-xs text-rose-600 hover:underline font-bold cursor-pointer"
               >
                 Xóa chữ ký
               </button>
@@ -1100,9 +1455,9 @@ export default function OrderDetail() {
             </div>
             <p className="text-[11px] text-slate-400">
               {hasAdminSignature ? (
-                <span className="text-emerald-600 font-bold">✓ Đã ký tên xác nhận</span>
+                <span className="text-emerald-700 font-bold">✓ Đã ký tên xác nhận</span>
               ) : (
-                <span className="text-amber-600 font-semibold">⚠️ Vui lòng ký tên vào khung trước khi xác nhận</span>
+                <span className="text-amber-700 font-semibold">⚠️ Vui lòng ký tên vào khung trước khi xác nhận</span>
               )}
             </p>
           </div>
@@ -1111,247 +1466,311 @@ export default function OrderDetail() {
             <button
               type="button"
               onClick={() => setConfirmDepositModal(false)}
-              className="flex-1 py-2 bg-slate-100 font-bold text-slate-600 rounded-xl text-sm hover:bg-slate-200"
+              className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="button"
               onClick={handleConfirmDeposit}
-              className="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-xl text-sm hover:bg-emerald-700"
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
             >
-              Xác nhận nhận cọc
+              Ký Hợp Đồng &amp; Xác Nhận Cọc
             </button>
           </div>
         </div>
       </Modal>
 
-      {/* Modal hợp đồng */}
+      {/* Modal Xem Hợp Đồng Điện Tử */}
       <Modal
         isOpen={contractModalOpen}
         onClose={() => setContractModalOpen(false)}
-        title="Chi tiết hợp đồng"
+        title="Hợp Đồng Dịch Vụ Thi Công Sơn Nhà"
       >
-        {contract ? (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              <span>Mã: {contract.contractCode}</span>
-              <span
-                className={
-                  contract.customerSigned ? "text-emerald-600" : "text-amber-500"
-                }
-              >
-                {contract.customerSigned ? "Khách đã ký" : "Chờ khách ký"}
-              </span>
+        <div className="space-y-5 text-xs text-slate-700 max-h-[75vh] overflow-y-auto pr-1">
+          {/* Header Hợp Đồng */}
+          <div className="text-center pb-3 border-b border-slate-200 space-y-1">
+            <h3 className="text-base font-black text-slate-900 uppercase">
+              CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+            </h3>
+            <p className="text-[11px] font-bold text-slate-600">Độc lập - Tự do - Hạnh phúc</p>
+            <div className="pt-2">
+              <h4 className="text-sm font-black text-emerald-800 uppercase">
+                HỢP ĐỒNG DỊCH VỤ THI CÔNG SƠN SỬA CÔNG TRÌNH
+              </h4>
+              <p className="text-[11px] text-slate-500 font-medium">
+                Mã HĐ: <strong className="text-slate-900">{contract?.contractCode || `HD-${id}`}</strong> | Ngày lập:{" "}
+                {contract?.createdAt
+                  ? new Date(contract.createdAt).toLocaleDateString("vi-VN")
+                  : new Date().toLocaleDateString("vi-VN")}
+              </p>
             </div>
-
-            {/* Trạng thái chữ ký tóm tắt */}
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span
-                className={
-                  "px-2.5 py-1 rounded-full font-semibold " +
-                  (contract.customerSigned
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-slate-100 text-slate-500")
-                }
-              >
-                {contract.customerSigned
-                  ? "✓ Khách đã ký"
-                  : "○ Chờ khách ký"}
-              </span>
-              <span
-                className={
-                  "px-2.5 py-1 rounded-full font-semibold " +
-                  (contract.adminSigned
-                    ? "bg-purple-50 text-purple-700"
-                    : "bg-slate-100 text-slate-500")
-                }
-              >
-                {contract.adminSigned
-                  ? "✓ Admin đã ký & duyệt"
-                  : "○ Chờ Admin ký cọc"}
-              </span>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap min-h-[160px] max-h-[300px] overflow-y-auto">
-              {contract.content || "Chưa có nội dung"}
-            </div>
-
-            {/* Chữ ký Hợp đồng (chỉ giữ lại Khách hàng & Admin) */}
-            {(contract.customerSignatureImg || contract.adminSignatureImg) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {contract.customerSignatureImg && (
-                  <div className="border border-emerald-100 rounded-xl p-3 bg-emerald-50/40">
-                    <p className="text-[10px] font-bold text-emerald-700 uppercase mb-2 tracking-wide">
-                      Chữ ký khách hàng
-                    </p>
-                    <div className="bg-white rounded-lg border border-emerald-100 p-2 flex items-center justify-center min-h-[80px]">
-                      <img
-                        src={contract.customerSignatureImg}
-                        alt="Chữ ký khách"
-                        className="max-h-28 max-w-full object-contain"
-                      />
-                    </div>
-                    {contract.customerSignedAt && (
-                      <p className="text-[10px] text-slate-500 mt-1.5">
-                        Ký lúc:{" "}
-                        {new Date(contract.customerSignedAt).toLocaleString("vi-VN")}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {contract.adminSignatureImg && (
-                  <div className="border border-purple-100 rounded-xl p-3 bg-purple-50/40">
-                    <p className="text-[10px] font-bold text-purple-700 uppercase mb-2 tracking-wide">
-                      Chữ ký Đại diện Công ty (Admin)
-                    </p>
-                    <div className="bg-white rounded-lg border border-purple-100 p-2 flex items-center justify-center min-h-[80px]">
-                      <img
-                        src={contract.adminSignatureImg}
-                        alt="Chữ ký Admin"
-                        className="max-h-28 max-w-full object-contain"
-                      />
-                    </div>
-                    {contract.adminSignedAt && (
-                      <p className="text-[10px] text-slate-500 mt-1.5">
-                        Ký lúc:{" "}
-                        {new Date(contract.adminSignedAt).toLocaleString("vi-VN")}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-        ) : (
-          <p className="text-sm text-slate-500 py-4 text-center">
-            Không tìm thấy thông tin hợp đồng.
-          </p>
-        )}
+
+          {/* Thông tin 2 bên */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 block border-b border-slate-200 pb-1">
+                BÊN A (CHỦ NHÀ / KHÁCH HÀNG):
+              </span>
+              <p>Họ tên: <strong>{order?.customerName || order?.customer?.fullName || order?.customer?.username || "—"}</strong></p>
+              <p>SĐT: <strong>{order?.customerPhone || order?.customer?.phoneNumber || "—"}</strong></p>
+              <p>Địa chỉ công trình: <strong>{order?.address || "—"}</strong></p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="font-bold text-slate-900 block border-b border-slate-200 pb-1">
+                BÊN B (ĐƠN VỊ THI CÔNG):
+              </span>
+              <p>Đơn vị: <strong>CÔNG TY DỊCH VỤ SƠN NHÀ 247</strong></p>
+              <p>Hotline: <strong>1900 6868</strong></p>
+              <p>Địa chỉ: <strong>Hà Nội, Việt Nam</strong></p>
+            </div>
+          </div>
+
+          {/* Điều khoản & Cam kết */}
+          <div className="space-y-2 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+            <span className="font-bold text-emerald-950 block">HẠNG MỤC THI CÔNG &amp; CAM KẾT:</span>
+            <ul className="list-disc list-inside space-y-1 text-slate-700">
+              <li>Dịch vụ: <strong>{order?.serviceName || order?.service?.name || "Sơn sửa nhà"}</strong></li>
+              <li>Tổng giá trị hợp đồng: <strong className="text-emerald-700 text-sm">{formatMoney(order?.totalAmount || contract?.totalAmount || 0)}</strong></li>
+              <li>Tiền đặt cọc cam kết (30%): <strong className="text-slate-900">{formatMoney(order?.depositAmount || (order?.totalAmount ? Number(order.totalAmount) * 0.3 : 0))}</strong></li>
+              <li>Ngày bắt đầu thi công mong muốn: <strong>{order?.expectedStartDate || "Theo thỏa thuận 2 bên"}</strong></li>
+              <li>Thời gian thi công dự kiến: <strong>{order?.estimatedDays || 3} ngày</strong></li>
+              <li>Thời hạn bảo hành chất lượng: <strong>{order?.warrantyYears || 2} năm</strong></li>
+            </ul>
+          </div>
+
+          {/* Trạng thái ký hợp đồng 2 bên */}
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            {/* Chữ ký Bên A */}
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-2">
+              <span className="text-[11px] font-bold text-slate-600 uppercase block">Đại diện Bên A (Khách hàng)</span>
+              {contract?.customerSignatureImg ? (
+                <div className="space-y-1">
+                  <img
+                    src={contract.customerSignatureImg}
+                    alt="Chữ ký khách hàng"
+                    className="h-16 max-w-full mx-auto object-contain bg-slate-50 rounded-lg p-1 border border-slate-100"
+                  />
+                  <span className="text-[10.5px] text-emerald-700 font-bold block">✓ Đã ký điện tử</span>
+                  {contract.customerSignedAt && (
+                    <span className="text-[10px] text-slate-400 block">
+                      {new Date(contract.customerSignedAt).toLocaleString("vi-VN")}
+                    </span>
+                  )}
+                </div>
+              ) : contract?.customerSigned ? (
+                <div className="py-4">
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-xs">
+                    ✓ Đã xác nhận ký
+                  </span>
+                </div>
+              ) : (
+                <div className="py-4">
+                  <span className="px-3 py-1 bg-amber-100 text-amber-800 font-bold rounded-full text-xs">
+                    ⏳ Chờ khách ký
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Chữ ký Bên B */}
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-2">
+              <span className="text-[11px] font-bold text-slate-600 uppercase block">Đại diện Bên B (Admin Công Ty)</span>
+              {contract?.adminSignatureImg ? (
+                <div className="space-y-1">
+                  <img
+                    src={contract.adminSignatureImg}
+                    alt="Chữ ký Admin"
+                    className="h-16 max-w-full mx-auto object-contain bg-slate-50 rounded-lg p-1 border border-slate-100"
+                  />
+                  <span className="text-[10.5px] text-emerald-700 font-bold block">✓ Đã ký &amp; đóng dấu</span>
+                  {contract.adminSignedAt && (
+                    <span className="text-[10px] text-slate-400 block">
+                      {new Date(contract.adminSignedAt).toLocaleString("vi-VN")}
+                    </span>
+                  )}
+                </div>
+              ) : contract?.adminSigned ? (
+                <div className="py-4">
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-xs">
+                    ✓ Đã xác nhận ký
+                  </span>
+                </div>
+              ) : (
+                <div className="py-4 space-y-2">
+                  <span className="px-3 py-1 bg-rose-100 text-rose-800 font-bold rounded-full text-xs block">
+                    ⚠️ Admin chưa ký
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContractModalOpen(false);
+                      setConfirmDepositModal(true);
+                    }}
+                    className="px-3 py-1 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 cursor-pointer shadow-xs"
+                  >
+                    Ký duyệt ngay
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => exportContractPDF(contract, order)}
+              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Xuất File PDF / In Hợp Đồng</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setContractModalOpen(false)}
+              className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
       </Modal>
 
-      {/* Modal danh sách tất cả báo cáo ngày */}
+      {/* Modal Xem Danh Sách Báo Cáo Nhật Ký */}
       <Modal
         isOpen={reportsModalOpen}
         onClose={() => setReportsModalOpen(false)}
-        title={`Tất cả báo cáo tiến độ (${dailyReports.length})`}
+        title={`Nhật Ký & Báo Cáo Tiến Độ Thi Công (${dailyReports.length})`}
+        size="lg"
       >
-        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
           {dailyReports.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 text-center">
-              Chưa có báo cáo ngày nào.
+            <p className="text-xs text-slate-400 py-8 text-center font-medium">
+              Chưa có báo cáo nhật ký thi công nào.
             </p>
           ) : (
-            dailyReports.map((r, idx) => {
-              const imgs = parseImageUrls(r.progressImages);
+            dailyReports.map((report, index) => {
+              const reportImages = parseImageUrls(report.progressImages);
               return (
                 <div
-                  key={r.id || idx}
-                  className="p-3 rounded-xl border border-slate-100 bg-slate-50/60 text-sm space-y-2"
+                  key={report.id || index}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs"
                 >
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-bold text-slate-800">
-                      #{dailyReports.length - idx} - {r.reporterName || "N/A"}
-                    </span>
-                    {r.progressPercentage != null && (
-                      <span className="font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">
-                        {r.progressPercentage}%
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 bg-slate-200 px-2 py-0.5 rounded-md">
+                        📅 Báo cáo ngày #{dailyReports.length - index}
                       </span>
-                    )}
+                      <span className="text-slate-600 font-medium">
+                        Lập bởi: <strong className="text-slate-900">@{report.reporterName || "Thợ thi công"}</strong>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {report.progressPercentage != null && (
+                        <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          {report.progressPercentage}% hoàn thành
+                        </span>
+                      )}
+                      {report.createdAt && (
+                        <span className="text-[11px] text-slate-400">
+                          {new Date(report.createdAt).toLocaleString("vi-VN")}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-slate-700 whitespace-pre-line">
-                    {r.content || "Không có nội dung"}
-                  </p>
-                  {imgs.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      {imgs.map((url, i) => (
-                        <a
-                          key={i}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="aspect-square rounded-lg overflow-hidden border border-slate-200"
-                        >
-                          <img
-                            src={url}
-                            alt={`report-img-${i}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </a>
-                      ))}
+
+                  {report.progressPercentage != null && (
+                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-emerald-600 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, Math.max(0, report.progressPercentage))}%` }}
+                      />
                     </div>
                   )}
-                  {r.createdAt && (
-                    <p className="text-[10px] text-slate-400 text-right">
-                      {new Date(r.createdAt).toLocaleString("vi-VN")}
-                    </p>
+
+                  <div className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed">
+                    {report.content}
+                  </div>
+
+                  {report.materialShortage && (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium">
+                      <span className="font-bold block mb-1">⚠️ Vật tư phát sinh / thiếu hụt:</span>
+                      {report.materialShortage}
+                    </div>
+                  )}
+
+                  {reportImages.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="font-bold text-slate-700 block">
+                        📸 Hình ảnh thi công thực tế ({reportImages.length} ảnh):
+                      </span>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                        {reportImages.map((imgUrl, imgIdx) => (
+                          <div
+                            key={imgIdx}
+                            onClick={() => setPreviewImage(imgUrl)}
+                            className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white hover:opacity-90 hover:scale-105 transition cursor-pointer shadow-xs relative group"
+                          >
+                            <img
+                              src={imgUrl}
+                              alt={`Tiến độ ${imgIdx + 1}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "https://placehold.co/150x150?text=Anh+TD";
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-bold">
+                              🔍 Xem
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
             })
           )}
+
+          <div className="pt-2 border-t border-slate-200 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setReportsModalOpen(false)}
+              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
       </Modal>
-    </div>
-  );
-}
 
-// Subcomponents trợ giúp hiển thị UI
-function InfoItem({ label, value, highlight }) {
-  return (
-    <div>
-      <p className="text-[11px] font-bold text-slate-400 uppercase mb-0.5">
-        {label}
-      </p>
-      <p
-        className={`text-sm ${highlight ? "font-semibold text-blue-600" : "text-slate-800"
-          }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function ActionBtn({ children, color, onClick, disabled }) {
-  const colorMap = {
-    blue: "bg-blue-600 hover:bg-blue-700 text-white",
-    teal: "bg-teal-600 hover:bg-teal-700 text-white",
-    indigo: "bg-indigo-600 hover:bg-indigo-700 text-white",
-    emerald: "bg-emerald-600 hover:bg-emerald-700 text-white",
-    orange: "bg-orange-600 hover:bg-orange-700 text-white",
-    slate: "bg-slate-700 hover:bg-slate-800 text-white",
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`w-full py-2.5 px-4 rounded-xl font-bold text-sm transition shadow-sm disabled:opacity-50 ${colorMap[color] || colorMap.slate
-        }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function HintBox({ children, color }) {
-  const colorMap = {
-    amber: "bg-amber-50 border-amber-200 text-amber-800",
-    indigo: "bg-indigo-50 border-indigo-200 text-indigo-800",
-    emerald: "bg-emerald-50 border-emerald-200 text-emerald-800",
-    blue: "bg-blue-50 border-blue-200 text-blue-800",
-    red: "bg-red-50 border-red-200 text-red-800",
-    purple: "bg-purple-50 border-purple-200 text-purple-800",
-  };
-
-  return (
-    <div
-      className={`p-3 rounded-xl border text-xs leading-relaxed ${colorMap[color] || colorMap.amber
-        }`}
-    >
-      {children}
+      {/* Modal Phóng To Ảnh Khảo Sát */}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] bg-white rounded-3xl overflow-hidden shadow-2xl p-2">
+            <img
+              src={previewImage}
+              alt="Ảnh hiện trạng khảo sát"
+              className="w-full h-auto max-h-[85vh] object-contain rounded-2xl"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 hover:bg-black text-white font-bold flex items-center justify-center text-sm cursor-pointer transition shadow-md"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

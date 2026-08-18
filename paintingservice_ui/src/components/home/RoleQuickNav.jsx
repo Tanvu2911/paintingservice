@@ -423,22 +423,8 @@ export default function RoleQuickNav({ user, compact = false }) {
 
   // ─── CUSTOMER ──────────────────────────────────────────────────────────
   if (isCustomer(user)) {
-    return (
-      <RoleBar
-        title="Khách hàng"
-        username={user.fullName || user.username}
-        icon="🏠"
-        theme="emerald"
-        compact={compact}
-        links={[
-          { to: "/customer/booking", label: "Tạo yêu cầu", icon: "➕" },
-          { to: "/customer/ongoing", label: "Đang làm", icon: "🔄" },
-          { to: "/customer/history", label: "Lịch sử", icon: "📋" },
-          { to: "/customer/profile", label: "Tài khoản", icon: "👤" },
-        ]}
-        currentPath={location.pathname}
-      />
-    );
+    if (compact) return null;
+    return null;
   }
 
   // ─── ADMIN full ────────────────────────────────────────────────────────

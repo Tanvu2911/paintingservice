@@ -28,4 +28,8 @@ public class StaffProfileDto {
     private Double rating;
     private Boolean available;
     private StaffType staffType;
+    private String serviceArea;
+    private String bankName;
+    private String bankAccountNumber;
+    private String bankAccountName;
 }

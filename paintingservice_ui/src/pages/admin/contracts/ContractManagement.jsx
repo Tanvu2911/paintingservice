@@ -8,6 +8,8 @@ import StatusBadge from "../../../components/common/StatusBadge";
 import LoadingState from "../../../components/common/LoadingState";
 import Modal from "../../../components/common/Modal";
 import ContractPreview from "../../../components/contract/ContractPreview";
+import Pagination from "../../../components/common/Pagination";
+import { Search, Eye, FileText } from "lucide-react";
 
 export default function ContractManagement() {
   const { user, showToast } = useOutletContext();
@@ -20,6 +22,10 @@ export default function ContractManagement() {
   const [searchName, setSearchName] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Modal state
   const [detailOpen, setDetailOpen] = useState(false);
@@ -94,6 +100,18 @@ export default function ContractManagement() {
     });
   }, [contracts, searchName, fromDate, toDate]);
 
+  // Reset pagination when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchName, fromDate, toDate]);
+
+  // Paginated slice
+  const totalPages = Math.ceil(filteredContracts.length / itemsPerPage) || 1;
+  const paginatedContracts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredContracts.slice(start, start + itemsPerPage);
+  }, [filteredContracts, currentPage, itemsPerPage]);
+
   const clearFilters = () => {
     setSearchName("");
     setFromDate("");
@@ -127,50 +145,53 @@ export default function ContractManagement() {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <DashboardHeader
-        title="Quản Lý Hợp Đồng"
-        subtitle="Danh sách hợp đồng đã lập và trạng thái xác nhận."
+        title="Quản Lý Hợp Đồng Điện Tử"
+        subtitle="Danh sách hợp đồng dịch vụ đã lập và trạng thái ký kết."
         userName={user?.username}
         userRole="Quản trị viên"
         avatarChar={(user?.username || "A").charAt(0).toUpperCase()}
       />
 
       {/* Filter Controls */}
-      <div className="mb-6 bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 p-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
               Tìm theo mã HĐ / Mã đơn hàng
             </label>
-            <input
-              type="text"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              placeholder="Nhập mã hợp đồng hoặc mã đơn hàng..."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 text-sm"
-            />
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                placeholder="Nhập mã hợp đồng hoặc mã đơn hàng..."
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition"
+              />
+            </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
               Từ ngày
             </label>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 text-sm"
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
               Đến ngày
             </label>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 text-sm"
+              className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition"
             />
           </div>
         </div>
@@ -178,7 +199,7 @@ export default function ContractManagement() {
           <div className="mt-3 flex justify-end">
             <button
               onClick={clearFilters}
-              className="text-xs font-semibold text-slate-500 hover:text-blue-600 transition"
+              className="text-xs font-bold text-emerald-700 hover:text-emerald-800 transition cursor-pointer"
             >
               Xóa bộ lọc
             </button>
@@ -189,82 +210,76 @@ export default function ContractManagement() {
       {loading ? (
         <LoadingState message="Đang tải danh sách hợp đồng..." />
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-wider">
-                  <th className="py-4 px-6">Mã HĐ</th>
-                  <th className="py-4 px-6">Đơn hàng</th>
-                  <th className="py-4 px-6">Trạng thái</th>
-                  <th className="py-4 px-6">Ngày lập</th>
-                  <th className="py-4 px-6">Khách ký</th>
-                  <th className="py-4 px-6">Admin ký</th>
-                  <th className="py-4 px-6 text-right">Thao tác</th>
+                  <th className="py-3.5 px-5">Mã HĐ</th>
+                  <th className="py-3.5 px-5">Đơn hàng</th>
+                  <th className="py-3.5 px-5">Trạng thái</th>
+                  <th className="py-3.5 px-5">Ngày lập</th>
+                  <th className="py-3.5 px-5">Khách ký</th>
+                  <th className="py-3.5 px-5">Admin ký</th>
+                  <th className="py-3.5 px-5 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredContracts.length === 0 ? (
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {paginatedContracts.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-10 text-slate-400">
+                    <td colSpan="7" className="text-center py-10 text-slate-400 font-medium">
                       {contracts.length === 0
-                        ? "Chưa có hợp đồng"
-                        : "Không tìm thấy hợp đồng phù hợp"}
+                        ? "Chưa có hợp đồng nào"
+                        : "Không tìm thấy hợp đồng phù hợp với bộ lọc"}
                     </td>
                   </tr>
                 ) : (
-                  filteredContracts.map((c) => {
+                  paginatedContracts.map((c) => {
                     return (
-                      <tr key={c.id} className="hover:bg-slate-50/50 transition">
-                        <td className="py-4 px-6 font-bold text-slate-800">
+                      <tr key={c.id} className="hover:bg-slate-50/60 transition">
+                        <td className="py-4 px-5 font-bold text-slate-900">
                           {c.contractCode || `#${c.id}`}
                         </td>
-                        <td className="py-4 px-6 text-slate-600">
+                        <td className="py-4 px-5 font-medium text-emerald-800">
                           #{c.bookingId || "—"}
                         </td>
-                        <td className="py-4 px-6">
+                        <td className="py-4 px-5">
                           <StatusBadge status={getStatus(c)} />
                         </td>
-                        <td className="py-4 px-6 text-slate-500">
+                        <td className="py-4 px-5 text-slate-500">
                           {c.createdAt
                             ? new Date(c.createdAt).toLocaleDateString("vi-VN")
                             : "—"}
                         </td>
-                        <td className="py-4 px-6">
+                        <td className="py-4 px-5">
                           {c.customerSigned ? (
-                            <span className="text-emerald-600 font-semibold text-xs">
+                            <span className="text-emerald-700 font-bold text-xs bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                               Đã ký
                             </span>
                           ) : (
-                            <span className="text-amber-500 text-xs">Chưa ký</span>
+                            <span className="text-amber-700 text-xs font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              Chưa ký
+                            </span>
                           )}
                         </td>
-                        <td className="py-4 px-6">
+                        <td className="py-4 px-5">
                           {c.adminSigned ? (
-                            <span className="text-purple-600 font-semibold text-xs">
+                            <span className="text-purple-700 font-bold text-xs bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
                               Đã ký
                             </span>
                           ) : (
-                            <span className="text-amber-500 text-xs">Chưa ký</span>
+                            <span className="text-amber-700 text-xs font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              Chưa ký
+                            </span>
                           )}
                         </td>
-                        <td className="py-4 px-6 text-right space-x-3">
+                        <td className="py-4 px-5 text-right space-x-2 whitespace-nowrap">
                           <button
                             onClick={() => openDetail(c)}
-                            className="text-blue-600 text-xs font-semibold hover:underline"
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-800 font-bold rounded-xl text-xs hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer"
                           >
-                            Xem chi tiết
+                            Chi tiết HĐ
                           </button>
-                          {c.pdfUrl && (
-                            <a
-                              href={c.pdfUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-slate-500 text-xs font-semibold hover:underline"
-                            >
-                              File PDF
-                            </a>
-                          )}
                         </td>
                       </tr>
                     );
@@ -274,20 +289,20 @@ export default function ContractManagement() {
             </table>
           </div>
 
-          {!loading && contracts.length > 0 && (
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-              Hiển thị{" "}
-              <span className="font-semibold text-slate-700">
-                {filteredContracts.length}
-              </span>{" "}
-              / {contracts.length} hợp đồng
-            </div>
-          )}
+          <div className="p-4 bg-slate-50/50 border-t border-slate-100">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredContracts.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(page) => setCurrentPage(page)}
+            />
+          </div>
         </div>
       )}
 
       {/* Shared Modal + Reusable ContractPreview */}
-      <Modal isOpen={detailOpen} onClose={closeDetail} title="Chi tiết hợp đồng" size="lg">
+      <Modal isOpen={detailOpen} onClose={closeDetail} title="Chi tiết hợp đồng điện tử" size="lg">
         {loadingDetail ? (
           <LoadingState message="Đang tải chi tiết hợp đồng..." />
         ) : (
