@@ -264,7 +264,7 @@ export default function ContractManagement() {
                         </td>
                         <td className="py-4 px-5">
                           {c.adminSigned ? (
-                            <span className="text-purple-700 font-bold text-xs bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                            <span className="text-blue-700 font-bold text-xs bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
                               Đã ký
                             </span>
                           ) : (

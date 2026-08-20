@@ -10,7 +10,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "bookings")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -43,29 +44,31 @@ public class Booking {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
+    @Builder.Default
     private BookingStatus status = BookingStatus.PENDING;
 
     @Column(name = "survey_fee", precision = 10, scale = 2)
+    @Builder.Default
     private BigDecimal surveyFee = new BigDecimal("50000.00");
 
     @Column(name = "total_amount", precision = 10, scale = 2)
+    @Builder.Default
     private BigDecimal totalAmount = new BigDecimal("50000.00");
-
-    // ... các code cũ ...
 
     // ========== THÊM CÁC FIELD CHO THANH TOÁN ZALOPAY ==========
     @Column(name = "deposit_amount", precision = 10, scale = 2)
+    @Builder.Default
     private BigDecimal depositAmount = BigDecimal.ZERO; // Tiền cọc (VD: 30% tổng tiền)
 
     @Column(name = "remaining_amount", precision = 10, scale = 2)
+    @Builder.Default
     private BigDecimal remainingAmount = BigDecimal.ZERO; // Tiền còn lại phải thu
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", length = 30)
+    @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.UNPAID; // Trạng thái thanh toán
     // ==========================================================
-
-    // ... các code cũ ...
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String address;
@@ -80,6 +83,7 @@ public class Booking {
     private Contract contract;
 
     @Column(name = "created_at", updatable = false)
+    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -96,4 +100,10 @@ public class Booking {
 
     @Column(name = "expected_start_date")
     private LocalDate expectedStartDate;
+
+    @Column(name = "deposit_paid_at")
+    private LocalDateTime depositPaidAt;
+
+    @Column(name = "final_paid_at")
+    private LocalDateTime finalPaidAt;
 }

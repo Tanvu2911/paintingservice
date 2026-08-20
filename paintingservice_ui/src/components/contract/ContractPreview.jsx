@@ -71,7 +71,7 @@ export default function ContractPreview({
         </span>
         <span
           className={`px-2.5 py-1 rounded-full font-semibold ${contract.adminSigned
-            ? "bg-purple-50 text-purple-700"
+            ? "bg-blue-50 text-blue-700"
             : "bg-slate-100 text-slate-500"
             }`}
         >
@@ -159,11 +159,11 @@ export default function ContractPreview({
             </div>
           )}
           {contract.adminSignatureImg && (
-            <div className="border border-purple-100 rounded-xl p-3 bg-purple-50/40">
-              <p className="text-[10px] font-bold text-purple-700 uppercase mb-2 tracking-wide">
+            <div className="border border-blue-100 rounded-xl p-3 bg-blue-50/40">
+              <p className="text-[10px] font-bold text-blue-700 uppercase mb-2 tracking-wide">
                 Chữ ký Đại diện Công ty (Admin)
               </p>
-              <div className="bg-white rounded-lg border border-purple-100 p-2 flex items-center justify-center min-h-[80px]">
+              <div className="bg-white rounded-lg border border-blue-100 p-2 flex items-center justify-center min-h-[80px]">
                 <img
                   src={contract.adminSignatureImg}
                   alt="Chữ ký Admin"

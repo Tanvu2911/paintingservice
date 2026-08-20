@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "salary_histories")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -38,4 +39,7 @@ public class SalaryHistory {
 
     @Column(name = "calculated_at", updatable = false)
     private LocalDateTime calculatedAt = LocalDateTime.now();
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 }

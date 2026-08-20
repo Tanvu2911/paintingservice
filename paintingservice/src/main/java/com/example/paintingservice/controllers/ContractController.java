@@ -68,13 +68,12 @@ public class ContractController {
                             return String.format("%02d-%d", date.getMonthValue(), date.getYear());
                         },
                         TreeMap::new,
-                        Collectors.counting()
-                ));
+                        Collectors.counting()));
     }
 
     // =========================================================================
     // 1. TẠO HỢP ĐỒNG (Admin lập hợp đồng sau khi khách hàng đồng ý báo giá)
-    //    → Chuyển status đơn sang WAITING_CUSTOMER_SIGNATURE
+    // → Chuyển status đơn sang WAITING_CUSTOMER_SIGNATURE
     // =========================================================================
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -121,7 +120,8 @@ public class ContractController {
                 notificationService.save(Notification.builder()
                         .user(booking.getCustomer())
                         .title("Hợp đồng sẵn sàng ký #" + booking.getId())
-                        .content("Admin đã lập hợp đồng cho đơn hàng của bạn. Vui lòng vào app xem nội dung và ký điện tử.")
+                        .content(
+                                "Admin đã lập hợp đồng cho đơn hàng của bạn. Vui lòng vào app xem nội dung và ký điện tử.")
                         .createdAt(LocalDateTime.now())
                         .isRead(false)
                         .build());
@@ -130,8 +130,6 @@ public class ContractController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
-
-
 
     // =========================================================================
     // 3. CẬP NHẬT & KÝ HỢP ĐỒNG (Khách ký → PROCESSING)
@@ -176,7 +174,8 @@ public class ContractController {
                 existing.setCustomerSignatureImg(dto.getCustomerSignatureImg());
             }
 
-            // ========== CHỮ KÝ GIÁM SÁT (chỉ cập nhật khi client gửi, KHÔNG ghi đè null) ==========
+            // ========== CHỮ KÝ GIÁM SÁT (chỉ cập nhật khi client gửi, KHÔNG ghi đè null)
+            // ==========
             if (dto.getSurveySigned() != null) {
                 existing.setSurveySigned(dto.getSurveySigned());
             }
@@ -208,7 +207,7 @@ public class ContractController {
                                 .isRead(false)
                                 .build());
                     });
-                    
+
                     if (booking.getCustomer() != null) {
                         notificationService.save(Notification.builder()
                                 .user(booking.getCustomer())
@@ -224,6 +223,63 @@ public class ContractController {
             }
 
             return ResponseEntity.ok(result);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // =========================================================================
+    // 3.1 KÝ HỢP ĐỒNG (Dùng cho cả Khách hàng và Admin)
+    // =========================================================================
+    @PostMapping("/{id}/sign")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> sign(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload,
+            Authentication auth,
+            HttpServletRequest request) {
+
+        return contractService.findById(id).map(existing -> {
+            String role = payload.getOrDefault("role", "CUSTOMER");
+            String signatureImg = payload.get("signatureImage");
+            if (signatureImg == null || signatureImg.isBlank()) {
+                signatureImg = payload.get("signatureImg");
+            }
+            if (signatureImg == null || signatureImg.isBlank()) {
+                signatureImg = payload.get("customerSignatureImg");
+            }
+
+            if ("CUSTOMER".equalsIgnoreCase(role)) {
+                existing.setCustomerSigned(true);
+                existing.setCustomerSignedAt(LocalDateTime.now());
+                if (signatureImg != null && !signatureImg.isBlank()) {
+                    existing.setCustomerSignatureImg(signatureImg);
+                }
+                existing.setCustomerIp(request.getRemoteAddr());
+
+                Booking booking = existing.getBooking();
+                if (booking != null) {
+                    booking.setStatus(BookingStatus.WAITING_DEPOSIT);
+                    bookingRepository.save(booking);
+
+                    userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+                        notificationService.save(Notification.builder()
+                                .user(admin)
+                                .title("Khách hàng đã ký hợp đồng #" + booking.getId())
+                                .content("Khách hàng đã ký hợp đồng. Đang chờ khách hàng thanh toán cọc.")
+                                .createdAt(LocalDateTime.now())
+                                .isRead(false)
+                                .build());
+                    });
+                }
+            } else if ("ADMIN".equalsIgnoreCase(role)) {
+                existing.setAdminSigned(true);
+                existing.setAdminSignedAt(LocalDateTime.now());
+                if (signatureImg != null && !signatureImg.isBlank()) {
+                    existing.setAdminSignatureImg(signatureImg);
+                }
+            }
+
+            Contract saved = contractService.save(existing);
+            return ResponseEntity.ok(ContractMapper.toDto(saved));
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -269,9 +325,12 @@ public class ContractController {
 
             // Nếu chưa có record Payment cọc thì tạo 1 record đã thanh toán
             if (!hasDepositPayment) {
-                BigDecimal depositAmount = booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                        ? booking.getDepositAmount()
-                        : (booking.getTotalAmount() != null ? booking.getTotalAmount().multiply(new BigDecimal("0.3")) : BigDecimal.ZERO);
+                BigDecimal depositAmount = booking.getDepositAmount() != null
+                        && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
+                                ? booking.getDepositAmount()
+                                : (booking.getTotalAmount() != null
+                                        ? booking.getTotalAmount().multiply(new BigDecimal("0.3"))
+                                        : BigDecimal.ZERO);
                 Payment newPayment = Payment.builder()
                         .booking(booking)
                         .amount(depositAmount)
@@ -288,7 +347,8 @@ public class ContractController {
                 notificationService.save(Notification.builder()
                         .user(booking.getCustomer())
                         .title("Đã nhận tiền cọc #" + booking.getId())
-                        .content("Admin đã xác nhận nhận tiền cọc và ký hợp đồng. Đơn hàng sẽ được phân công cho đội thợ trong thời gian tới.")
+                        .content(
+                                "Admin đã xác nhận nhận tiền cọc và ký hợp đồng. Đơn hàng sẽ được phân công cho đội thợ trong thời gian tới.")
                         .createdAt(LocalDateTime.now())
                         .isRead(false)
                         .build());
@@ -297,6 +357,7 @@ public class ContractController {
             return ResponseEntity.ok(result);
         }).orElse(ResponseEntity.notFound().build());
     }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {

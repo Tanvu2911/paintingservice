@@ -33,6 +33,8 @@ public class BookingMapper {
                 .paymentStatus(paymentStatus)
                 .depositPaid(depositPaid)
                 .finalPaid(finalPaid)
+                .depositPaidAt(booking.getDepositPaidAt())
+                .finalPaidAt(booking.getFinalPaidAt())
                 .address(booking.getAddress())
                 .description(booking.getDescription())
                 .createdAt(booking.getCreatedAt())

@@ -9,4 +9,6 @@ public interface DailyReportRepository
         extends JpaRepository<DailyReport, Long> {
 
     List<DailyReport> findByBookingIdOrderByCreatedAtDesc(Long bookingId);
+
+    List<DailyReport> findAllByBooking_Id(Long bookingId);
 }

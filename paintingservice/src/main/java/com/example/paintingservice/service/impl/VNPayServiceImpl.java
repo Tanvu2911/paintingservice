@@ -39,7 +39,8 @@ public class VNPayServiceImpl implements VNPayService {
 
     @Override
     @Transactional
-    public Map<String, Object> createVNPayPaymentUrl(Long bookingId, String paymentType, HttpServletRequest request) throws Exception {
+    public Map<String, Object> createVNPayPaymentUrl(Long bookingId, String paymentType, HttpServletRequest request)
+            throws Exception {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + bookingId));
 
@@ -70,31 +71,36 @@ public class VNPayServiceImpl implements VNPayService {
             if (booking.getStatus() != BookingStatus.WAITING_FINAL_PAYMENT
                     && booking.getStatus() != BookingStatus.COMPLETED
                     && booking.getStatus() != BookingStatus.WORKER_COMPLETED) {
-                throw new RuntimeException("Công trình chưa thi công xong hoặc chưa được nghiệm thu để thanh toán tất toán!");
+                throw new RuntimeException(
+                        "Công trình chưa thi công xong hoặc chưa được nghiệm thu để thanh toán tất toán!");
             }
         }
 
         BigDecimal amount = type.equals("DEPOSIT")
                 ? (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                    ? booking.getDepositAmount()
-                    : (booking.getTotalAmount() != null ? booking.getTotalAmount().multiply(new BigDecimal("0.3")) : BigDecimal.ZERO))
+                        ? booking.getDepositAmount()
+                        : (booking.getTotalAmount() != null ? booking.getTotalAmount().multiply(new BigDecimal("0.3"))
+                                : BigDecimal.ZERO))
                 : (booking.getRemainingAmount() != null && booking.getRemainingAmount().compareTo(BigDecimal.ZERO) > 0
-                    ? booking.getRemainingAmount()
-                    : (booking.getTotalAmount() != null
-                        ? (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                            ? booking.getTotalAmount().subtract(booking.getDepositAmount())
-                            : booking.getTotalAmount().multiply(new BigDecimal("0.7")))
-                        : BigDecimal.ZERO));
+                        ? booking.getRemainingAmount()
+                        : (booking.getTotalAmount() != null
+                                ? (booking.getDepositAmount() != null
+                                        && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
+                                                ? booking.getTotalAmount().subtract(booking.getDepositAmount())
+                                                : booking.getTotalAmount().multiply(new BigDecimal("0.7")))
+                                : BigDecimal.ZERO));
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Số tiền thanh toán không hợp lệ.");
         }
 
         // Tạo mã giao dịch duy nhất
-        String vnp_TxnRef = (type.equals("DEPOSIT") ? "VNP_COC_" : "VNP_TT_") + bookingId + "_" + System.currentTimeMillis();
+        String vnp_TxnRef = (type.equals("DEPOSIT") ? "VNP_COC_" : "VNP_TT_") + bookingId + "_"
+                + System.currentTimeMillis();
         long amountInVND = amount.longValue() * 100; // VNPay nhân 100
 
-        String orderInfo = "Thanh toan " + (type.equals("DEPOSIT") ? "coc 30%" : "tat toan") + " don hang #" + bookingId;
+        String orderInfo = "Thanh toan " + (type.equals("DEPOSIT") ? "coc 30%" : "tat toan") + " don hang #"
+                + bookingId;
 
         Map<String, String> vnp_Params = new HashMap<>();
         vnp_Params.put("vnp_Version", VNPayConfig.vnp_Version);
@@ -217,6 +223,7 @@ public class VNPayServiceImpl implements VNPayService {
             if ("DEPOSIT".equals(type)) {
                 payment.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
                 booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
+                booking.setDepositPaidAt(LocalDateTime.now());
 
                 // Khách hàng đã chuyển cọc xong -> Chờ Admin ký duyệt hợp đồng điện tử
                 // KHÔNG tự động ký adminSigned, Admin phải vào ký trên giao diện OrderDetail
@@ -228,6 +235,7 @@ public class VNPayServiceImpl implements VNPayService {
                 payment.setPaymentStatus(PaymentStatus.FULLY_PAID);
                 booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
                 booking.setRemainingAmount(BigDecimal.ZERO);
+                booking.setFinalPaidAt(LocalDateTime.now());
                 if (booking.getStatus() == BookingStatus.WORKER_COMPLETED
                         || booking.getStatus() == BookingStatus.PROCESSING
                         || booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT) {
@@ -243,8 +251,11 @@ public class VNPayServiceImpl implements VNPayService {
             // Gửi thông báo cho khách hàng & admin
             if (booking.getCustomer() != null) {
                 String notiContent = "DEPOSIT".equals(type)
-                        ? String.format("Giao dịch đặt cọc 30%% cho đơn hàng #%d qua VNPay đã thành công. Đang chờ Admin ký duyệt hợp đồng điện tử.", booking.getId())
-                        : String.format("Giao dịch thanh toán tất toán cho đơn hàng #%d qua VNPay đã thành công.", booking.getId());
+                        ? String.format(
+                                "Giao dịch đặt cọc 30%% cho đơn hàng #%d qua VNPay đã thành công. Đang chờ Admin ký duyệt hợp đồng điện tử.",
+                                booking.getId())
+                        : String.format("Giao dịch thanh toán tất toán cho đơn hàng #%d qua VNPay đã thành công.",
+                                booking.getId());
                 notificationService.save(Notification.builder()
                         .user(booking.getCustomer())
                         .title("Thanh toán VNPay thành công #" + booking.getId())

@@ -10,6 +10,7 @@ export default function QRCodePayment({
     orderId,
     addInfo,
     bankId = "MB",
+    bankName,
     accountNo = "0355880362",
     accountName = "VU VIET TAN",
     title = "Quét mã VietQR để thanh toán",
@@ -89,7 +90,7 @@ export default function QRCodePayment({
                 {/* Ngân hàng */}
                 <div className="flex items-center justify-between">
                     <span className="text-slate-500 font-medium">Ngân hàng thụ hưởng:</span>
-                    <span className="font-bold text-slate-800">{bankId} (MB Bank)</span>
+                    <span className="font-bold text-slate-800">{bankName || bankId}</span>
                 </div>
 
                 {/* Số tài khoản */}

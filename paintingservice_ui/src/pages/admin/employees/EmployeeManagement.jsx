@@ -7,15 +7,19 @@ import Modal from "../../../components/common/Modal";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import Pagination from "../../../components/common/Pagination";
 import { HANOI_DISTRICTS, VIETNAMESE_BANKS } from "../../../data/hanoiLocations";
-import { Search, UserPlus, Filter, ShieldCheck, MapPin } from "lucide-react";
+import { Search, UserPlus, Filter, ShieldCheck, MapPin, Eye, Edit2, Trash2, Phone, Mail, Building, CreditCard, Award, Check } from "lucide-react";
 
 export default function EmployeeManagement() {
-  const { user, showToast } = useOutletContext();
+  const context = useOutletContext() || {};
+  const user = context.user;
+  const showToast = context.showToast;
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [availableServices, setAvailableServices] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
+  const [selectedStaffForDetail, setSelectedStaffForDetail] = useState(null);
+  const [copiedBankField, setCopiedBankField] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Search & Filter State
@@ -168,7 +172,7 @@ export default function EmployeeManagement() {
     try {
       await AxiosConfig.delete(`/staff/${id}`);
       setEmployees((prev) => prev.filter((e) => e.id !== id));
-      showToast?.("Đã xóa nhân viên thành công");
+      showToast?.("Đã xóa nhân viên thành công", "success");
     } catch {
       showToast?.("Không thể xóa nhân viên", "error");
     }
@@ -195,14 +199,14 @@ export default function EmployeeManagement() {
 
       if (editingStaff) {
         await AxiosConfig.put(`/staff/${editingStaff.id}`, payload);
-        showToast?.("Cập nhật thông tin nhân viên thành công");
+        showToast?.("Cập nhật thông tin nhân viên thành công", "success");
       } else {
         if (!payload.password) {
           showToast?.("Vui lòng nhập mật khẩu", "error");
           return;
         }
         await AxiosConfig.post("/staff", payload);
-        showToast?.("Thêm nhân viên mới thành công");
+        showToast?.("Thêm nhân viên mới thành công", "success");
       }
       setIsModalOpen(false);
       setRefreshTrigger((p) => p + 1);
@@ -294,11 +298,10 @@ export default function EmployeeManagement() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-wider">
-                  <th className="py-3.5 px-5">Tài khoản &amp; Vai trò</th>
+                <tr className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-slate-100">
+                  <th className="py-3.5 px-5">Nhân viên &amp; Vai trò</th>
                   <th className="py-3.5 px-5">Liên hệ</th>
-                  <th className="py-3.5 px-5">Kỹ năng chuyên môn</th>
-                  <th className="py-3.5 px-5">Khu vực hoạt động (HN)</th>
+                  <th className="py-3.5 px-5">Khu vực phụ trách (HN)</th>
                   <th className="py-3.5 px-5">Tài khoản ngân hàng</th>
                   <th className="py-3.5 px-5">Trạng thái</th>
                   <th className="py-3.5 px-5 text-right">Hành động</th>
@@ -307,24 +310,44 @@ export default function EmployeeManagement() {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {paginatedEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-10 text-slate-400 font-medium">
+                    <td colSpan="6" className="text-center py-10 text-slate-400 font-medium">
                       Không tìm thấy nhân viên nào phù hợp
                     </td>
                   </tr>
                 ) : (
                   paginatedEmployees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-slate-50/60 transition">
+                    <tr
+                      key={emp.id}
+                      onClick={() => setSelectedStaffForDetail(emp)}
+                      className="hover:bg-slate-50/70 transition cursor-pointer group"
+                    >
                       <td className="py-4 px-5">
-                        <div className="font-bold text-slate-900">@{emp.username}</div>
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${emp.staffType === "SUPERVISOR"
-                                ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                              }`}
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-9 h-9 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-inner ${
+                              emp.staffType === "SUPERVISOR"
+                                ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            }`}
                           >
-                            {emp.staffType === "SUPERVISOR" ? "Giám sát (Tối đa 3 đợn)" : "Thợ thi công (Tối đa 1 đơn)"}
-                          </span>
+                            {(emp.username || "S").charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 group-hover:text-blue-700 transition">
+                              @{emp.username}
+                            </div>
+                            <div className="mt-0.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                  emp.staffType === "SUPERVISOR"
+                                    ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                    : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                }`}
+                              >
+                                {emp.staffType === "SUPERVISOR" ? "Giám sát viên" : "Đội thợ thi công"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </td>
 
@@ -333,40 +356,25 @@ export default function EmployeeManagement() {
                         <div className="text-[11px] text-slate-400">{emp.email || "Chưa có email"}</div>
                       </td>
 
-                      {/* Cột Kỹ năng */}
                       <td className="py-4 px-5 max-w-[200px]">
-                        {emp.specialty ? (
-                          <div className="flex flex-wrap gap-1">
-                            {emp.specialty.split(",").slice(0, 3).map((skill, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 bg-purple-50 text-purple-800 border border-purple-200 rounded-md text-[10px] font-semibold truncate max-w-[160px]"
-                              >
-                                {skill.trim()}
-                              </span>
-                            ))}
-                            {emp.specialty.split(",").length > 3 && (
-                              <span className="text-[10px] text-slate-400 font-medium">
-                                +{emp.specialty.split(",").length - 3}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">Chưa cập nhật</span>
-                        )}
-                      </td>
-
-                      <td className="py-4 px-5 max-w-[220px]">
                         {emp.serviceArea ? (
                           <div className="flex flex-wrap gap-1">
-                            {emp.serviceArea.split(",").map((area, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-semibold truncate max-w-[130px]"
-                              >
-                                {area.trim()}
+                            {emp.serviceArea
+                              .split(",")
+                              .slice(0, 2)
+                              .map((area, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[10px] font-semibold truncate max-w-[120px]"
+                                >
+                                  {area.trim()}
+                                </span>
+                              ))}
+                            {emp.serviceArea.split(",").length > 2 && (
+                              <span className="text-[10px] text-slate-400 font-semibold px-1 py-0.5">
+                                +{emp.serviceArea.split(",").length - 2} quận
                               </span>
-                            ))}
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400 italic">Toàn Hà Nội</span>
@@ -375,41 +383,61 @@ export default function EmployeeManagement() {
 
                       <td className="py-4 px-5">
                         {emp.bankAccountNumber ? (
-                          <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 text-[11px]">
+                          <div className="text-[11px]">
                             <div className="font-bold text-slate-800">{emp.bankName || "Ngân hàng"}</div>
                             <div className="font-mono text-emerald-700 font-bold">{emp.bankAccountNumber}</div>
-                            <div className="text-[10px] text-slate-500 uppercase">{emp.bankAccountName}</div>
                           </div>
                         ) : (
-                          <span className="text-amber-700 text-[11px] font-medium bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                            Chưa cập nhật STK
-                          </span>
+                          <span className="text-slate-400 italic text-[11px]">Chưa cập nhật STK</span>
                         )}
                       </td>
 
                       <td className="py-4 px-5">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${emp.available
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                            emp.available
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                               : "bg-rose-50 text-rose-700 border border-rose-200"
-                            }`}
+                          }`}
                         >
-                          {emp.available ? "● Sẵn sàng" : "○ Đang bận"}
+                          <span className={`w-1.5 h-1.5 rounded-full ${emp.available ? "bg-emerald-500" : "bg-rose-500"}`} />
+                          <span>{emp.available ? "Sẵn sàng" : "Tạm nghỉ"}</span>
                         </span>
                       </td>
 
-                      <td className="py-4 px-5 text-right space-x-2 whitespace-nowrap">
+                      <td className="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
                         <button
-                          onClick={() => openEdit(emp)}
-                          className="px-3 py-1.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-xs cursor-pointer"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStaffForDetail(emp);
+                          }}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-xl transition text-xs cursor-pointer border border-blue-200 inline-flex items-center gap-1"
                         >
-                          Sửa
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Chi tiết</span>
                         </button>
                         <button
-                          onClick={() => handleDelete(emp.id)}
-                          className="px-3 py-1.5 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition text-xs cursor-pointer border border-rose-200"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEdit(emp);
+                          }}
+                          className="px-3 py-1.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-xs cursor-pointer inline-flex items-center gap-1"
                         >
-                          Xóa
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Sửa</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(emp.id);
+                          }}
+                          className="px-3 py-1.5 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition text-xs cursor-pointer border border-rose-200 inline-flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Xóa</span>
                         </button>
                       </td>
                     </tr>
@@ -665,6 +693,206 @@ export default function EmployeeManagement() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal Chi Tiết Hồ Sơ Nhân Viên */}
+      <Modal
+        isOpen={Boolean(selectedStaffForDetail)}
+        onClose={() => setSelectedStaffForDetail(null)}
+        title="Chi Tiết Hồ Sơ Nhân Viên"
+        size="lg"
+      >
+        {selectedStaffForDetail && (
+          <div className="space-y-5">
+            {/* Header Profile */}
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/40 border border-slate-200">
+              <div
+                className={`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shadow-md ${
+                  selectedStaffForDetail.staffType === "SUPERVISOR"
+                    ? "bg-blue-600 text-white"
+                    : "bg-emerald-600 text-white"
+                }`}
+              >
+                {(selectedStaffForDetail.username || "S").charAt(0).toUpperCase()}
+              </div>
+
+              <div className="flex-1 text-center sm:text-left space-y-1">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <h3 className="text-lg font-black text-slate-900">
+                    @{selectedStaffForDetail.username}
+                  </h3>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${
+                      selectedStaffForDetail.staffType === "SUPERVISOR"
+                        ? "bg-blue-100 text-blue-800 border border-blue-200"
+                        : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                    }`}
+                  >
+                    {selectedStaffForDetail.staffType === "SUPERVISOR"
+                      ? "Giám sát viên (Khảo sát)"
+                      : "Đội thợ sơn (Thi công)"}
+                  </span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedStaffForDetail.available
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                    }`}
+                  >
+                    {selectedStaffForDetail.available ? "🟢 Sẵn sàng nhận việc" : "🔴 Tạm nghỉ"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Mã định danh ID: #{selectedStaffForDetail.id} · Kinh nghiệm:{" "}
+                  <strong>{selectedStaffForDetail.experienceYears || 0} năm</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* 2 Khối Lưới: Liên Hệ & Ngân Hàng */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Thông tin liên hệ */}
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 space-y-2.5">
+                <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Thông Tin Liên Hệ</span>
+                </h4>
+                <div className="space-y-2 text-slate-700">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Số điện thoại:</span>
+                    <strong className="text-slate-900 font-mono">
+                      {selectedStaffForDetail.phoneNumber || "—"}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Email:</span>
+                    <strong className="text-slate-900">
+                      {selectedStaffForDetail.email || "—"}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Địa chỉ:</span>
+                    <strong className="text-slate-900 truncate max-w-[180px]">
+                      {selectedStaffForDetail.address || "Hà Nội"}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tài khoản ngân hàng thụ hưởng */}
+              <div className="bg-emerald-50/40 p-4 rounded-2xl border border-emerald-200/80 space-y-2.5">
+                <h4 className="font-bold text-emerald-900 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Tài Khoản Quyết Toán Thù Lao (VietQR)</span>
+                </h4>
+                <div className="space-y-2 text-slate-700">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Ngân hàng:</span>
+                    <strong className="text-slate-900 font-bold">
+                      {selectedStaffForDetail.bankName || "MB Bank"}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Số tài khoản:</span>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="font-mono text-emerald-800 font-black text-sm">
+                        {selectedStaffForDetail.bankAccountNumber || "—"}
+                      </strong>
+                      {selectedStaffForDetail.bankAccountNumber && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedStaffForDetail.bankAccountNumber);
+                            setCopiedBankField(true);
+                            setTimeout(() => setCopiedBankField(false), 2000);
+                          }}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold hover:bg-emerald-200 cursor-pointer"
+                        >
+                          {copiedBankField ? "✓ Đã chép" : "Chép"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Chủ tài khoản:</span>
+                    <strong className="text-slate-900 uppercase">
+                      {selectedStaffForDetail.bankAccountName || selectedStaffForDetail.username}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Kỹ năng chuyên môn */}
+            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5 text-blue-600" />
+                <span>Kỹ Năng Chuyên Môn / Dịch Vụ Đăng Ký</span>
+              </h4>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {selectedStaffForDetail.specialty ? (
+                  selectedStaffForDetail.specialty.split(",").map((s, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl font-bold text-xs"
+                    >
+                      {s.trim()}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-400 italic">Chưa cập nhật kỹ năng chuyên môn</span>
+                )}
+              </div>
+            </div>
+
+            {/* Khu vực hoạt động tại Hà Nội */}
+            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <h4 className="font-bold text-slate-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                <span>Khu Vực Quận / Huyện Phụ Trách (Hà Nội)</span>
+              </h4>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {selectedStaffForDetail.serviceArea ? (
+                  selectedStaffForDetail.serviceArea.split(",").map((d, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl font-semibold text-xs"
+                    >
+                      {d.trim()}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-slate-500 font-semibold bg-slate-100 px-3 py-1 rounded-xl">
+                    Toàn bộ khu vực Hà Nội
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Action buttons footer */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setSelectedStaffForDetail(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const staffToEdit = selectedStaffForDetail;
+                  setSelectedStaffForDetail(null);
+                  openEdit(staffToEdit);
+                }}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Chỉnh Sửa Hồ Sơ</span>
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

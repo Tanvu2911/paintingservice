@@ -49,4 +49,9 @@ public class DailyReportDto {
      * Vật liệu thiếu / phát sinh trong ngày.
      */
     private String materialShortage;
+
+    /**
+     * Số tiền vật tư phát sinh trong ngày (VNĐ).
+     */
+    private java.math.BigDecimal materialCost;
 }

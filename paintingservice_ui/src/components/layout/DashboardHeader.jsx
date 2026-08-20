@@ -11,7 +11,7 @@ export default function DashboardHeader({
     {
       blue: "bg-blue-600",
       emerald: "bg-emerald-600",
-      purple: "bg-purple-600",
+      teal: "bg-teal-600",
       amber: "bg-amber-500",
     }[color] || "bg-blue-600";
 

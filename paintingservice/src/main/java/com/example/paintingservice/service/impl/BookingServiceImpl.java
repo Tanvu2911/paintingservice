@@ -109,149 +109,245 @@ public class BookingServiceImpl
                                         "Đơn không ở trạng thái chờ nhận");
                 }
 
-                booking.setStatus(
-                                BookingStatus.ACCEPTED);
+		booking.setStatus(BookingStatus.ACCEPTED);
+		Booking saved = bookingRepository.save(booking);
 
-                return BookingMapper.toDto(
-                                bookingRepository.save(booking));
-        }
+		// Thông báo cho Admin
+		userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+			notificationService.save(Notification.builder()
+					.user(admin)
+					.title("Thợ đã nhận việc #" + bookingId)
+					.content(String.format("Đội thợ %s đã xác nhận nhận thi công đơn hàng #%d (Địa chỉ: %s).",
+							username, bookingId, booking.getAddress() != null ? booking.getAddress() : "Theo đơn"))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		});
 
-        // =========================================================
-        // KỸ THUẬT VIÊN TỪ CHỐI ĐƠN
-        // =========================================================
+		// Thông báo cho Khách hàng
+		if (booking.getCustomer() != null) {
+			notificationService.save(Notification.builder()
+					.user(booking.getCustomer())
+					.title("Đội thợ đã tiếp nhận công trình #" + bookingId)
+					.content(String.format("Đội thợ %s đã tiếp nhận đơn hàng #%d của bạn và chuẩn bị thi công đúng kế hoạch.",
+							username, bookingId))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		}
 
-        @Override
-        @Transactional
-        public BookingDto rejectJob(
-                        Long bookingId,
-                        String username,
-                        String reason) {
+		return BookingMapper.toDto(saved);
+	}
 
-                Booking booking = bookingRepository.findById(bookingId)
-                                .orElseThrow(() -> new RuntimeException(
-                                                "Không tìm thấy đơn"));
+	// =========================================================
+	// KỸ THUẬT VIÊN TỪ CHỐI ĐƠN
+	// =========================================================
 
-                if (booking.getTechnician() == null
-                                || booking.getTechnician().getUsername() == null
-                                || !booking.getTechnician()
-                                                .getUsername()
-                                                .equals(username)) {
+	@Override
+	@Transactional
+	public BookingDto rejectJob(
+			Long bookingId,
+			String username,
+			String reason) {
 
-                        throw new RuntimeException(
-                                        "Bạn không có quyền từ chối đơn");
-                }
+		Booking booking = bookingRepository.findById(bookingId)
+				.orElseThrow(() -> new RuntimeException(
+						"Không tìm thấy đơn"));
 
-                if (booking.getStatus() != BookingStatus.CONTRACT_APPROVED
-                                && booking.getStatus() != BookingStatus.ASSIGNED) {
+		if (booking.getTechnician() == null
+				|| booking.getTechnician().getUsername() == null
+				|| !booking.getTechnician()
+						.getUsername()
+						.equals(username)) {
 
-                        throw new RuntimeException(
-                                        "Chỉ được từ chối khi đơn đang chờ nhận");
-                }
+			throw new RuntimeException(
+					"Bạn không có quyền từ chối đơn");
+		}
 
-                // -----------------------------------------
-                // Lưu lý do từ chối
-                // -----------------------------------------
+		if (booking.getStatus() != BookingStatus.CONTRACT_APPROVED
+				&& booking.getStatus() != BookingStatus.ASSIGNED) {
 
-                if (reason != null
-                                && !reason.isBlank()) {
+			throw new RuntimeException(
+					"Chỉ được từ chối khi đơn đang chờ nhận");
+		}
 
-                        String description = booking.getDescription() == null
-                                        ? ""
-                                        : booking.getDescription();
+		// -----------------------------------------
+		// Lưu lý do từ chối
+		// -----------------------------------------
 
-                        booking.setDescription(
-                                        description
-                                                        + "\n[Thợ từ chối] "
-                                                        + reason);
-                }
+		if (reason != null
+				&& !reason.isBlank()) {
 
-                // -----------------------------------------
-                // Bỏ kỹ thuật viên
-                // -----------------------------------------
+			String description = booking.getDescription() == null
+					? ""
+					: booking.getDescription();
 
-                booking.setTechnician(null);
+			booking.setDescription(
+					description
+							+ "\n[Thợ từ chối] "
+							+ reason);
+		}
 
-                booking.setStatus(
-                                BookingStatus.WORKER_REJECTED);
+		// -----------------------------------------
+		// Bỏ kỹ thuật viên
+		// -----------------------------------------
 
-                return BookingMapper.toDto(
-                                bookingRepository.save(booking));
-        }
+		booking.setTechnician(null);
 
-        // =========================================================
-        // BẮT ĐẦU THI CÔNG
-        // =========================================================
+		booking.setStatus(
+				BookingStatus.WORKER_REJECTED);
 
-        @Override
-        @Transactional
-        public BookingDto startJob(
-                        Long id,
-                        String username) {
+		Booking saved = bookingRepository.save(booking);
 
-                Booking booking = bookingRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException(
-                                                "Không tìm thấy đơn"));
+		// Thông báo cho Admin để phân công lại
+		userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+			notificationService.save(Notification.builder()
+					.user(admin)
+					.title("Thợ từ chối nhận việc #" + bookingId)
+					.content(String.format("Đội thợ %s đã từ chối nhận thi công đơn #%d. Lý do: %s. Vui lòng phân công đội thợ khác.",
+							username, bookingId, (reason != null && !reason.isBlank()) ? reason.trim() : "Không ghi rõ lý do"))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		});
 
-                if (booking.getTechnician() == null
-                                || booking.getTechnician().getUsername() == null
-                                || !booking.getTechnician()
-                                                .getUsername()
-                                                .equals(username)) {
+		return BookingMapper.toDto(saved);
+	}
 
-                        throw new RuntimeException(
-                                        "Bạn không được phép thao tác");
-                }
+	// =========================================================
+	// BẮT ĐẦU THI CÔNG
+	// =========================================================
 
-                if (booking.getStatus() != BookingStatus.ACCEPTED) {
+	@Override
+	@Transactional
+	public BookingDto startJob(
+			Long id,
+			String username) {
 
-                        throw new RuntimeException(
-                                        "Đơn chưa ở trạng thái đã nhận việc");
-                }
+		Booking booking = bookingRepository.findById(id)
+				.orElseThrow(() -> new RuntimeException(
+						"Không tìm thấy đơn"));
 
-                booking.setStatus(
-                                BookingStatus.PROCESSING);
+		if (booking.getTechnician() == null
+				|| booking.getTechnician().getUsername() == null
+				|| !booking.getTechnician()
+						.getUsername()
+						.equals(username)) {
 
-                Booking savedBooking = bookingRepository.save(booking);
+			throw new RuntimeException(
+					"Bạn không được phép thao tác");
+		}
 
-                return BookingMapper.toDto(savedBooking);
-        }
+		if (booking.getStatus() != BookingStatus.ACCEPTED) {
 
-        // =========================================================
-        // THỢ HOÀN THÀNH
-        // =========================================================
+			throw new RuntimeException(
+					"Đơn chưa ở trạng thái đã nhận việc");
+		}
 
-        @Override
-        @Transactional
-        public BookingDto completeJob(
-                        Long id,
-                        String username) {
+		booking.setStatus(
+				BookingStatus.PROCESSING);
 
-                Booking booking = bookingRepository.findById(id)
-                                .orElseThrow(() -> new RuntimeException(
-                                                "Không tìm thấy đơn"));
+		Booking savedBooking = bookingRepository.save(booking);
 
-                if (booking.getTechnician() == null
-                                || booking.getTechnician().getUsername() == null
-                                || !booking.getTechnician()
-                                                .getUsername()
-                                                .equals(username)) {
+		// Thông báo cho Admin
+		userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+			notificationService.save(Notification.builder()
+					.user(admin)
+					.title("Bắt đầu thi công đơn #" + id)
+					.content(String.format("Đội thợ %s đã bắt đầu triển khai thi công đơn hàng #%d.",
+							username, id))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		});
 
-                        throw new RuntimeException(
-                                        "Bạn không được phép thao tác");
-                }
+		// Thông báo cho Khách hàng
+		if (savedBooking.getCustomer() != null) {
+			notificationService.save(Notification.builder()
+					.user(savedBooking.getCustomer())
+					.title("Công trình đang thi công #" + id)
+					.content(String.format("Đội thợ %s đã chính thức bắt đầu thi công công trình #%d của bạn.",
+							username, id))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		}
 
-                if (booking.getStatus() != BookingStatus.PROCESSING) {
+		return BookingMapper.toDto(savedBooking);
+	}
 
-                        throw new RuntimeException(
-                                        "Đơn chưa ở trạng thái đang thi công");
-                }
+	// =========================================================
+	// THỢ HOÀN THÀNH
+	// =========================================================
 
-                booking.setStatus(
-                                BookingStatus.WORKER_COMPLETED);
+	@Override
+	@Transactional
+	public BookingDto completeJob(
+			Long id,
+			String username) {
 
-                Booking savedBooking = bookingRepository.save(booking);
+		Booking booking = bookingRepository.findById(id)
+				.orElseThrow(() -> new RuntimeException(
+						"Không tìm thấy đơn"));
 
-                return BookingMapper.toDto(savedBooking);
+		if (booking.getTechnician() == null
+				|| booking.getTechnician().getUsername() == null
+				|| !booking.getTechnician()
+						.getUsername()
+						.equals(username)) {
+
+			throw new RuntimeException(
+					"Bạn không được phép thao tác");
+		}
+
+		if (booking.getStatus() != BookingStatus.PROCESSING) {
+
+			throw new RuntimeException(
+					"Đơn chưa ở trạng thái đang thi công");
+		}
+
+		booking.setStatus(
+				BookingStatus.WORKER_COMPLETED);
+
+		Booking savedBooking = bookingRepository.save(booking);
+
+		// Thông báo cho Admin
+		userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+			notificationService.save(Notification.builder()
+					.user(admin)
+					.title("Thợ báo hoàn thành thi công #" + id)
+					.content(String.format("Đội thợ %s đã báo hoàn thành thi công công trình #%d. Đang chờ Giám sát và Khách hàng nghiệm thu.",
+							username, id))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		});
+
+		// Thông báo cho Giám sát viên (nếu có)
+		if (savedBooking.getSurveyor() != null) {
+			notificationService.save(Notification.builder()
+					.user(savedBooking.getSurveyor())
+					.title("Thợ báo hoàn thành #" + id)
+					.content(String.format("Đội thợ %s đã hoàn thành thi công đơn #%d. Vui lòng kiểm tra hiện trường và nghiệm thu công trình.",
+							username, id))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		}
+
+		// Thông báo cho Khách hàng
+		if (savedBooking.getCustomer() != null) {
+			notificationService.save(Notification.builder()
+					.user(savedBooking.getCustomer())
+					.title("Công trình hoàn thành thi công #" + id)
+					.content(String.format("Đội thợ %s đã hoàn tất thi công công trình #%d. Kính mời quý khách kiểm tra và xác nhận nghiệm thu.",
+							username, id))
+					.createdAt(LocalDateTime.now())
+					.isRead(false)
+					.build());
+		}
+
+		return BookingMapper.toDto(savedBooking);
         }
 
         @Override
@@ -305,6 +401,89 @@ public class BookingServiceImpl
                                         .isRead(false)
                                         .build());
                 });
+
+                return BookingMapper.toDto(saved);
+        }
+
+        @Override
+        @Transactional
+        public BookingDto rejectQuote(Long bookingId, String username, String reason) {
+                Booking booking = bookingRepository.findById(bookingId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + bookingId));
+
+                User currentUser = userRepository.findByUsername(username)
+                                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+                boolean isAdmin = currentUser.getRole() != null
+                                && ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName())
+                                                || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
+                boolean isCustomer = booking.getCustomer() != null
+                                && booking.getCustomer().getId().equals(currentUser.getId());
+
+                if (!isAdmin && !isCustomer) {
+                        throw new RuntimeException("Bạn không có quyền từ chối báo giá cho đơn hàng này");
+                }
+
+                // Cho phép từ chối khi đơn đang ở các trạng thái báo giá / chờ ký hợp đồng / chờ cọc
+                if (booking.getStatus() != BookingStatus.WAITING_CUSTOMER_SIGNATURE
+                                && booking.getStatus() != BookingStatus.WAITING_ADMIN_QUOTE
+                                && booking.getStatus() != BookingStatus.WAITING_CUSTOMER_QUOTE_APPROVAL
+                                && booking.getStatus() != BookingStatus.CUSTOMER_ACCEPTED_QUOTE
+                                && booking.getStatus() != BookingStatus.WAITING_DEPOSIT) {
+                        throw new RuntimeException("Đơn không ở trạng thái có thể từ chối báo giá (Trạng thái hiện tại: "
+                                        + booking.getStatus() + ")");
+                }
+
+                String customerName = booking.getCustomer() != null ? booking.getCustomer().getUsername() : "Khách hàng";
+                String finalReason = (reason != null && !reason.isBlank()) ? reason.trim()
+                                : "Khách hàng không đồng ý với phương án/báo giá";
+
+                String rejectNote = String.format(
+                                "\n[Khách hàng từ chối báo giá - %s bởi %s]: %s",
+                                java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(LocalDateTime.now()),
+                                currentUser.getUsername(),
+                                finalReason);
+
+                String currentDesc = booking.getDescription() != null ? booking.getDescription() : "";
+                booking.setDescription(currentDesc + rejectNote);
+                booking.setStatus(BookingStatus.CANCELLED);
+
+                Booking saved = bookingRepository.save(booking);
+
+                // Thông báo cho Admin
+                userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+                        notificationService.save(Notification.builder()
+                                        .user(admin)
+                                        .title("Khách hàng từ chối báo giá #" + bookingId)
+                                        .content(String.format("Khách hàng %s đã từ chối báo giá cho đơn hàng #%d. Lý do: %s",
+                                                        customerName, bookingId, finalReason))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                });
+
+                // Thông báo cho Giám sát viên (nếu có)
+                if (saved.getSurveyor() != null) {
+                        notificationService.save(Notification.builder()
+                                        .user(saved.getSurveyor())
+                                        .title("Khách hàng từ chối báo giá #" + bookingId)
+                                        .content(String.format("Khách hàng %s đã từ chối báo giá cho đơn hàng khảo sát #%d. Lý do: %s",
+                                                        customerName, bookingId, finalReason))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                }
+
+                // Thông báo cho Khách hàng nếu là khách thực hiện
+                if (saved.getCustomer() != null && !isAdmin) {
+                        notificationService.save(Notification.builder()
+                                        .user(saved.getCustomer())
+                                        .title("Đã từ chối báo giá #" + bookingId)
+                                        .content(String.format("Bạn đã từ chối báo giá cho đơn hàng #%d thành công. Đơn hàng đã được chuyển sang trạng thái Đã hủy.", bookingId))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                }
 
                 return BookingMapper.toDto(saved);
         }

@@ -54,7 +54,7 @@ public class ContractMapper {
                 .pdfUrl(dto.getPdfUrl())
                 .createdAt(dto.getCreatedAt())
                 .build();
-                
+
         if (dto.getBookingId() != null) {
             contract.setBooking(Booking.builder().id(dto.getBookingId()).build());
         }

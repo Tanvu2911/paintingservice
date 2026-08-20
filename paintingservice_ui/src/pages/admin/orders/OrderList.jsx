@@ -336,19 +336,19 @@ export default function OrderList() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex items-center justify-between hover:shadow-md transition border-l-4 border-l-purple-500">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex items-center justify-between hover:shadow-md transition border-l-4 border-l-indigo-500">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-purple-700 uppercase tracking-wider block">
+            <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">
               Báo giá &amp; Ký HĐ, Cọc
             </span>
-            <div className="text-3xl font-black text-purple-700">
+            <div className="text-3xl font-black text-indigo-700">
               {counts.waitingQuote + counts.waitingContract + counts.waitingDeposit + counts.depositConfirmed}
             </div>
             <span className="text-[11px] text-slate-500 font-medium">
               {counts.depositConfirmed} đơn đã cọc chờ thợ
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center text-xl font-black shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center text-xl font-black shrink-0">
             ✍️
           </div>
         </div>
@@ -441,12 +441,12 @@ export default function OrderList() {
             onClick={() => setSelectedStatusTab("DEPOSIT")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               selectedStatusTab === "DEPOSIT"
-                ? "bg-purple-700 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-700"
+                ? "bg-teal-700 text-white shadow-xs"
+                : "bg-slate-50 text-slate-600 hover:bg-teal-50 hover:text-teal-700"
             }`}
           >
             <span>Ký HĐ &amp; Cọc</span>
-            <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-purple-100 text-purple-800 font-bold">
+            <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-teal-100 text-teal-800 font-bold">
               {counts.waitingDeposit + counts.depositConfirmed}
             </span>
           </button>
@@ -471,12 +471,12 @@ export default function OrderList() {
             onClick={() => setSelectedStatusTab("ACCEPTANCE")}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
               selectedStatusTab === "ACCEPTANCE"
-                ? "bg-purple-600 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-purple-50 hover:text-purple-700"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "bg-slate-50 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
             }`}
           >
             <span>Nghiệm thu</span>
-            <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-purple-100 text-purple-800">
+            <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-emerald-100 text-emerald-800">
               {counts.workerCompleted}
             </span>
           </button>

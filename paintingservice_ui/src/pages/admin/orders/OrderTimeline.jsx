@@ -1,34 +1,113 @@
-export default function OrderTimeline({ history = [] }) {
-  if (!history.length) {
-    return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-        <h3 className="font-bold text-slate-800 mb-4">Lịch sử trạng thái</h3>
-        <p className="text-slate-400 text-sm">Chưa có lịch sử</p>
-      </div>
-    );
-  }
+import React from "react";
+import { Check } from "lucide-react";
+import { ORDER_STAGES, getActiveStageIndex, formatDate } from "../../../util/orderFlowUtils";
+
+export default function OrderTimeline({ status, history = [] }) {
+  const activeStage = getActiveStageIndex(status);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-      <h3 className="font-bold text-slate-800 mb-6">Lịch sử trạng thái</h3>
-      <div className="space-y-0">
-        {history.map((h, idx) => (
-          <div key={idx} className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div className={`w-3 h-3 rounded-full ${idx === 0 ? "bg-blue-600" : "bg-slate-300"}`} />
-              {idx < history.length - 1 && <div className="w-0.5 flex-1 bg-slate-200 my-1" />}
-            </div>
-            <div className="pb-6">
-              <p className="font-semibold text-slate-800 text-sm">{h.statusLabel || h.status}</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {h.createdAt ? new Date(h.createdAt).toLocaleString("vi-VN") : ""}
-                {h.actorName ? ` • ${h.actorName}` : ""}
-              </p>
-              {h.note && <p className="text-sm text-slate-600 mt-1">{h.note}</p>}
-            </div>
-          </div>
-        ))}
+    <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+            Tiến trình thực hiện đơn hàng
+          </h3>
+        </div>
+        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+          {status === "CANCELLED"
+            ? "Đã hủy đơn"
+            : `Giai đoạn ${activeStage + 1} / 6: ${ORDER_STAGES[activeStage]?.title.replace(/^\d+\.\s*/, "")}`}
+        </span>
       </div>
+
+      {/* 6 Giai đoạn tiến trình */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        {ORDER_STAGES.map((stg, idx) => {
+          const isPassed = idx < activeStage;
+          const isCurrent = idx === activeStage;
+          const Icon = stg.icon;
+
+          return (
+            <div
+              key={stg.id}
+              className={`p-3.5 rounded-2xl border transition relative overflow-hidden flex flex-col justify-between ${
+                isCurrent
+                  ? "bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-emerald-500/40"
+                  : isPassed
+                  ? "bg-emerald-50/60 text-emerald-950 border-emerald-200"
+                  : "bg-slate-50 text-slate-400 border-slate-200/80 opacity-60"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black ${
+                      isCurrent
+                        ? "bg-emerald-500 text-slate-950"
+                        : isPassed
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {isPassed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : idx + 1}
+                  </div>
+                  {Icon && (
+                    <Icon
+                      className={`w-4 h-4 ${
+                        isCurrent
+                          ? "text-emerald-400"
+                          : isPassed
+                          ? "text-emerald-600"
+                          : "text-slate-400"
+                      }`}
+                    />
+                  )}
+                </div>
+
+                <div
+                  className={`text-xs font-bold leading-tight ${
+                    isCurrent ? "text-white" : isPassed ? "text-slate-900" : "text-slate-600"
+                  }`}
+                >
+                  {stg.title}
+                </div>
+              </div>
+
+              <div
+                className={`text-[10px] mt-2 leading-relaxed ${
+                  isCurrent
+                    ? "text-slate-300 font-medium"
+                    : isPassed
+                    ? "text-emerald-800 font-medium"
+                    : "text-slate-400"
+                }`}
+              >
+                {stg.desc}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Lịch sử thay đổi trạng thái nếu có */}
+      {history && history.length > 0 && (
+        <div className="pt-3 border-t border-slate-100 space-y-2">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Nhật ký chuyển giao trạng thái ({history.length})
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {history.map((h, i) => (
+              <span
+                key={i}
+                className="bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg text-slate-600 font-medium text-[11px]"
+              >
+                {h.fromStatus || "START"} → <strong className="text-slate-900">{h.toStatus}</strong> ({formatDate(h.timestamp || h.createdAt)})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

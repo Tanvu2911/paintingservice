@@ -1,55 +1,64 @@
-// staff/components/StaffSidebar.jsx
 import { Link, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  ClipboardList,
+  History,
+  Wallet,
+  BarChart3,
+  User,
+  LogOut,
+  Paintbrush,
+} from 'lucide-react';
 
 const StaffSidebar = () => {
   const location = useLocation();
-  // Giả sử URL có dạng /staff/survey/... hoặc /staff/technician/...
   const isSurvey = location.pathname.includes('/survey');
   const basePath = isSurvey ? '/staff/survey' : '/staff/technician';
   const roleName = isSurvey ? 'Khảo sát viên' : 'Thợ thi công';
 
   const menuItems = [
-    { name: 'Tổng quan', path: `${basePath}/dashboard`, icon: '📊' },
-    { name: 'Công việc', path: `${basePath}/jobs`, icon: '📋' },
-    { name: 'Lịch sử', path: `${basePath}/history`, icon: '🕒' },
-    { name: 'Ví / Thu nhập', path: `${basePath}/wallet`, icon: '💰' },
-    { name: 'Thống kê', path: `${basePath}/statistics`, icon: '📈' },
-    { name: 'Tài khoản', path: `${basePath}/profile`, icon: '👤' },
+    { name: 'Tổng quan', path: `${basePath}/dashboard`, icon: <LayoutDashboard className="w-4 h-4" /> },
+    { name: 'Công việc', path: `${basePath}/jobs`, icon: <ClipboardList className="w-4 h-4" /> },
+    { name: 'Lịch sử', path: `${basePath}/history`, icon: <History className="w-4 h-4" /> },
+    { name: 'Ví / Thu nhập', path: `${basePath}/wallet`, icon: <Wallet className="w-4 h-4" /> },
+    { name: 'Thống kê', path: `${basePath}/statistics`, icon: <BarChart3 className="w-4 h-4" /> },
+    { name: 'Tài khoản', path: `${basePath}/profile`, icon: <User className="w-4 h-4" /> },
   ];
 
   return (
     <div className="w-64 bg-slate-900 text-white flex flex-col h-full shadow-xl">
-      <div className="p-6 border-b border-slate-700 flex items-center gap-3">
-        <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-xl">
-          S
+      <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+        <div className="w-10 h-10 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center font-bold text-xl text-white">
+          <Paintbrush className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="font-bold text-lg leading-tight">PaintService</h1>
-          <p className="text-xs text-blue-300">{roleName}</p>
+          <h1 className="font-bold text-base leading-tight">Painting247</h1>
+          <p className="text-xs text-slate-400">{roleName}</p>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-3 space-y-1">
         {menuItems.map((item) => {
           const isActive = location.pathname.includes(item.path);
           return (
             <Link
               key={item.name}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                isActive ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                isActive ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
               }`}
             >
-              <span>{item.icon}</span>
-              <span className="font-medium">{item.name}</span>
+              <span className="shrink-0">{item.icon}</span>
+              <span>{item.name}</span>
             </Link>
           );
         })}
       </nav>
       
-      <div className="p-4 border-t border-slate-700">
-        <button className="w-full py-2.5 px-4 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2">
-          🚪 Đăng xuất
+      <div className="p-3 border-t border-slate-800">
+        <button className="w-full py-2.5 px-4 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer">
+          <LogOut className="w-4 h-4" />
+          <span>Đăng xuất</span>
         </button>
       </div>
     </div>

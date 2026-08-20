@@ -5,13 +5,14 @@ import DashboardHeader from "../../../components/layout/DashboardHeader";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
-import DepositCountdownBadge from "../../../components/payment/DepositCountdownBadge";
 import StatusBadge from "../../../components/common/StatusBadge";
 import Pagination from "../../../components/common/Pagination";
 import { formatMoney } from "../../../util/formatters";
 
 export default function CustomerManagement() {
-  const { user, showToast } = useOutletContext();
+  const context = useOutletContext() || {};
+  const user = context.user;
+  const showToast = context.showToast;
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -141,37 +142,14 @@ export default function CustomerManagement() {
       if (depositStatusFilter === "ALL") return true;
 
       const userBookings = c.bookings || [];
-      if (depositStatusFilter === "PENDING_DEPOSIT") {
-        return userBookings.some(
-          (b) =>
-            b.paymentStatus !== "DEPOSIT_PAID" &&
-            b.paymentStatus !== "FULLY_PAID" &&
-            b.status !== "CANCELLED"
-        );
+      if (depositStatusFilter === "HAS_BOOKINGS") {
+        return userBookings.length > 0;
       }
-      if (depositStatusFilter === "URGENT") {
-        return userBookings.some((b) => {
-          if (
-            b.paymentStatus === "DEPOSIT_PAID" ||
-            b.paymentStatus === "FULLY_PAID" ||
-            b.status === "CANCELLED"
-          )
-            return false;
-          const deadline = b.depositDeadline
-            ? new Date(b.depositDeadline).getTime()
-            : new Date(b.createdAt || Date.now()).getTime() + 24 * 3600 * 1000;
-          const hoursLeft = (deadline - Date.now()) / (3600 * 1000);
-          return hoursLeft > 0 && hoursLeft < 2;
-        });
-      }
-      if (depositStatusFilter === "EXPIRED") {
-        return userBookings.some((b) => b.status === "CANCELLED");
-      }
-      if (depositStatusFilter === "DEPOSIT_PAID") {
-        return userBookings.some((b) => b.paymentStatus === "DEPOSIT_PAID" || b.depositPaid);
+      if (depositStatusFilter === "IN_PROGRESS") {
+        return userBookings.some((b) => b.paymentStatus === "DEPOSIT_PAID" || b.status === "PROCESSING" || b.status === "ASSIGNED");
       }
       if (depositStatusFilter === "COMPLETED") {
-        return userBookings.some((b) => b.status === "COMPLETED" || b.paymentStatus === "FULLY_PAID");
+        return userBookings.some((b) => b.status === "COMPLETED" || b.status === "PAID_TO_STAFF" || b.paymentStatus === "FULLY_PAID");
       }
 
       return true;
@@ -192,32 +170,24 @@ export default function CustomerManagement() {
 
   // Thống kê dựa trên dữ liệu thật
   const stats = useMemo(() => {
-    let pendingDepositCount = 0;
-    let urgentCount = 0;
+    let hasBookingsCount = 0;
     let inProgressCount = 0;
     let completedCount = 0;
 
     customers.forEach((c) => {
-      (c.bookings || []).forEach((b) => {
-        if (b.status === "COMPLETED" || b.paymentStatus === "FULLY_PAID") {
-          completedCount++;
-        } else if (b.paymentStatus === "DEPOSIT_PAID" || b.depositPaid) {
-          inProgressCount++;
-        } else if (b.status !== "CANCELLED") {
-          pendingDepositCount++;
-          const deadline = b.depositDeadline
-            ? new Date(b.depositDeadline).getTime()
-            : new Date(b.createdAt || Date.now()).getTime() + 24 * 3600 * 1000;
-          const hoursLeft = (deadline - Date.now()) / (3600 * 1000);
-          if (hoursLeft > 0 && hoursLeft < 2) urgentCount++;
-        }
-      });
+      const bList = c.bookings || [];
+      if (bList.length > 0) hasBookingsCount++;
+      if (bList.some((b) => b.paymentStatus === "DEPOSIT_PAID" || b.status === "PROCESSING" || b.status === "ASSIGNED")) {
+        inProgressCount++;
+      }
+      if (bList.some((b) => b.status === "COMPLETED" || b.status === "PAID_TO_STAFF" || b.paymentStatus === "FULLY_PAID")) {
+        completedCount++;
+      }
     });
 
     return {
       totalCustomers: customers.length,
-      pendingDepositCount,
-      urgentCount,
+      hasBookingsCount,
       inProgressCount,
       completedCount,
     };
@@ -309,7 +279,7 @@ export default function CustomerManagement() {
     <div className="space-y-6">
       <DashboardHeader
         title="Quản Lý Khách Hàng"
-        subtitle="Dữ liệu thời gian thực từ cơ sở dữ liệu: Theo dõi thông tin tài khoản, hợp đồng và thời hạn nộp cọc 24h."
+        subtitle="Dữ liệu thời gian thực từ cơ sở dữ liệu: Theo dõi thông tin tài khoản, hợp đồng và lịch sử đặt dịch vụ."
         userName={user?.username}
         userRole="Quản trị viên"
         avatarChar={(user?.username || "A").charAt(0).toUpperCase()}
@@ -319,20 +289,20 @@ export default function CustomerManagement() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Tổng số khách hàng" value={stats.totalCustomers} />
         <StatCard
-          label="Đơn chờ nộp cọc 24h"
-          value={stats.pendingDepositCount}
+          label="Khách đã có đơn hàng"
+          value={stats.hasBookingsCount}
+          colorClass="text-blue-600"
+          borderClass="border-l-4 border-l-blue-500"
+        />
+        <StatCard
+          label="Đang có đơn thi công"
+          value={stats.inProgressCount}
           colorClass="text-amber-600"
           borderClass="border-l-4 border-l-amber-500"
         />
         <StatCard
-          label="Đơn sắp hết hạn (<2h)"
-          value={stats.urgentCount}
-          colorClass="text-rose-600"
-          borderClass="border-l-4 border-l-rose-500"
-        />
-        <StatCard
-          label="Đang thi công / Đã cọc"
-          value={stats.inProgressCount}
+          label="Đã hoàn tất nghiệm thu"
+          value={stats.completedCount}
           colorClass="text-emerald-600"
           borderClass="border-l-4 border-l-emerald-500"
         />
@@ -358,11 +328,9 @@ export default function CustomerManagement() {
               onChange={(e) => setDepositStatusFilter(e.target.value)}
               className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
             >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="PENDING_DEPOSIT">⏳ Đang chờ nộp cọc 24h</option>
-              <option value="URGENT">⚠️ Sắp hết hạn cọc (&lt; 2h)</option>
-              <option value="EXPIRED">❌ Đã quá hạn / Bị hủy</option>
-              <option value="DEPOSIT_PAID">✓ Đã nộp cọc / Đang làm</option>
+              <option value="ALL">Tất cả khách hàng</option>
+              <option value="HAS_BOOKINGS">📁 Đã có đơn hàng</option>
+              <option value="IN_PROGRESS">⚡ Đang triển khai thi công</option>
               <option value="COMPLETED">✅ Đã hoàn tất</option>
             </select>
 
@@ -402,36 +370,36 @@ export default function CustomerManagement() {
           </button>
           <button
             type="button"
-            onClick={() => setDepositStatusFilter("PENDING_DEPOSIT")}
+            onClick={() => setDepositStatusFilter("HAS_BOOKINGS")}
             className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
-              depositStatusFilter === "PENDING_DEPOSIT"
+              depositStatusFilter === "HAS_BOOKINGS"
+                ? "bg-blue-600 text-white"
+                : "bg-blue-50 text-blue-800 hover:bg-blue-100"
+            }`}
+          >
+            Đã có đơn ({stats.hasBookingsCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDepositStatusFilter("IN_PROGRESS")}
+            className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
+              depositStatusFilter === "IN_PROGRESS"
                 ? "bg-amber-500 text-white"
                 : "bg-amber-50 text-amber-800 hover:bg-amber-100"
             }`}
           >
-            Chờ cọc ({stats.pendingDepositCount})
+            Đang làm ({stats.inProgressCount})
           </button>
           <button
             type="button"
-            onClick={() => setDepositStatusFilter("URGENT")}
+            onClick={() => setDepositStatusFilter("COMPLETED")}
             className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
-              depositStatusFilter === "URGENT"
-                ? "bg-rose-600 text-white"
-                : "bg-rose-50 text-rose-700 hover:bg-rose-100"
-            }`}
-          >
-            ⚠️ Khẩn cấp &lt;2h ({stats.urgentCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setDepositStatusFilter("DEPOSIT_PAID")}
-            className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
-              depositStatusFilter === "DEPOSIT_PAID"
+              depositStatusFilter === "COMPLETED"
                 ? "bg-emerald-600 text-white"
                 : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             }`}
           >
-            Đã cọc ({stats.inProgressCount})
+            Hoàn tất ({stats.completedCount})
           </button>
         </div>
       </div>
@@ -448,8 +416,7 @@ export default function CustomerManagement() {
                   <th className="py-4 px-6">Khách hàng</th>
                   <th className="py-4 px-6">Số điện thoại &amp; Email</th>
                   <th className="py-4 px-6">Địa chỉ</th>
-                  <th className="py-4 px-6">Đơn hàng mới nhất</th>
-                  <th className="py-4 px-6">Hạn nộp cọc (24h)</th>
+                  <th className="py-4 px-6">Đơn hàng &amp; Tổng chi tiêu</th>
                   <th className="py-4 px-6">Trạng thái</th>
                   <th className="py-4 px-6 text-right">Thao tác</th>
                 </tr>
@@ -457,7 +424,7 @@ export default function CustomerManagement() {
               <tbody className="divide-y divide-slate-100 text-sm">
                 {paginatedCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-12 text-slate-400 text-xs">
+                    <td colSpan="6" className="text-center py-12 text-slate-400 text-xs">
                       {customers.length === 0
                         ? "Chưa có dữ liệu khách hàng nào trong cơ sở dữ liệu"
                         : "Không tìm thấy khách hàng nào phù hợp với bộ lọc"}
@@ -466,10 +433,6 @@ export default function CustomerManagement() {
                 ) : (
                   paginatedCustomers.map((c) => {
                     const latestBooking = (c.bookings || [])[0];
-                    const isDepositPaid =
-                      latestBooking?.paymentStatus === "DEPOSIT_PAID" ||
-                      latestBooking?.depositPaid;
-                    const isCancelled = latestBooking?.status === "CANCELLED";
 
                     return (
                       <tr
@@ -510,35 +473,14 @@ export default function CustomerManagement() {
                           {c.address || "Chưa cập nhật"}
                         </td>
 
-                        {/* Đơn hàng mới nhất */}
+                        {/* Đơn hàng & Tổng chi tiêu */}
                         <td className="py-4 px-6">
-                          {latestBooking ? (
-                            <div>
-                              <div className="font-bold text-xs text-emerald-800">
-                                #{latestBooking.id} · {latestBooking.serviceName || "Dịch vụ sơn"}
-                              </div>
-                              <div className="text-xs text-rose-600 font-semibold mt-0.5">
-                                Cọc: {formatMoney(latestBooking.depositAmount || (Number(latestBooking.totalAmount) * 0.3) || 0)}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">Chưa có đơn</span>
-                          )}
-                        </td>
-
-                        {/* Hạn nộp cọc (24h) */}
-                        <td className="py-4 px-6">
-                          {latestBooking ? (
-                            <DepositCountdownBadge
-                              signedAt={latestBooking.createdAt || latestBooking.appointmentDate}
-                              deadline={latestBooking.depositDeadline}
-                              isDepositPaid={isDepositPaid}
-                              isCancelled={isCancelled}
-                              compact={true}
-                            />
-                          ) : (
-                            <span className="text-xs text-slate-400">—</span>
-                          )}
+                          <div className="font-bold text-xs text-slate-900">
+                            {(c.bookings || []).length} đơn hàng
+                          </div>
+                          <div className="text-xs text-emerald-700 font-bold mt-0.5">
+                            Tổng chi: {formatMoney(c.totalSpent || 0)}
+                          </div>
                         </td>
 
                         {/* Trạng thái tài khoản */}
@@ -679,14 +621,6 @@ export default function CustomerManagement() {
                           </div>
                           <StatusBadge status={b.status} />
                         </div>
-
-                        {/* Countdown Badge 24h */}
-                        <DepositCountdownBadge
-                          signedAt={b.createdAt || b.appointmentDate}
-                          deadline={b.depositDeadline}
-                          isDepositPaid={isDepositPaid}
-                          isCancelled={isCancelled}
-                        />
 
                         {/* Chi tiết tài chính & Nhân sự */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3 rounded-xl border border-slate-200 text-xs">

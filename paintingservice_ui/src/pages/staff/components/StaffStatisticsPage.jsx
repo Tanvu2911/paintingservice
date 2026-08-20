@@ -1,4 +1,12 @@
 import { useOutletContext } from "react-router-dom";
+import {
+  ClipboardList,
+  Clock,
+  CheckCircle2,
+  TrendingUp,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 import useBookingHistory from "../../../hooks/useBookingHistory";
 import StatisticCards from "./StatisticCards";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
@@ -19,37 +27,37 @@ export default function StaffStatisticsPage({ title, role }) {
     {
       title: "Tổng công việc",
       value: String(stats.total),
-      icon: "📋",
-      color: "border-l-blue-500",
+      icon: <ClipboardList className="w-6 h-6 text-slate-700" />,
+      color: "border-l-slate-700",
     },
     {
       title: "Đang thực hiện",
       value: String(stats.inProgress),
-      icon: "🔄",
-      color: "border-l-orange-500",
+      icon: <Clock className="w-6 h-6 text-amber-600" />,
+      color: "border-l-amber-500",
     },
     {
       title: "Hoàn thành",
       value: String(stats.completed),
-      icon: "✅",
+      icon: <CheckCircle2 className="w-6 h-6 text-emerald-600" />,
       color: "border-l-emerald-500",
     },
     {
       title: "Tỷ lệ hoàn thành",
       value: `${completionRate}%`,
-      icon: "📈",
-      color: "border-l-purple-500",
+      icon: <TrendingUp className="w-6 h-6 text-indigo-600" />,
+      color: "border-l-indigo-500",
     },
     {
       title: "Tổng giá trị",
       value: formatMoney(stats.totalRevenue),
-      icon: "💰",
-      color: "border-l-amber-500",
+      icon: <Wallet className="w-6 h-6 text-emerald-700" />,
+      color: "border-l-emerald-600",
     },
     {
       title: "Đã hủy",
       value: String(stats.cancelled),
-      icon: "❌",
+      icon: <XCircle className="w-6 h-6 text-rose-600" />,
       color: "border-l-rose-500",
     },
   ];
@@ -58,7 +66,7 @@ export default function StaffStatisticsPage({ title, role }) {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
       <StatisticCards data={cards} />
-      <div className="bg-white rounded-2xl border p-4 text-sm text-slate-600">
+      <div className="bg-white rounded-2xl border p-4 text-xs font-medium text-slate-600">
         Tổng số bản ghi đang quản lý: <strong>{bookings.length}</strong>
       </div>
     </div>

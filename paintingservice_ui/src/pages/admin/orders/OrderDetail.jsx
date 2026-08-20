@@ -5,7 +5,12 @@ import DashboardHeader from "../../../components/layout/DashboardHeader";
 import StatusBadge from "../../../components/common/StatusBadge";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import Modal from "../../../components/common/Modal";
+import QRCodePayment from "../../../components/common/QRCodePayment";
 import OrderTimeline from "./OrderTimeline";
+import OrderActionBanner from "../../../components/common/OrderActionBanner";
+import SurveyReportCard from "../../../components/common/SurveyReportCard";
+import ContractModal from "../../../components/common/ContractModal";
+import ImageLightboxModal from "../../../components/common/ImageLightboxModal";
 import { parseHanoiAddress } from "../../../data/hanoiLocations";
 import {
   UserCheck,
@@ -25,8 +30,12 @@ import {
   ArrowLeft,
   Printer,
   Download,
+  DollarSign,
+  QrCode,
 } from "lucide-react";
 import { exportContractPDF } from "../../../util/contractPdfExport";
+import { formatMoney } from "../../../util/formatters";
+import { getVietQRBankCode } from "../../../util/orderFlowUtils";
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -70,6 +79,11 @@ export default function OrderDetail() {
   // Payments
   const [payments, setPayments] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
+
+  // Quyết toán thù lao nhân sự
+  const [salaryHistories, setSalaryHistories] = useState([]);
+  const [payoutModalData, setPayoutModalData] = useState(null);
+  const [submittingPayout, setSubmittingPayout] = useState(false);
 
   // Init canvas drawing
   useEffect(() => {
@@ -220,6 +234,18 @@ export default function OrderDetail() {
     }
   }, []);
 
+  const fetchSalaryHistories = useCallback(async (bookingId) => {
+    if (!bookingId) return;
+    try {
+      const res = await AxiosConfig.get("/salary-histories");
+      const list = Array.isArray(res.data) ? res.data : (res.data?.content || []);
+      const filtered = list.filter((s) => Number(s.bookingId || s.booking?.id) === Number(bookingId));
+      setSalaryHistories(filtered);
+    } catch (e) {
+      setSalaryHistories([]);
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -254,6 +280,7 @@ export default function OrderDetail() {
           fetchContract(id),
           fetchDailyReports(id),
           fetchPayments(id),
+          fetchSalaryHistories(id),
         ]);
       } catch {
         if (isMounted) showToast?.("Không tải được chi tiết đơn", "error");
@@ -266,7 +293,7 @@ export default function OrderDetail() {
     return () => {
       isMounted = false;
     };
-  }, [id, fetchBookingDetail, fetchContract, fetchDailyReports, fetchPayments, showToast]);
+  }, [id, fetchBookingDetail, fetchContract, fetchDailyReports, fetchPayments, fetchSalaryHistories, showToast]);
 
   // Compute Active Workloads per Staff
   const activeSupervisorJobs = useMemo(() => {
@@ -584,6 +611,75 @@ export default function OrderDetail() {
     activeSupervisorJobs,
   ]);
 
+  // Thù lao nhân sự & xử lý thanh toán (Tỷ lệ: Admin 30% · Giám sát 10%+VT · Kỹ thuật 60%)
+  const totalAmt = Number(order?.totalAmount) || 0;
+  const adminFee = totalAmt * 0.30;
+  const supervisorBaseFee = totalAmt * 0.10;
+  const materialReimbursement = (dailyReports || []).reduce(
+    (sum, r) => sum + (Number(r.materialCost) || 0),
+    0
+  );
+  const supervisorFee = supervisorBaseFee + materialReimbursement;
+  const supervisorSalary = salaryHistories.find((s) => s.roleInBooking === "SURVEYOR" || s.role === "SURVEYOR");
+  const isSupervisorPaid = supervisorSalary?.paymentStatus === "PAID";
+
+  const workerFee = totalAmt * 0.60;
+  const workerSalary = salaryHistories.find(
+    (s) => s.roleInBooking === "TECHNICIAN" || s.role === "TECHNICIAN" || s.roleInBooking === "WORKER"
+  );
+  const isWorkerPaid = workerSalary?.paymentStatus === "PAID";
+
+  const handleOpenStaffPayout = (staffId, staffName, role, defaultAmount) => {
+    let staffProfile = null;
+    if (role === "SURVEYOR") {
+      staffProfile = supervisors.find(
+        (s) => Number(s.userId || s.id) === Number(staffId) || s.username === staffName
+      );
+    } else {
+      staffProfile = workers.find(
+        (w) => Number(w.userId || w.id) === Number(staffId) || w.username === staffName
+      );
+    }
+
+    const bankName = staffProfile?.bankName || "MB Bank (Ngân hàng Quân Đội)";
+    const bankAccountNumber = staffProfile?.bankAccountNumber || staffProfile?.phoneNumber || "0355880362";
+    const bankAccountName = staffProfile?.bankAccountName || staffName || "NHAN VIEN";
+    const bankCode = getVietQRBankCode(bankName);
+
+    setPayoutModalData({
+      orderId: order.id,
+      staffId: staffId,
+      staffName: staffName,
+      role: role,
+      amount: defaultAmount,
+      bankName: bankName,
+      bankCode: bankCode,
+      bankAccountNumber: bankAccountNumber,
+      bankAccountName: bankAccountName,
+    });
+  };
+
+  const handleConfirmStaffPayout = async () => {
+    if (!payoutModalData) return;
+    try {
+      setSubmittingPayout(true);
+      const res = await AxiosConfig.post(
+        `/payments/staff-payout?bookingId=${payoutModalData.orderId}&staffId=${payoutModalData.staffId}&role=${payoutModalData.role}`
+      );
+      showToast?.(
+        res.data?.message || `Đã thanh toán thù lao thành công cho ${payoutModalData.staffName}`,
+        "success"
+      );
+      setPayoutModalData(null);
+      await fetchOrder();
+      await fetchSalaryHistories(id);
+    } catch (err) {
+      showToast?.(err.response?.data?.message || "Lỗi khi xác nhận trả thù lao", "error");
+    } finally {
+      setSubmittingPayout(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
   if (!order) {
     return (
@@ -623,6 +719,41 @@ export default function OrderDetail() {
 
       {/* Tiến độ trạng thái (OrderTimeline) */}
       <OrderTimeline status={status} />
+
+      {/* Hero Admin Next-Action Guidance */}
+      <OrderActionBanner
+        role="admin"
+        booking={order}
+        contract={contract}
+        canChangeSupervisor={canChangeSupervisor}
+        dailyReportsCount={dailyReports.length}
+        onAction={(actionType) => {
+          if (actionType === "assign_supervisor") setAssignModal("supervisor");
+          else if (actionType === "quote") setQuoteModalOpen(true);
+          else if (actionType === "open_contract") setConfirmDepositModal(true);
+          else if (actionType === "confirm_deposit") setConfirmDepositModal(true);
+          else if (actionType === "assign_worker") setAssignModal("worker");
+          else if (actionType === "view_reports") setReportsModalOpen(true);
+          else if (actionType === "pay_staff") {
+            const el = document.getElementById("staff-payout-section");
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth" });
+            } else if (order.supervisorId && !isSupervisorPaid) {
+              handleOpenStaffPayout(order.supervisorId, order.supervisorName || "Giám sát", "SURVEYOR", supervisorFee);
+            } else if (order.technicianId && !isWorkerPaid) {
+              handleOpenStaffPayout(order.technicianId, order.technicianName || "Đội thợ", "TECHNICIAN", workerFee);
+            }
+          }
+          else if (actionType === "export_pdf") {
+            if (contract) {
+              exportContractPDF(contract, order);
+              showToast?.("Đã tải xuống file PDF hợp đồng thành công!", "success");
+            } else {
+              showToast?.("Chưa có hợp đồng để xuất file PDF!", "warning");
+            }
+          }
+        }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Cột trái: Thông tin đơn hàng & Khách hàng */}
@@ -683,101 +814,11 @@ export default function OrderDetail() {
 
             {/* BÁO CÁO KHẢO SÁT HIỆN TRẠNG TỪ GIÁM SÁT VIÊN */}
             {surveyDetail ? (
-              <div className="p-5 rounded-3xl bg-blue-50/40 border border-blue-200/80 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200/60 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm font-bold shadow-xs">
-                      📋
-                    </div>
-                    <div>
-                      <h4 className="font-black text-slate-900 text-sm">
-                        Báo Cáo Khảo Sát Hiện Trạng
-                      </h4>
-                      <span className="text-[11px] text-blue-800 font-semibold">
-                        Lập bởi Giám sát: @{order.supervisorName || order.surveyorName || "Giám sát viên"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {surveyDetail.updatedAt && (
-                      <span className="text-[10px] text-slate-500 font-medium">
-                        {new Date(surveyDetail.updatedAt).toLocaleString("vi-VN")}
-                      </span>
-                    )}
-                    {surveyDetail.supervisorAccepted && (
-                      <span className="text-[10.5px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                        ✓ Đã duyệt hiện trạng
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  {/* Ghi chú khảo sát */}
-                  <div className="p-3.5 rounded-2xl bg-white border border-blue-100 space-y-1.5 shadow-xs">
-                    <span className="font-bold text-slate-900 block flex items-center gap-1.5 text-blue-900">
-                      <span>🔍</span> Hiện trạng tường &amp; bề mặt:
-                    </span>
-                    <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
-                      {surveyDetail.surveyNote || "Chưa có ghi chú chi tiết."}
-                    </p>
-                  </div>
-
-                  {/* Đề xuất vật tư */}
-                  <div className="p-3.5 rounded-2xl bg-white border border-blue-100 space-y-1.5 shadow-xs">
-                    <span className="font-bold text-slate-900 block flex items-center gap-1.5 text-blue-900">
-                      <span>🧱</span> Đề xuất vật tư &amp; kỹ thuật:
-                    </span>
-                    <p className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
-                      {surveyDetail.materialNote || "Không có đề xuất vật tư."}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Vật tư phát sinh / thiếu hụt nếu có */}
-                {surveyDetail.materialShortage && (
-                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-1">
-                    <span className="font-bold text-amber-900 block flex items-center gap-1.5">
-                      <span>⚠️</span> Báo cáo thiếu hụt / phát sinh vật tư:
-                    </span>
-                    <p className="text-amber-800 leading-relaxed font-medium whitespace-pre-wrap">
-                      {surveyDetail.materialShortage}
-                    </p>
-                  </div>
-                )}
-
-                {/* Album hình ảnh khảo sát hiện trạng */}
-                {surveyImages.length > 0 && (
-                  <div className="space-y-2 pt-1">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <span>📸</span> Hình ảnh chụp hiện trạng ({surveyImages.length} ảnh):
-                    </span>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-                      {surveyImages.map((imgUrl, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => setPreviewImage(imgUrl)}
-                          className="aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-white hover:opacity-90 hover:scale-105 transition cursor-pointer shadow-xs group relative"
-                        >
-                          <img
-                            src={imgUrl}
-                            alt={`Ảnh khảo sát ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = "https://placehold.co/150x150?text=Anh+KS";
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[11px] font-bold">
-                            🔍 Xem
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <SurveyReportCard
+                surveyDetail={surveyDetail}
+                supervisorName={order.supervisorName || order.surveyorName}
+                onPreviewImage={setPreviewImage}
+              />
             ) : (
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-500 flex items-center gap-2">
                 <span className="text-base">⏳</span>
@@ -825,19 +866,44 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {/* Card Báo Cáo Tiến Độ Hàng Ngày */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          {/* Card Báo Cáo Tiến Độ & Vật Liệu Phát Sinh Hàng Ngày */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
                 <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider">
-                  Nhật Ký &amp; Báo Cáo Thi Công Hàng Ngày
+                  Nhật Ký Thi Công &amp; Vật Tư Phát Sinh
                 </h4>
               </div>
               <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                {dailyReports.length} báo cáo
+                {dailyReports.length} báo cáo nộp
               </span>
             </div>
+
+            {/* Banner tổng hợp vật tư phát sinh & tiến độ */}
+            {dailyReports.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gradient-to-r from-amber-50/60 via-orange-50/40 to-slate-50 rounded-2xl border border-amber-200/80">
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 block">Số lượt báo cáo</span>
+                  <span className="text-base font-black text-slate-900">{dailyReports.length} ngày</span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 block">Tiến độ cập nhật mới nhất</span>
+                  <span className="text-base font-black text-emerald-600">
+                    {dailyReports[0]?.progressPercentage != null ? `${dailyReports[0].progressPercentage}%` : "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-semibold text-slate-500 block">Tổng tiền vật tư phát sinh</span>
+                  <span className="text-base font-black text-amber-700">
+                    {formatMoney(materialReimbursement)}
+                  </span>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                    (Hoàn tiền cho Giám sát khi quyết toán)
+                  </p>
+                </div>
+              </div>
+            )}
 
             {loadingReports ? (
               <div className="py-6 text-center text-xs text-slate-400">
@@ -856,25 +922,32 @@ export default function OrderDetail() {
               <div className="space-y-4">
                 {dailyReports.map((report, index) => {
                   const reportImages = parseImageUrls(report.progressImages);
+                  const itemCost = Number(report.materialCost) || 0;
+
                   return (
                     <div
                       key={report.id || index}
-                      className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3"
+                      className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-amber-300 transition space-y-3.5"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-slate-900 bg-slate-200/80 px-2 py-0.5 rounded-md">
+                          <span className="font-black text-xs text-slate-900 bg-slate-200 px-2.5 py-1 rounded-lg">
                             📅 Báo cáo ngày #{dailyReports.length - index}
                           </span>
                           <span className="text-xs text-slate-600 font-medium">
-                            Lập bởi: <strong className="text-slate-900">@{report.reporterName || "Thợ thi công"}</strong>
+                            Lập bởi: <strong className="text-slate-900 font-bold">@{report.reporterName || "Giám sát / Thợ"}</strong>
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {report.progressPercentage != null && (
                             <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
                               Tiến độ: {report.progressPercentage}%
+                            </span>
+                          )}
+                          {itemCost > 0 && (
+                            <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
+                              💰 Phát sinh: +{formatMoney(itemCost)}
                             </span>
                           )}
                           {report.createdAt && (
@@ -887,7 +960,7 @@ export default function OrderDetail() {
 
                       {/* Thanh Progress bar mini nếu có tiến độ */}
                       {report.progressPercentage != null && (
-                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                           <div
                             className="bg-emerald-600 h-full rounded-full transition-all duration-300"
                             style={{ width: `${Math.min(100, Math.max(0, report.progressPercentage))}%` }}
@@ -896,18 +969,33 @@ export default function OrderDetail() {
                       )}
 
                       {/* Nội dung báo cáo */}
-                      <div className="text-xs text-slate-700 font-medium whitespace-pre-wrap leading-relaxed">
+                      <div className="text-xs text-slate-800 font-medium whitespace-pre-wrap leading-relaxed bg-white p-3.5 rounded-xl border border-slate-200/60 shadow-2xs">
+                        <span className="text-[11px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">
+                          Nội dung công việc thực hiện:
+                        </span>
                         {report.content}
                       </div>
 
-                      {/* Vật tư phát sinh / thiếu nếu có */}
-                      {report.materialShortage && (
-                        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
-                          <span className="font-bold text-amber-900 flex items-center gap-1.5">
-                            <span>⚠️</span> Vật tư phát sinh / thiếu hụt:
-                          </span>
-                          <p className="text-amber-800 font-medium whitespace-pre-wrap">
-                            {report.materialShortage}
+                      {/* Khung Chi tiết Vật tư phát sinh & Tiền chi */}
+                      {(report.materialShortage || itemCost > 0) && (
+                        <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 text-xs space-y-2">
+                          <div className="flex items-center justify-between border-b border-amber-200/60 pb-1.5">
+                            <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                              <span>⚠️</span> Chi tiết vật tư phát sinh trong ngày:
+                            </span>
+                            {itemCost > 0 && (
+                              <span className="font-bold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-md text-[11px]">
+                                Chi phí: <strong>{formatMoney(itemCost)}</strong>
+                              </span>
+                            )}
+                          </div>
+                          {report.materialShortage && (
+                            <p className="text-amber-900 font-medium whitespace-pre-wrap leading-relaxed">
+                              {report.materialShortage}
+                            </p>
+                          )}
+                          <p className="text-[10.5px] text-amber-700 italic">
+                            * Khoản tiền vật tư phát sinh này được cộng vào tổng quyết toán chi trả cho Giám sát viên.
                           </p>
                         </div>
                       )}
@@ -916,7 +1004,7 @@ export default function OrderDetail() {
                       {reportImages.length > 0 && (
                         <div className="space-y-1.5 pt-1">
                           <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                            <span>📸</span> Ảnh tiến độ ({reportImages.length} ảnh):
+                            <span>📸</span> Ảnh chụp hiện trường ({reportImages.length} ảnh):
                           </span>
                           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                             {reportImages.map((imgUrl, imgIdx) => (
@@ -1051,6 +1139,105 @@ export default function OrderDetail() {
               )}
             </div>
           </div>
+
+          {/* Card Quyết toán Thù Lao Nhân Sự */}
+          {(order.supervisorId || order.technicianId) && (
+            <div id="staff-payout-section" className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  <span>Quyết Toán Thù Lao Nhân Sự</span>
+                </h4>
+                {status === "PAID_TO_STAFF" ? (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    ✓ Đã quyết toán 100%
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    Chờ quyết toán
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3 text-xs">
+                {/* Admin giữ lại */}
+                <div className="p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider">Doanh thu Admin giữ lại (30%):</span>
+                    <p className="text-[11px] text-emerald-600 font-medium">Bao gồm lợi nhuận sàn &amp; quỹ dự phòng bảo hành 1-2 năm</p>
+                  </div>
+                  <span className="font-black text-emerald-700 text-sm">{formatMoney(adminFee)}</span>
+                </div>
+
+                {/* Giám sát viên */}
+                {order.supervisorId && (
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="text-[10.5px] font-bold text-blue-700 uppercase">
+                        Giám sát (10% + Hoàn tiền vật tư): @{order.supervisorName || order.supervisor?.username || "Giám sát"}
+                      </div>
+                      <div className="text-slate-800 font-bold text-sm flex items-center gap-2">
+                        <span>Thù lao: <strong className="text-blue-700">{formatMoney(supervisorFee)}</strong></span>
+                        {materialReimbursement > 0 && (
+                          <span className="text-[10.5px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            (10%: {formatMoney(supervisorBaseFee)} + VT: {formatMoney(materialReimbursement)})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      {isSupervisorPaid ? (
+                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Đã thanh toán</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStaffPayout(order.supervisorId, order.supervisorName || "Giám sát", "SURVEYOR", supervisorFee)}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>Thanh toán VietQR</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Đội thợ thi công */}
+                {order.technicianId && (
+                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="text-[10.5px] font-bold text-emerald-700 uppercase">
+                        Đội thợ (60%): @{order.technicianName || order.technician?.username || "Đội thợ"}
+                      </div>
+                      <div className="text-slate-800 font-bold text-sm">
+                        Thù lao thi công: <span className="text-emerald-700">{formatMoney(workerFee)}</span>
+                      </div>
+                    </div>
+                    <div>
+                      {isWorkerPaid ? (
+                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Đã thanh toán</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStaffPayout(order.technicianId, order.technicianName || "Đội thợ", "TECHNICIAN", workerFee)}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>Thanh toán VietQR</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Các hành động xử lý bước tiếp theo */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
@@ -1481,163 +1668,19 @@ export default function OrderDetail() {
         </div>
       </Modal>
 
-      {/* Modal Xem Hợp Đồng Điện Tử */}
-      <Modal
+      {/* Shared Contract Modal */}
+      <ContractModal
         isOpen={contractModalOpen}
         onClose={() => setContractModalOpen(false)}
-        title="Hợp Đồng Dịch Vụ Thi Công Sơn Nhà"
-      >
-        <div className="space-y-5 text-xs text-slate-700 max-h-[75vh] overflow-y-auto pr-1">
-          {/* Header Hợp Đồng */}
-          <div className="text-center pb-3 border-b border-slate-200 space-y-1">
-            <h3 className="text-base font-black text-slate-900 uppercase">
-              CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-            </h3>
-            <p className="text-[11px] font-bold text-slate-600">Độc lập - Tự do - Hạnh phúc</p>
-            <div className="pt-2">
-              <h4 className="text-sm font-black text-emerald-800 uppercase">
-                HỢP ĐỒNG DỊCH VỤ THI CÔNG SƠN SỬA CÔNG TRÌNH
-              </h4>
-              <p className="text-[11px] text-slate-500 font-medium">
-                Mã HĐ: <strong className="text-slate-900">{contract?.contractCode || `HD-${id}`}</strong> | Ngày lập:{" "}
-                {contract?.createdAt
-                  ? new Date(contract.createdAt).toLocaleDateString("vi-VN")
-                  : new Date().toLocaleDateString("vi-VN")}
-              </p>
-            </div>
-          </div>
-
-          {/* Thông tin 2 bên */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-            <div className="space-y-1">
-              <span className="font-bold text-slate-900 block border-b border-slate-200 pb-1">
-                BÊN A (CHỦ NHÀ / KHÁCH HÀNG):
-              </span>
-              <p>Họ tên: <strong>{order?.customerName || order?.customer?.fullName || order?.customer?.username || "—"}</strong></p>
-              <p>SĐT: <strong>{order?.customerPhone || order?.customer?.phoneNumber || "—"}</strong></p>
-              <p>Địa chỉ công trình: <strong>{order?.address || "—"}</strong></p>
-            </div>
-
-            <div className="space-y-1">
-              <span className="font-bold text-slate-900 block border-b border-slate-200 pb-1">
-                BÊN B (ĐƠN VỊ THI CÔNG):
-              </span>
-              <p>Đơn vị: <strong>CÔNG TY DỊCH VỤ SƠN NHÀ 247</strong></p>
-              <p>Hotline: <strong>1900 6868</strong></p>
-              <p>Địa chỉ: <strong>Hà Nội, Việt Nam</strong></p>
-            </div>
-          </div>
-
-          {/* Điều khoản & Cam kết */}
-          <div className="space-y-2 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-            <span className="font-bold text-emerald-950 block">HẠNG MỤC THI CÔNG &amp; CAM KẾT:</span>
-            <ul className="list-disc list-inside space-y-1 text-slate-700">
-              <li>Dịch vụ: <strong>{order?.serviceName || order?.service?.name || "Sơn sửa nhà"}</strong></li>
-              <li>Tổng giá trị hợp đồng: <strong className="text-emerald-700 text-sm">{formatMoney(order?.totalAmount || contract?.totalAmount || 0)}</strong></li>
-              <li>Tiền đặt cọc cam kết (30%): <strong className="text-slate-900">{formatMoney(order?.depositAmount || (order?.totalAmount ? Number(order.totalAmount) * 0.3 : 0))}</strong></li>
-              <li>Ngày bắt đầu thi công mong muốn: <strong>{order?.expectedStartDate || "Theo thỏa thuận 2 bên"}</strong></li>
-              <li>Thời gian thi công dự kiến: <strong>{order?.estimatedDays || 3} ngày</strong></li>
-              <li>Thời hạn bảo hành chất lượng: <strong>{order?.warrantyYears || 2} năm</strong></li>
-            </ul>
-          </div>
-
-          {/* Trạng thái ký hợp đồng 2 bên */}
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            {/* Chữ ký Bên A */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-2">
-              <span className="text-[11px] font-bold text-slate-600 uppercase block">Đại diện Bên A (Khách hàng)</span>
-              {contract?.customerSignatureImg ? (
-                <div className="space-y-1">
-                  <img
-                    src={contract.customerSignatureImg}
-                    alt="Chữ ký khách hàng"
-                    className="h-16 max-w-full mx-auto object-contain bg-slate-50 rounded-lg p-1 border border-slate-100"
-                  />
-                  <span className="text-[10.5px] text-emerald-700 font-bold block">✓ Đã ký điện tử</span>
-                  {contract.customerSignedAt && (
-                    <span className="text-[10px] text-slate-400 block">
-                      {new Date(contract.customerSignedAt).toLocaleString("vi-VN")}
-                    </span>
-                  )}
-                </div>
-              ) : contract?.customerSigned ? (
-                <div className="py-4">
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-xs">
-                    ✓ Đã xác nhận ký
-                  </span>
-                </div>
-              ) : (
-                <div className="py-4">
-                  <span className="px-3 py-1 bg-amber-100 text-amber-800 font-bold rounded-full text-xs">
-                    ⏳ Chờ khách ký
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Chữ ký Bên B */}
-            <div className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-2">
-              <span className="text-[11px] font-bold text-slate-600 uppercase block">Đại diện Bên B (Admin Công Ty)</span>
-              {contract?.adminSignatureImg ? (
-                <div className="space-y-1">
-                  <img
-                    src={contract.adminSignatureImg}
-                    alt="Chữ ký Admin"
-                    className="h-16 max-w-full mx-auto object-contain bg-slate-50 rounded-lg p-1 border border-slate-100"
-                  />
-                  <span className="text-[10.5px] text-emerald-700 font-bold block">✓ Đã ký &amp; đóng dấu</span>
-                  {contract.adminSignedAt && (
-                    <span className="text-[10px] text-slate-400 block">
-                      {new Date(contract.adminSignedAt).toLocaleString("vi-VN")}
-                    </span>
-                  )}
-                </div>
-              ) : contract?.adminSigned ? (
-                <div className="py-4">
-                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-xs">
-                    ✓ Đã xác nhận ký
-                  </span>
-                </div>
-              ) : (
-                <div className="py-4 space-y-2">
-                  <span className="px-3 py-1 bg-rose-100 text-rose-800 font-bold rounded-full text-xs block">
-                    ⚠️ Admin chưa ký
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setContractModalOpen(false);
-                      setConfirmDepositModal(true);
-                    }}
-                    className="px-3 py-1 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 cursor-pointer shadow-xs"
-                  >
-                    Ký duyệt ngay
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => exportContractPDF(contract, order)}
-              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Xuất File PDF / In Hợp Đồng</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setContractModalOpen(false)}
-              className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      </Modal>
+        contract={contract}
+        booking={order}
+        role="admin"
+        showToast={showToast}
+        onSuccess={() => {
+          fetchOrder();
+          fetchContract(id);
+        }}
+      />
 
       {/* Modal Xem Danh Sách Báo Cáo Nhật Ký */}
       <Modal
@@ -1749,28 +1792,62 @@ export default function OrderDetail() {
         </div>
       </Modal>
 
-      {/* Modal Phóng To Ảnh Khảo Sát */}
-      {previewImage && (
-        <div
-          onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out"
-        >
-          <div className="relative max-w-4xl max-h-[90vh] bg-white rounded-3xl overflow-hidden shadow-2xl p-2">
-            <img
-              src={previewImage}
-              alt="Ảnh hiện trạng khảo sát"
-              className="w-full h-auto max-h-[85vh] object-contain rounded-2xl"
+      {/* Modal Thanh toán thù lao cho Nhân viên qua VietQR */}
+      <Modal
+        isOpen={Boolean(payoutModalData)}
+        onClose={() => setPayoutModalData(null)}
+        title="Thanh Toán Thù Lao Nhân Sự (VietQR)"
+        size="md"
+      >
+        {payoutModalData && (
+          <div className="space-y-4">
+            <div className="p-3.5 bg-emerald-50 text-emerald-950 border border-emerald-200 rounded-2xl text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-600">Nhân sự nhận thù lao:</span>
+                <span className="font-bold text-slate-900">
+                  {payoutModalData.staffName} (
+                  {payoutModalData.role === "SURVEYOR" ? "Giám sát viên" : "Đội thợ thi công"})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Ngân hàng của nhân viên:</span>
+                <span className="font-bold text-slate-900">{payoutModalData.bankName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Số tài khoản:</span>
+                <span className="font-bold font-mono text-slate-900">{payoutModalData.bankAccountNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Chủ tài khoản:</span>
+                <span className="font-bold uppercase text-slate-900">{payoutModalData.bankAccountName}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-emerald-200/80">
+                <span className="text-slate-600">Số tiền quyết toán:</span>
+                <span className="text-emerald-700 font-black text-sm">{formatMoney(payoutModalData.amount)}</span>
+              </div>
+            </div>
+
+            <QRCodePayment
+              amount={payoutModalData.amount}
+              orderId={payoutModalData.orderId}
+              bankId={payoutModalData.bankCode}
+              bankName={payoutModalData.bankName}
+              accountNo={payoutModalData.bankAccountNumber}
+              accountName={payoutModalData.bankAccountName}
+              addInfo={`THU LAO DH${payoutModalData.orderId} ${payoutModalData.role === "SURVEYOR" ? "GS" : "THO"}`}
+              title={`Quét mã VietQR trả thù lao cho ${payoutModalData.staffName}`}
+              subTitle="Admin dùng App Ngân hàng quét mã để thanh toán thù lao trực tiếp về tài khoản nhân viên"
+              confirmText={submittingPayout ? "Đang xác nhận..." : `Xác Nhận Đã Chuyển ${formatMoney(payoutModalData.amount)}`}
+              onConfirm={handleConfirmStaffPayout}
+              onClose={() => setPayoutModalData(null)}
+              loading={submittingPayout}
             />
-            <button
-              type="button"
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 hover:bg-black text-white font-bold flex items-center justify-center text-sm cursor-pointer transition shadow-md"
-            >
-              ✕
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+
+      {/* Shared Image Lightbox */}
+      <ImageLightboxModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
     </div>
   );
 }

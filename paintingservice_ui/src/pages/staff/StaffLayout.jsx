@@ -1,8 +1,20 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Briefcase,
+  History,
+  Wallet,
+  User,
+  BarChart3,
+  ClipboardList,
+  Wrench,
+  Search,
+} from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import Sidebar from "../../components/layout/Sidebar";
 import NotificationPopover from "../../components/layout/NotificationPopover";
+import UserMenuDropdown from "../../components/layout/UserMenuDropdown";
 
 export default function StaffLayout({ user, onLogout, showToast }) {
   const navigate = useNavigate();
@@ -60,7 +72,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
     try {
       await AxiosConfig.delete("/notifications/me");
       setNotifications([]);
-      showToast?.("Đã xóa tất cả thông báo");
+      showToast?.("Đã xóa tất cả thông báo", "success");
     } catch (err) {
       console.error(err);
     }
@@ -70,6 +82,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
     try {
       await AxiosConfig.delete(`/notifications/me/${id}`);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
+      showToast?.("Đã xóa thông báo", "info");
     } catch (err) {
       console.error(err);
     }
@@ -79,28 +92,28 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   const handleLogout = () => {
     if (window.confirm("Bạn có chắc muốn đăng xuất?")) {
       onLogout();
-      showToast?.("Đăng xuất thành công!");
+      showToast?.("Đăng xuất thành công!", "success");
       navigate("/login");
     }
   };
 
-  // 6. Cấu hình Menu linh hoạt theo vai trò
+  // 6. Cấu hình Menu linh hoạt theo vai trò bằng SVG Lucide Icons
   const surveyMenuItems = [
-    { label: "Tổng quan", icon: "📊", value: "dashboard" },
-    { label: "Lịch Khảo Sát", icon: "📋", value: "jobs" },
-    { label: "Lịch Sử Khảo Sát", icon: "📜", value: "history" },
-    { label: "Ví Thu Nhập", icon: "💰", value: "wallet" },
-    { label: "Thống Kê", icon: "📈", value: "statistics" },
-    { label: "Trang Cá Nhân", icon: "👤", value: "profile" },
+    { label: "Tổng quan", icon: <LayoutDashboard className="w-4 h-4" />, value: "dashboard" },
+    { label: "Lịch Khảo Sát", icon: <ClipboardList className="w-4 h-4" />, value: "jobs" },
+    { label: "Lịch Sử Khảo Sát", icon: <History className="w-4 h-4" />, value: "history" },
+    { label: "Ví Thu Nhập", icon: <Wallet className="w-4 h-4" />, value: "wallet" },
+    { label: "Thống Kê", icon: <BarChart3 className="w-4 h-4" />, value: "statistics" },
+    { label: "Trang Cá Nhân", icon: <User className="w-4 h-4" />, value: "profile" },
   ];
 
   const technicianMenuItems = [
-    { label: "Tổng quan", icon: "📊", value: "dashboard" },
-    { label: "Công Việc Thi Công", icon: "🛠️", value: "jobs" },
-    { label: "Lịch Sử Thi Công", icon: "📜", value: "history" },
-    { label: "Ví Thu Nhập", icon: "💰", value: "wallet" },
-    { label: "Thống Kê", icon: "📈", value: "statistics" },
-    { label: "Trang Cá Nhân", icon: "👤", value: "profile" },
+    { label: "Tổng quan", icon: <LayoutDashboard className="w-4 h-4" />, value: "dashboard" },
+    { label: "Công Việc Thi Công", icon: <Briefcase className="w-4 h-4" />, value: "jobs" },
+    { label: "Lịch Sử Thi Công", icon: <History className="w-4 h-4" />, value: "history" },
+    { label: "Ví Thu Nhập", icon: <Wallet className="w-4 h-4" />, value: "wallet" },
+    { label: "Thống Kê", icon: <BarChart3 className="w-4 h-4" />, value: "statistics" },
+    { label: "Trang Cá Nhân", icon: <User className="w-4 h-4" />, value: "profile" },
   ];
 
   const currentMenuItems = isTechnician ? technicianMenuItems : surveyMenuItems;
@@ -108,7 +121,13 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans antialiased text-slate-800">
       <Sidebar
-        logoIcon={isTechnician ? "🛠️" : "📋"}
+        logoIcon={
+          isTechnician ? (
+            <Wrench className="w-5 h-5 text-white" />
+          ) : (
+            <Search className="w-5 h-5 text-white" />
+          )
+        }
         logoTextPrimary={isTechnician ? "Kỹ Thuật" : "Khảo Sát"}
         logoTextSecondary="Sơn Sửa 247"
         color={isTechnician ? "amber" : "blue"}
@@ -120,11 +139,14 @@ export default function StaffLayout({ user, onLogout, showToast }) {
         menuItems={currentMenuItems}
       />
 
-      {/* Area hiển thị Popover thông báo & Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${isTechnician ? "bg-amber-500" : "bg-blue-600"}`}></span>
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                isTechnician ? "bg-amber-600" : "bg-blue-600"
+              }`}
+            ></span>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               {isTechnician ? "Hệ Thống Đội Thợ Thi Công" : "Hệ Thống Giám Sát Khảo Sát"}
             </span>
@@ -140,21 +162,19 @@ export default function StaffLayout({ user, onLogout, showToast }) {
               color={isTechnician ? "amber" : "blue"}
             />
             <div className="h-6 w-px bg-slate-200"></div>
-            <div className="flex items-center gap-2.5 pl-1">
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs text-white ${
-                isTechnician ? "bg-amber-600" : "bg-blue-600"
-              }`}>
-                {(profile?.fullName || profile?.username || "S").charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-slate-800 leading-tight">
-                  {profile?.fullName || profile?.username || "Nhân viên"}
-                </p>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  {isTechnician ? "Thợ thi công" : "Giám sát viên"}
-                </p>
-              </div>
-            </div>
+            <UserMenuDropdown
+              profile={profile || user}
+              role={isTechnician ? "technician" : "survey"}
+              color={isTechnician ? "amber" : "blue"}
+              onLogout={handleLogout}
+              menuItems={[
+                { label: "Tổng quan", to: `${basePath}/dashboard`, icon: <LayoutDashboard /> },
+                { label: isTechnician ? "Công việc thi công" : "Lịch khảo sát", to: `${basePath}/jobs`, icon: <Briefcase /> },
+                { label: "Lịch sử", to: `${basePath}/history`, icon: <History /> },
+                { label: "Ví thu nhập", to: `${basePath}/wallet`, icon: <Wallet /> },
+                { label: "Trang cá nhân", to: `${basePath}/profile`, icon: <User /> },
+              ]}
+            />
           </div>
         </header>
 

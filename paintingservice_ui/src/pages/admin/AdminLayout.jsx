@@ -1,8 +1,19 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Users,
+  UserCheck,
+  ClipboardList,
+  FileText,
+  CreditCard,
+  Paintbrush,
+  ShieldCheck,
+} from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import Sidebar from "../../components/layout/Sidebar";
 import NotificationPopover from "../../components/layout/NotificationPopover";
+import UserMenuDropdown from "../../components/layout/UserMenuDropdown";
 
 export default function AdminLayout({ user, onLogout, showToast }) {
   const navigate = useNavigate();
@@ -17,10 +28,8 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     if (path.includes("/customers")) return "customers";
     if (path.includes("/bookings") || path.includes("/orders")) return "bookings";
     if (path.includes("/contracts")) return "contracts";
-    if (path.includes("/payments")) return "payments";
+    if (path.includes("/payments") || path.includes("/wallet") || path.includes("/revenue")) return "payments";
     if (path.includes("/services") || path.includes("/painting")) return "services";
-    if (path.includes("/revenue")) return "revenue";
-    if (path.includes("/wallet")) return "wallet";
     if (path.includes("/notifications")) return "notifications";
     return "dashboard";
   };
@@ -57,7 +66,7 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     try {
       await AxiosConfig.delete("/notifications/me");
       setNotifications([]);
-      showToast?.("Đã xóa tất cả thông báo");
+      showToast?.("Đã xóa tất cả thông báo", "success");
     } catch (err) {
       console.error(err);
     }
@@ -67,6 +76,7 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     try {
       await AxiosConfig.delete(`/notifications/me/${id}`);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
+      showToast?.("Đã xóa thông báo", "info");
     } catch (err) {
       console.error(err);
     }
@@ -75,36 +85,38 @@ export default function AdminLayout({ user, onLogout, showToast }) {
   const handleLogout = () => {
     if (window.confirm("Bạn có chắc muốn đăng xuất?")) {
       onLogout();
-      showToast?.("Đăng xuất thành công!");
+      showToast?.("Đăng xuất thành công!", "success");
       navigate("/login");
     }
   };
 
+  const adminMenuItems = [
+    { label: "Tổng quan", icon: <LayoutDashboard className="w-4 h-4" />, value: "dashboard" },
+    { label: "Quản Lý Nhân Viên", icon: <Users className="w-4 h-4" />, value: "employees" },
+    { label: "Quản Lý Khách Hàng", icon: <UserCheck className="w-4 h-4" />, value: "customers" },
+    { label: "Quản Lý Yêu Cầu", icon: <ClipboardList className="w-4 h-4" />, value: "bookings" },
+    { label: "Hợp Đồng", icon: <FileText className="w-4 h-4" />, value: "contracts" },
+    { label: "Quản Lý Thanh Toán", icon: <CreditCard className="w-4 h-4" />, value: "payments" },
+    { label: "Quản Lý Dịch Vụ", icon: <Paintbrush className="w-4 h-4" />, value: "services" },
+  ];
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans antialiased text-slate-800">
       <Sidebar
-        logoIcon="👑"
+        logoIcon={<ShieldCheck className="w-5 h-5 text-white" />}
         logoTextPrimary="Quản Trị"
         logoTextSecondary="Sơn Sửa 247"
         color="blue"
         activeTab={getActiveTab()}
         onTabChange={(tab) => navigate(`/admin/${tab === "dashboard" ? "" : tab}`)}
         onLogout={handleLogout}
-        menuItems={[
-          { label: "Tổng quan", icon: "📊", value: "dashboard" },
-          { label: "Quản Lý Nhân Viên", icon: "🧰", value: "employees" },
-          { label: "Quản Lý Khách Hàng", icon: "👥", value: "customers" },
-          { label: "Quản Lý Yêu Cầu", icon: "📋", value: "bookings" },
-          { label: "Hợp Đồng", icon: "📄", value: "contracts" },
-          { label: "Thanh Toán NV", icon: "💰", value: "payments" },
-          { label: "Quản Lý Dịch Vụ", icon: "🎨", value: "services" },
-        ]}
+        menuItems={adminMenuItems}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-900"></span>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Trung Tâm Quản Trị Hệ Thống Sơn Sửa 247
             </span>
@@ -120,19 +132,20 @@ export default function AdminLayout({ user, onLogout, showToast }) {
               color="blue"
             />
             <div className="h-6 w-px bg-slate-200"></div>
-            <div className="flex items-center gap-2.5 pl-1">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs text-white bg-blue-600 shadow-sm shadow-blue-500/20">
-                {(profile?.fullName || profile?.username || "A").charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-slate-800 leading-tight">
-                  {profile?.fullName || profile?.username || "Quản trị viên"}
-                </p>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  Administrator
-                </p>
-              </div>
-            </div>
+            <UserMenuDropdown
+              profile={profile || user}
+              role="admin"
+              color="blue"
+              onLogout={handleLogout}
+              menuItems={[
+                { label: "Tổng quan", to: "/admin/", icon: <LayoutDashboard /> },
+                { label: "Quản lý nhân viên", to: "/admin/employees", icon: <Users /> },
+                { label: "Quản lý khách hàng", to: "/admin/customers", icon: <UserCheck /> },
+                { label: "Quản lý yêu cầu", to: "/admin/bookings", icon: <ClipboardList /> },
+                { label: "Thanh toán", to: "/admin/payments", icon: <CreditCard /> },
+                { label: "Quản lý dịch vụ", to: "/admin/services", icon: <Paintbrush /> },
+              ]}
+            />
           </div>
         </header>
 

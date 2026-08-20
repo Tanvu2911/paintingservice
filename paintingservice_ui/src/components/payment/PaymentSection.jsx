@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { CreditCard, CheckCircle2, ShieldCheck, ArrowRight, Lock } from "lucide-react";
+import { CreditCard, CheckCircle2, ShieldCheck, ArrowRight, Lock, Clock } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import { formatMoney } from "../../util/formatters";
-import DepositCountdownBadge from "./DepositCountdownBadge";
 
 export function getPaymentState(booking, contract) {
   if (!booking) {
@@ -142,16 +141,6 @@ export default function PaymentSection({
 
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
-      {/* Đồng hồ 24h nếu đang ở bước WAITING_DEPOSIT */}
-      {booking.status === "WAITING_DEPOSIT" && !isDepositPaid && !isCancelled && (
-        <DepositCountdownBadge
-          signedAt={booking.createdAt || booking.appointmentDate}
-          deadline={booking.depositDeadline}
-          isDepositPaid={isDepositPaid}
-          isCancelled={isCancelled}
-        />
-      )}
-
       {/* 1. Trường hợp CHƯA KÝ HỢP ĐỒNG */}
       {!isContractSigned && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
@@ -185,7 +174,14 @@ export default function PaymentSection({
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <p className="font-bold text-sm">Xác nhận thanh toán tiền cọc thành công</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-bold text-sm">Xác nhận thanh toán tiền cọc thành công</p>
+              {booking.depositPaidAt && (
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                  {new Date(booking.depositPaidAt).toLocaleString("vi-VN")}
+                </span>
+              )}
+            </div>
             <p className="text-emerald-700 text-xs mt-0.5">
               Hệ thống đã nhận thành công 30% tiền cọc qua VNPay Sandbox. Đội thợ đang tiến hành thi công. Quý khách sẽ thực hiện tất toán 70% sau khi nghiệm thu công trình.
             </p>
@@ -195,13 +191,13 @@ export default function PaymentSection({
 
       {/* 2.2 Trường hợp ĐỘI THỢ ĐÃ BÁO XONG - CHƯA NGHIỆM THU */}
       {booking.status === "WORKER_COMPLETED" && !isAccepted && !isFinalPaid && (
-        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 text-xs text-purple-950 flex items-center gap-3 shadow-xs">
-          <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center shrink-0">
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-xs text-blue-950 flex items-center gap-3 shadow-xs">
+          <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <p className="font-bold text-sm text-purple-900">Đội thợ đã báo hoàn thành - Chờ khách nghiệm thu</p>
-            <p className="text-purple-800 text-xs mt-0.5 font-medium">
+            <p className="font-bold text-sm text-blue-900">Đội thợ đã báo hoàn thành - Chờ khách nghiệm thu</p>
+            <p className="text-blue-800 text-xs mt-0.5 font-medium">
               Quý khách vui lòng kiểm tra chất lượng công trình thực tế và xác nhận &quot;Nghiệm thu&quot; trước khi thực hiện thanh toán tất toán 70% còn lại.
             </p>
           </div>
@@ -230,7 +226,14 @@ export default function PaymentSection({
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <p className="font-bold text-sm">Đã tất toán 100% qua VNPay Sandbox</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-bold text-sm">Đã tất toán 100% qua VNPay Sandbox</p>
+              {booking.finalPaidAt && (
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                  {new Date(booking.finalPaidAt).toLocaleString("vi-VN")}
+                </span>
+              )}
+            </div>
             <p className="text-emerald-700 text-xs mt-0.5">
               Công trình đã được hoàn tất và tất toán đầy đủ. Cảm ơn quý khách đã tin tưởng dịch vụ sơn nhà chuyên nghiệp!
             </p>
@@ -258,7 +261,9 @@ export default function PaymentSection({
           </div>
           <div className="text-[10px] mt-1 font-semibold">
             {isDepositPaid ? (
-              <span className="text-emerald-600">Đã thanh toán ✓</span>
+              <span className="text-emerald-600">
+                Đã thanh toán ✓ {booking.depositPaidAt ? `(${new Date(booking.depositPaidAt).toLocaleDateString("vi-VN")})` : ""}
+              </span>
             ) : (
               <span className="text-amber-600">Chưa đặt cọc</span>
             )}
@@ -274,7 +279,9 @@ export default function PaymentSection({
           </div>
           <div className="text-[10px] mt-1 font-semibold">
             {isFinalPaid ? (
-              <span className="text-emerald-600">Đã tất toán ✓</span>
+              <span className="text-emerald-600">
+                Đã tất toán ✓ {booking.finalPaidAt ? `(${new Date(booking.finalPaidAt).toLocaleDateString("vi-VN")})` : ""}
+              </span>
             ) : (
               <span className="text-slate-400">Chưa tất toán</span>
             )}

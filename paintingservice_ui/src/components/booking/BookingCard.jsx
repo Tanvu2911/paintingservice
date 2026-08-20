@@ -95,7 +95,7 @@ export default function BookingCard({
 
       {/* Trạng thái nghiệm thu đọc từ BookingDetail */}
       {status === "WORKER_COMPLETED" && (
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-sm text-purple-800 space-y-1">
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 text-sm text-teal-800 space-y-1">
           <p className="font-semibold">
             ⏳ Thợ đã hoàn thành – đang chờ nghiệm thu
           </p>

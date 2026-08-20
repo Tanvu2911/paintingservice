@@ -320,7 +320,9 @@ public class BookingController {
         notificationService.save(Notification.builder()
                 .user(supervisor)
                 .title("Phân công khảo sát #" + id)
-                .content("Bạn được phân công khảo sát đơn hàng #" + id)
+                .content(String.format("Bạn được phân công khảo sát đơn hàng #%d (Địa chỉ: %s). Thù lao giám sát: 10%% giá trị hợp đồng + hoàn tiền vật tư bổ sung khi hoàn tất.",
+                        id,
+                        booking.getAddress() != null ? booking.getAddress() : "Theo đơn"))
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
                 .build());
@@ -593,10 +595,16 @@ public class BookingController {
 
         bookingRepository.save(booking);
 
+        BigDecimal total = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal workerFee = total.multiply(new BigDecimal("0.60"));
+
         notificationService.save(Notification.builder()
                 .user(technician)
                 .title("Phân công thi công #" + id)
-                .content(String.format("Bạn đã được phân công thi công đơn hàng #%d.", id))
+                .content(String.format("Bạn đã được phân công thi công đơn hàng #%d (Địa chỉ: %s). Thù lao thi công của bạn: %s đ (60%% giá trị công trình). Quyết toán sau khi hoàn tất.",
+                        id,
+                        booking.getAddress() != null ? booking.getAddress() : "Theo đơn",
+                        String.format("%,d", workerFee.longValue())))
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
                 .build());
@@ -651,6 +659,16 @@ public class BookingController {
             Principal principal) {
         String reason = dto != null ? dto.getReason() : null;
         return ResponseEntity.ok(bookingService.rejectSurveyJob(id, principal.getName(), reason));
+    }
+
+    @PostMapping("/{id}/reject-quote")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<BookingDto> rejectQuote(
+            @PathVariable Long id,
+            @RequestBody(required = false) RejectJobDto dto,
+            Principal principal) {
+        String reason = dto != null ? dto.getReason() : null;
+        return ResponseEntity.ok(bookingService.rejectQuote(id, principal.getName(), reason));
     }
 
     @PostMapping("/{id}/start-job")

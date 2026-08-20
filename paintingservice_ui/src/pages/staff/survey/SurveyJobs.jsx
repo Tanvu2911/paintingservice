@@ -1,10 +1,44 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
+import {
+  RefreshCw,
+  Search,
+  ClipboardList,
+  MapPin,
+  Calendar,
+  User,
+  Wrench,
+  FileText,
+  AlertTriangle,
+  Check,
+  X,
+  Award,
+  Eye,
+  FileSignature,
+  DollarSign,
+  Camera,
+  CheckCircle2,
+  Clock,
+  Layers,
+  Upload,
+  LayoutGrid,
+  List,
+  Phone,
+  Wallet,
+  ShieldCheck,
+  ChevronRight,
+  Filter,
+} from "lucide-react";
 import AxiosConfig from "../../../util/AxiosConfig";
 import { bookingDetailApi, splitImageUrls } from "../../../util/bookingDetailApi";
+import ImageLightboxModal from "../../../components/common/ImageLightboxModal";
+import StatusBadge from "../../../components/common/StatusBadge";
+import Pagination from "../../../components/common/Pagination";
+import { parseHanoiAddress, HANOI_DISTRICTS } from "../../../data/hanoiLocations";
 
 export default function SurveyJobs() {
-  const { showToast } = useOutletContext();
+  const context = useOutletContext() || {};
+  const showToast = context.showToast;
 
   // =========================================================
   // STATE
@@ -13,10 +47,15 @@ export default function SurveyJobs() {
   const [jobs, setJobs] = useState([]);
   const [detailsMap, setDetailsMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [selectedDistrict, setSelectedDistrict] = useState("");
   const [sortOrder, setSortOrder] = useState("newest");
+  const [viewMode, setViewMode] = useState("table"); // 'table' | 'grid'
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -57,6 +96,7 @@ export default function SurveyJobs() {
   const [dailyContent, setDailyContent] = useState("");
   const [dailyProgress, setDailyProgress] = useState("");
   const [dailyMaterialShortage, setDailyMaterialShortage] = useState("");
+  const [dailyMaterialCost, setDailyMaterialCost] = useState("");
   const [dailyReports, setDailyReports] = useState([]);
   const [loadingDailyReports, setLoadingDailyReports] = useState(false);
 
@@ -256,36 +296,92 @@ export default function SurveyJobs() {
   };
 
   // =========================================================
+  // COUNTS THEO NHÓM TRẠNG THÁI
+  // =========================================================
+
+  const counts = useMemo(() => {
+    const total = jobs.length;
+    const pending = jobs.filter((j) =>
+      ["PENDING", "SURVEY_ASSIGNED"].includes(j.status)
+    ).length;
+    const inSurvey = jobs.filter((j) =>
+      [
+        "ACCEPTED",
+        "SURVEYING",
+        "WAITING_ADMIN_QUOTE",
+        "WAITING_CONTRACT_APPROVAL",
+        "WAITING_CUSTOMER_SIGNATURE",
+        "WAITING_DEPOSIT",
+      ].includes(j.status)
+    ).length;
+    const inProgress = jobs.filter((j) =>
+      ["DEPOSIT_CONFIRMED", "CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(
+        j.status
+      )
+    ).length;
+    const acceptance = jobs.filter(
+      (j) => j.status === "WORKER_COMPLETED"
+    ).length;
+    const completed = jobs.filter((j) =>
+      ["COMPLETED", "PAID_TO_STAFF"].includes(j.status)
+    ).length;
+    const cancelled = jobs.filter((j) =>
+      ["CANCELLED", "SURVEY_REJECTED", "WORKER_REJECTED"].includes(j.status)
+    ).length;
+
+    return { total, pending, inSurvey, inProgress, acceptance, completed, cancelled };
+  }, [jobs]);
+
+  // =========================================================
   // FILTER & SORT
   // =========================================================
 
   const filteredJobs = useMemo(() => {
     let result = [...jobs];
 
+    // 1. Lọc theo tab trạng thái
     if (statusFilter === "PENDING") {
       result = result.filter((j) =>
         ["PENDING", "SURVEY_ASSIGNED"].includes(j.status)
       );
-    }
-    if (statusFilter === "IN_PROGRESS") {
+    } else if (statusFilter === "IN_SURVEY") {
       result = result.filter((j) =>
         [
           "ACCEPTED",
           "SURVEYING",
+          "WAITING_ADMIN_QUOTE",
           "WAITING_CONTRACT_APPROVAL",
           "WAITING_CUSTOMER_SIGNATURE",
-          "CONTRACT_APPROVED",
-          "ASSIGNED",
-          "PROCESSING",
+          "WAITING_DEPOSIT",
         ].includes(j.status)
       );
-    }
-    if (statusFilter === "COMPLETED") {
+    } else if (statusFilter === "IN_PROGRESS") {
       result = result.filter((j) =>
-        ["WORKER_COMPLETED", "COMPLETED", "CANCELLED"].includes(j.status)
+        ["DEPOSIT_CONFIRMED", "CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(
+          j.status
+        )
+      );
+    } else if (statusFilter === "ACCEPTANCE") {
+      result = result.filter((j) => j.status === "WORKER_COMPLETED");
+    } else if (statusFilter === "COMPLETED") {
+      result = result.filter((j) =>
+        ["COMPLETED", "PAID_TO_STAFF"].includes(j.status)
+      );
+    } else if (statusFilter === "CANCELLED") {
+      result = result.filter((j) =>
+        ["CANCELLED", "SURVEY_REJECTED", "WORKER_REJECTED"].includes(j.status)
       );
     }
 
+    // 2. Lọc theo Quận/Huyện Hà Nội
+    if (selectedDistrict) {
+      result = result.filter((j) => {
+        const parsed = parseHanoiAddress(j.address || "");
+        return parsed.district === selectedDistrict;
+      });
+    }
+
+    // 3. Tìm kiếm từ khóa
     if (searchText.trim()) {
       const q = searchText.toLowerCase().trim();
       result = result.filter(
@@ -293,18 +389,45 @@ export default function SurveyJobs() {
           (j.address || "").toLowerCase().includes(q) ||
           (j.serviceName || "").toLowerCase().includes(q) ||
           (j.customerName || "").toLowerCase().includes(q) ||
+          (j.technicianName || "").toLowerCase().includes(q) ||
           String(j.id).includes(q)
       );
     }
 
+    // 4. Sắp xếp
     result.sort((a, b) => {
-      const dateA = new Date(a.appointmentDate || a.bookingDate || 0).getTime();
-      const dateB = new Date(b.appointmentDate || b.bookingDate || 0).getTime();
-      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+      if (sortOrder === "newest") {
+        const dateA = new Date(a.appointmentDate || a.bookingDate || a.createdAt || 0).getTime();
+        const dateB = new Date(b.appointmentDate || b.bookingDate || b.createdAt || 0).getTime();
+        return dateB - dateA;
+      }
+      if (sortOrder === "oldest") {
+        const dateA = new Date(a.appointmentDate || a.bookingDate || a.createdAt || 0).getTime();
+        const dateB = new Date(b.appointmentDate || b.bookingDate || b.createdAt || 0).getTime();
+        return dateA - dateB;
+      }
+      if (sortOrder === "price_desc") {
+        return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
+      }
+      if (sortOrder === "price_asc") {
+        return Number(a.totalAmount || 0) - Number(b.totalAmount || 0);
+      }
+      return Number(b.id) - Number(a.id);
     });
 
     return result;
-  }, [jobs, searchText, statusFilter, sortOrder]);
+  }, [jobs, searchText, statusFilter, selectedDistrict, sortOrder]);
+
+  const totalPages = Math.ceil(filteredJobs.length / itemsPerPage) || 1;
+  const paginatedJobs = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredJobs.slice(start, start + itemsPerPage);
+  }, [filteredJobs, currentPage, itemsPerPage]);
+
+  // Reset trang về 1 khi đổi bộ lọc
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, statusFilter, selectedDistrict, sortOrder]);
 
   // =========================================================
   // HELPER FORMATTERS
@@ -656,10 +779,13 @@ export default function SurveyJobs() {
     try {
       setSubmitting(true);
 
+      const materialCostNum = dailyMaterialCost ? Number(dailyMaterialCost) : 0;
+
       await AxiosConfig.post(`/daily-reports/${selectedJob.id}`, {
         content: dailyContent.trim(),
         progressPercentage: progress,
         materialShortage: dailyMaterialShortage.trim() || null,
+        materialCost: isNaN(materialCostNum) ? 0 : materialCostNum,
         progressImages: null,
       });
 
@@ -824,13 +950,13 @@ export default function SurveyJobs() {
       PENDING: { text: "Chờ nhận việc", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
       SURVEY_ASSIGNED: { text: "Đã phân công khảo sát", color: "bg-blue-100 text-blue-800 border-blue-200" },
       ACCEPTED: { text: "Đã nhận việc", color: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-      SURVEYING: { text: "Đang khảo sát", color: "bg-purple-100 text-purple-800 border-purple-200" },
+      SURVEYING: { text: "Đang khảo sát", color: "bg-indigo-100 text-indigo-800 border-indigo-200" },
       WAITING_CONTRACT_APPROVAL: { text: "Chờ duyệt HĐ", color: "bg-cyan-100 text-cyan-800 border-cyan-200" },
       WAITING_CUSTOMER_SIGNATURE: { text: "Chờ khách ký HĐ", color: "bg-amber-100 text-amber-800 border-amber-200" },
       CONTRACT_APPROVED: { text: "HĐ đã duyệt", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
       ASSIGNED: { text: "Đã phân công thợ", color: "bg-teal-100 text-teal-800 border-teal-200" },
       PROCESSING: { text: "Đang thi công", color: "bg-orange-100 text-orange-800 border-orange-200" },
-      WORKER_COMPLETED: { text: "Thợ hoàn thành", color: "bg-purple-100 text-purple-800 border-purple-200" },
+      WORKER_COMPLETED: { text: "Thợ hoàn thành", color: "bg-teal-100 text-teal-800 border-teal-200" },
       COMPLETED: { text: "Hoàn thành", color: "bg-green-100 text-green-800 border-green-200" },
       CANCELLED: { text: "Đã hủy", color: "bg-rose-100 text-rose-800 border-rose-200" },
     };
@@ -870,97 +996,398 @@ export default function SurveyJobs() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
+      {/* 1. Header & Actions */}
+      <div className="flex items-center justify-between flex-wrap gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">
-            Danh Sách Lịch Khảo Sát &amp; Giám Sát
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Quản lý tiếp nhận khảo sát, lập báo giá, báo cáo ngày và nghiệm thu công trình.
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
+            <h1 className="text-xl font-black text-slate-900">
+              Công Việc Khảo Sát &amp; Giám Sát
+            </h1>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Tiếp nhận khảo sát, lập báo cáo hiện trường, theo dõi tiến độ thi công và nghiệm thu công trình.
           </p>
         </div>
         <button
+          type="button"
           onClick={() => loadJobs(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-sm font-semibold transition"
+          className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer shadow-xs"
         >
-          🔄 Làm mới danh sách
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-blue-600" : ""}`} />
+          <span>Làm mới danh sách</span>
         </button>
       </div>
 
-      {/* Filters & Search */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs space-y-3">
-        <div className="relative">
-          <input
-            type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Tìm theo mã đơn, địa chỉ, dịch vụ, tên khách hàng..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-          />
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-            🔍
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-2 items-center justify-between">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { key: "ALL", label: "Tất cả" },
-              { key: "PENDING", label: "Chờ nhận" },
-              { key: "IN_PROGRESS", label: "Đang tiến hành" },
-              { key: "COMPLETED", label: "Hoàn thành / Hủy" },
-            ].map((f) => (
+      {/* 2. KPI Status Filter Tabs */}
+      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
+        <div className="flex items-center gap-1.5 min-w-max">
+          {[
+            { key: "ALL", label: "Tất cả", count: counts.total },
+            { key: "PENDING", label: "Chờ nhận việc", count: counts.pending },
+            { key: "IN_SURVEY", label: "Đang khảo sát / Báo giá", count: counts.inSurvey },
+            { key: "IN_PROGRESS", label: "Đang thi công", count: counts.inProgress },
+            { key: "ACCEPTANCE", label: "Chờ nghiệm thu", count: counts.acceptance },
+            { key: "COMPLETED", label: "Hoàn tất", count: counts.completed },
+            { key: "CANCELLED", label: "Đã hủy / Từ chối", count: counts.cancelled },
+          ].map((tab) => {
+            const active = statusFilter === tab.key;
+            return (
               <button
-                key={f.key}
-                onClick={() => setStatusFilter(f.key)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  statusFilter === f.key
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                key={tab.key}
+                type="button"
+                onClick={() => setStatusFilter(tab.key)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  active
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
-                {f.label}
+                <span>{tab.label}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    active
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {tab.count}
+                </span>
               </button>
-            ))}
-          </div>
-
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
-            <option value="newest">Ngày hẹn mới nhất</option>
-            <option value="oldest">Ngày hẹn cũ nhất</option>
-          </select>
-        </div>
-
-        <div className="flex justify-between items-center text-xs text-slate-400 pt-1">
-          <span>
-            Hiển thị <strong>{filteredJobs.length}</strong> / {jobs.length} đơn hàng
-          </span>
+            );
+          })}
         </div>
       </div>
 
-      {/* Jobs List */}
+      {/* 3. Search, District Filter, Sort & View Mode Switcher */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+          {/* Ô Tìm kiếm */}
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Tìm theo #Mã đơn, dịch vụ, địa chỉ, khách hàng, thợ..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition font-medium"
+            />
+            {searchText && (
+              <button
+                type="button"
+                onClick={() => setSearchText("")}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Bộ lọc Quận/Huyện Hà Nội */}
+          <div className="w-full md:w-52">
+            <select
+              value={selectedDistrict}
+              onChange={(e) => setSelectedDistrict(e.target.value)}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+            >
+              <option value="">Khu vực: Tất cả Hà Nội</option>
+              {HANOI_DISTRICTS.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sắp xếp */}
+          <div className="w-full md:w-48">
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+            >
+              <option value="newest">Ngày hẹn mới nhất</option>
+              <option value="oldest">Ngày hẹn cũ nhất</option>
+              <option value="price_desc">Giá trị cao nhất</option>
+              <option value="price_asc">Giá trị thấp nhất</option>
+            </select>
+          </div>
+
+          {/* View Mode Toggle: Table vs Grid */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 self-end md:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`p-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                viewMode === "table"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              title="Dạng bảng chi tiết"
+            >
+              <List className="w-4 h-4" />
+              <span className="hidden sm:inline">Bảng</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`p-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                viewMode === "grid"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+              title="Dạng thẻ lưới"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden sm:inline">Thẻ</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Thống kê kết quả lọc */}
+        <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
+          <span>
+            Tìm thấy <strong>{filteredJobs.length}</strong> / {jobs.length} công trình phù hợp
+          </span>
+          {(selectedDistrict || searchText || statusFilter !== "ALL") && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDistrict("");
+                setSearchText("");
+                setStatusFilter("ALL");
+              }}
+              className="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+            >
+              Xóa tất cả bộ lọc
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Jobs List (Table or Grid View) */}
       {filteredJobs.length === 0 ? (
-        <div className="bg-white p-12 rounded-2xl text-center text-slate-400 border border-slate-100 shadow-xs">
-          <div className="text-4xl mb-3">📋</div>
-          <p className="text-base font-semibold text-slate-700">
+        <div className="bg-white p-12 rounded-3xl text-center text-slate-400 border border-slate-200 shadow-xs space-y-3">
+          <ClipboardList className="w-12 h-12 text-slate-300 mx-auto" />
+          <h3 className="text-sm font-bold text-slate-800">
             {jobs.length === 0
               ? "Chưa có công việc khảo sát nào được phân công."
-              : "Không tìm thấy đơn hàng phù hợp với bộ lọc."}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Vui lòng kiểm tra lại trạng thái hoặc từ khóa tìm kiếm.
+              : "Không tìm thấy công trình nào phù hợp với bộ lọc."}
+          </h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Vui lòng kiểm tra lại bộ lọc trạng thái, quận huyện hoặc từ khóa tìm kiếm.
           </p>
         </div>
+      ) : viewMode === "table" ? (
+        /* TABLE VIEW (Chuẩn như trang Admin) */
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">#Mã &amp; Dịch vụ</th>
+                  <th className="py-3.5 px-4">Khách hàng</th>
+                  <th className="py-3.5 px-4">Địa chỉ &amp; Lịch hẹn</th>
+                  <th className="py-3.5 px-4">Báo giá &amp; Thù lao</th>
+                  <th className="py-3.5 px-4">Đội thợ</th>
+                  <th className="py-3.5 px-4">Trạng thái</th>
+                  <th className="py-3.5 px-4 text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedJobs.map((job) => {
+                  const detail = detailsMap[job.id] || null;
+                  const status = job.status || "PENDING";
+                  const canAccept = ["PENDING", "SURVEY_ASSIGNED"].includes(status);
+                  const canReport = ["ACCEPTED", "SURVEYING"].includes(status);
+                  const hasSurveyReport = Boolean(
+                    detail?.surveyNote || detail?.materialNote || detail?.materialShortage
+                  );
+                  const canDailyReport = ["CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(status);
+                  const canSupervisorAccept =
+                    status === "WORKER_COMPLETED" && (!detail || !detail.supervisorAccepted);
+                  const hasTeam = job.technicianName || job.preferredTechnicianName;
+
+                  return (
+                    <tr
+                      key={job.id}
+                      className="hover:bg-slate-50/80 transition group cursor-pointer"
+                      onClick={() => openModal(job, "view")}
+                    >
+                      {/* Mã & Dịch vụ */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                            #{job.id}
+                          </span>
+                        </div>
+                        <div className="font-bold text-slate-900 mt-1 line-clamp-1 group-hover:text-blue-600 transition">
+                          {job.serviceName || "Dịch vụ sơn sửa"}
+                        </div>
+                        {hasSurveyReport && (
+                          <div className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded mt-1 border border-indigo-200">
+                            <FileText className="w-3 h-3" />
+                            <span>Đã có báo cáo KS</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Khách hàng */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="font-bold text-slate-800">
+                          {job.customerName || "Khách hàng"}
+                        </div>
+                        {job.customerPhone && (
+                          <a
+                            href={`tel:${job.customerPhone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 mt-0.5"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{job.customerPhone}</span>
+                          </a>
+                        )}
+                      </td>
+
+                      {/* Địa chỉ & Lịch hẹn */}
+                      <td className="py-3.5 px-4 align-top max-w-xs">
+                        <div className="flex items-start gap-1 text-slate-700">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2 leading-relaxed">
+                            {job.address || "Chưa có địa chỉ"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
+                          <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>
+                            {job.appointmentDate
+                              ? new Date(job.appointmentDate).toLocaleString("vi-VN", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "Chưa đặt lịch"}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Báo giá & Thù lao */}
+                      <td className="py-3.5 px-4 align-top">
+                        {job.totalAmount && Number(job.totalAmount) > 0 ? (
+                          <div className="space-y-0.5">
+                            <div className="font-black text-slate-900">
+                              {formatMoney(job.totalAmount)}
+                            </div>
+                            <div className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                              <Wallet className="w-3 h-3 text-emerald-600" />
+                              <span>Thù lao GS (10%): {formatMoney(Number(job.totalAmount) * 0.10)}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Chưa báo giá</span>
+                        )}
+                      </td>
+
+                      {/* Đội thợ */}
+                      <td className="py-3.5 px-4 align-top">
+                        {hasTeam ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-bold">
+                            <Wrench className="w-3 h-3 text-emerald-600" />
+                            <span>{job.technicianName || job.preferredTechnicianName}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">Chưa phân thợ</span>
+                        )}
+                      </td>
+
+                      {/* Trạng thái */}
+                      <td className="py-3.5 px-4 align-top">
+                        <StatusBadge status={status} />
+                      </td>
+
+                      {/* Thao tác */}
+                      <td className="py-3.5 px-4 align-top text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {canAccept && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleAcceptJob(job.id)}
+                                className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
+                                title="Nhận việc khảo sát"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span className="hidden xl:inline">Nhận việc</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectJob(job.id)}
+                                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer"
+                                title="Từ chối"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+
+                          {canReport && (
+                            <button
+                              type="button"
+                              onClick={() => openModal(job, "report")}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Báo cáo KS</span>
+                            </button>
+                          )}
+
+                          {canDailyReport && (
+                            <button
+                              type="button"
+                              onClick={() => openModal(job, "daily")}
+                              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
+                            >
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span>Nhật ký ngày</span>
+                            </button>
+                          )}
+
+                          {canSupervisorAccept && (
+                            <button
+                              type="button"
+                              onClick={() => handleSupervisorAccept(job.id)}
+                              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
+                            >
+                              <Award className="w-3.5 h-3.5" />
+                              <span>Nghiệm thu</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => openModal(job, "view")}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
-        <div className="grid gap-4">
-          {filteredJobs.map((job) => {
+        /* GRID VIEW (Dạng thẻ) */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {paginatedJobs.map((job) => {
             const detail = detailsMap[job.id] || null;
             const status = job.status || "PENDING";
-
             const canAccept = ["PENDING", "SURVEY_ASSIGNED"].includes(status);
             const canReport = ["ACCEPTED", "SURVEYING"].includes(status);
             const hasSurveyReport = Boolean(
@@ -969,161 +1396,156 @@ export default function SurveyJobs() {
             const canDailyReport = ["CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(status);
             const canSupervisorAccept =
               status === "WORKER_COMPLETED" && (!detail || !detail.supervisorAccepted);
-
             const canViewReports = ![
               "PENDING",
               "SURVEY_ASSIGNED",
               "CANCELLED",
             ].includes(status);
-
             const hasTeam = job.technicianName || job.preferredTechnicianName;
             const hasQuote = job.totalAmount != null && Number(job.totalAmount) > 0;
 
             return (
               <div
                 key={job.id}
-                className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all duration-200 space-y-4"
+                className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs hover:shadow-md transition-all duration-200 space-y-4 flex flex-col justify-between"
               >
-                {/* Top Section */}
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="font-mono font-black text-blue-600 text-base">
-                        #{job.id}
-                      </span>
-                      <h3 className="font-bold text-slate-900 text-base">
-                        {job.serviceName || "Dịch vụ sửa chữa"}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200 text-xs">
+                          #{job.id}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {job.serviceName || "Dịch vụ sơn sửa"}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-base mt-2 line-clamp-1">
+                        {job.serviceName || `Công trình #${job.id}`}
                       </h3>
-                      {getStatusBadge(status)}
+                    </div>
+                    <StatusBadge status={status} />
+                  </div>
+
+                  <div className="space-y-2 text-xs bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                      <p className="text-slate-800 font-semibold leading-relaxed">
+                        {job.address || "Chưa có địa chỉ"}
+                      </p>
                     </div>
 
-                    <p className="text-sm font-medium text-slate-700">
-                      📍 {job.address || "Chưa có địa chỉ công trình"}
-                    </p>
-
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
-                      <span>
-                        📅 Hẹn:{" "}
-                        <strong>
-                          {job.appointmentDate
-                            ? new Date(job.appointmentDate).toLocaleString("vi-VN", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "Chưa đặt lịch"}
-                        </strong>
-                      </span>
-                      {job.customerName && (
-                        <span>
-                          👤 Khách hàng: <strong>{job.customerName}</strong>
-                        </span>
+                    <div className="flex items-center justify-between gap-2 text-slate-600">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>Khách: <strong className="text-slate-900">{job.customerName || "Khách hàng"}</strong></span>
+                      </div>
+                      {job.customerPhone && (
+                        <a
+                          href={`tel:${job.customerPhone}`}
+                          className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 shrink-0 flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>{job.customerPhone}</span>
+                        </a>
                       )}
                     </div>
 
-                    {job.description && (
-                      <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 italic line-clamp-2">
-                        &ldquo;{job.description}&rdquo;
-                      </p>
+                    <div className="flex items-center gap-1.5 text-slate-600">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>Hẹn: <strong>{job.appointmentDate ? new Date(job.appointmentDate).toLocaleString("vi-VN") : "Chưa đặt"}</strong></span>
+                    </div>
+
+                    {hasQuote && (
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Báo giá:</span>
+                        <span className="font-black text-slate-900">{formatMoney(job.totalAmount)}</span>
+                      </div>
                     )}
                   </div>
-
-                  {/* Financial Quick Glance */}
-                  {hasQuote && (
-                    <div className="sm:text-right bg-blue-50/60 border border-blue-100 p-3 rounded-xl min-w-[180px]">
-                      <div className="text-[10px] uppercase font-bold text-blue-600 tracking-wider">
-                        Báo giá công trình
-                      </div>
-                      <div className="text-base font-black text-slate-900 mt-0.5">
-                        {formatMoney(job.totalAmount)}
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        Cọc: {formatMoney(job.depositAmount)}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Team / Survey Badges */}
-                <div className="flex flex-wrap gap-2 items-center text-xs">
-                  {hasTeam && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg font-medium">
-                      👷 Đội thợ: {job.technicianName || job.preferredTechnicianName}
-                      {job.technicianPhone && ` (${job.technicianPhone})`}
-                    </span>
-                  )}
-                  {hasSurveyReport && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg font-semibold">
-                      📝 Đã có báo cáo khảo sát
-                    </span>
-                  )}
-                  {detail?.materialShortage && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg font-semibold">
-                      ⚠️ Phát sinh thiếu vật tư
-                    </span>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
+                {/* Grid Action Buttons */}
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
                   {canAccept && (
                     <>
                       <button
+                        type="button"
                         onClick={() => handleAcceptJob(job.id)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                        className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        ✓ Xác nhận nhận việc
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Nhận việc</span>
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleRejectJob(job.id)}
-                        className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                        className="py-2 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition cursor-pointer"
                       >
-                        ✕ Từ chối
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </>
                   )}
 
                   {canReport && (
                     <button
+                      type="button"
                       onClick={() => openModal(job, "report")}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      📝 Gửi / Sửa báo cáo khảo sát
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Báo cáo khảo sát</span>
                     </button>
                   )}
 
                   {canDailyReport && (
                     <button
+                      type="button"
                       onClick={() => openModal(job, "daily")}
-                      className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                      className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      📅 Gửi báo cáo ngày
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Nhật ký ngày</span>
                     </button>
                   )}
 
                   {canSupervisorAccept && (
                     <button
+                      type="button"
                       onClick={() => handleSupervisorAccept(job.id)}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                      className="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      🏆 Nghiệm thu (Giám sát)
+                      <Award className="w-3.5 h-3.5" />
+                      <span>Nghiệm thu</span>
                     </button>
                   )}
 
-                  {canViewReports && (
-                    <button
-                      onClick={() => openModal(job, "view")}
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
-                    >
-                      👁️ Xem chi tiết &amp; Báo cáo
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => openModal(job, "view")}
+                    className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Chi tiết</span>
+                  </button>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* 5. Phân trang Pagination */}
+      {filteredJobs.length > itemsPerPage && (
+        <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredJobs.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 
@@ -1168,17 +1590,17 @@ export default function SurveyJobs() {
                   {/* Sub-tabs Navigation */}
                   <div className="flex border-b border-slate-200 gap-2">
                     {[
-                      { key: "overview", label: "📌 Tổng quan" },
-                      { key: "survey", label: "🔍 Khảo sát & Vật tư" },
-                      { key: "daily", label: `📅 Tiến độ ngày (${dailyReports.length})` },
-                      { key: "contract", label: "📜 Hợp đồng" },
+                      { key: "overview", label: "Tổng quan" },
+                      { key: "survey", label: "Khảo sát & Vật tư" },
+                      { key: "daily", label: `Tiến độ ngày (${dailyReports.length})` },
+                      { key: "contract", label: "Hợp đồng" },
                     ].map((tab) => (
                       <button
                         key={tab.key}
                         onClick={() => setViewTab(tab.key)}
                         className={`pb-3 px-3 text-xs font-bold border-b-2 transition cursor-pointer ${
                           viewTab === tab.key
-                            ? "border-blue-600 text-blue-600"
+                            ? "border-slate-900 text-slate-900"
                             : "border-transparent text-slate-500 hover:text-slate-800"
                         }`}
                       >
@@ -1192,8 +1614,9 @@ export default function SurveyJobs() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
-                          <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                            👤 Thông tin khách hàng &amp; Công trình
+                          <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Thông tin khách hàng &amp; Công trình</span>
                           </h4>
                           <div className="text-xs space-y-1.5 text-slate-600">
                             <p><strong>Khách hàng:</strong> {selectedJob.customerName || "—"}</p>
@@ -1210,11 +1633,12 @@ export default function SurveyJobs() {
                         </div>
 
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
-                          <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                            💰 Tài chính &amp; Báo giá
+                          <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                            <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Tài chính &amp; Báo giá</span>
                           </h4>
                           <div className="text-xs space-y-1.5 text-slate-600">
-                            <p><strong>Tổng báo giá:</strong> <span className="font-bold text-blue-600 text-sm">{formatMoney(selectedJob.totalAmount)}</span></p>
+                            <p><strong>Tổng báo giá:</strong> <span className="font-bold text-slate-900 text-sm">{formatMoney(selectedJob.totalAmount)}</span></p>
                             <p><strong>Tiền cọc:</strong> {formatMoney(selectedJob.depositAmount)}</p>
                             <p><strong>Còn lại:</strong> {formatMoney(selectedJob.remainingAmount)}</p>
                             <p>
@@ -1239,8 +1663,9 @@ export default function SurveyJobs() {
 
                       {/* Team Info */}
                       <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-2xl space-y-2">
-                        <h4 className="font-bold text-emerald-900 text-sm flex items-center gap-1.5">
-                          👷 Đội ngũ thi công &amp; Giám sát
+                        <h4 className="font-bold text-emerald-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                          <Wrench className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Đội ngũ thi công &amp; Giám sát</span>
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-emerald-800">
                           <p><strong>Thợ phụ trách:</strong> {selectedJob.technicianName || selectedJob.preferredTechnicianName || "Chưa phân công"}</p>
@@ -1249,15 +1674,16 @@ export default function SurveyJobs() {
                       </div>
 
                       {/* Acceptance Status */}
-                      <div className="bg-purple-50 border border-purple-100 p-4 rounded-2xl space-y-2">
-                        <h4 className="font-bold text-purple-900 text-sm flex items-center gap-1.5">
-                          🏆 Trạng thái nghiệm thu
+                      <div className="bg-teal-50 border border-teal-100 p-4 rounded-2xl space-y-2">
+                        <h4 className="font-bold text-teal-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                          <Award className="w-3.5 h-3.5 text-teal-700" />
+                          <span>Trạng thái nghiệm thu</span>
                         </h4>
                         <div className="grid grid-cols-2 gap-4 text-xs">
                           <div className="flex items-center gap-2">
                             <span>Giám sát:</span>
                             {selectedDetail?.supervisorAccepted ? (
-                              <span className="font-bold text-emerald-600">✓ Đã nghiệm thu</span>
+                              <span className="font-bold text-emerald-600">Đã nghiệm thu</span>
                             ) : (
                               <span className="text-amber-600 font-medium">Chưa nghiệm thu</span>
                             )}
@@ -1265,7 +1691,7 @@ export default function SurveyJobs() {
                           <div className="flex items-center gap-2">
                             <span>Khách hàng:</span>
                             {selectedDetail?.customerAccepted ? (
-                              <span className="font-bold text-emerald-600">✓ Đã nghiệm thu</span>
+                              <span className="font-bold text-emerald-600">Đã nghiệm thu</span>
                             ) : (
                               <span className="text-amber-600 font-medium">Chưa nghiệm thu</span>
                             )}
@@ -1299,7 +1725,8 @@ export default function SurveyJobs() {
                       {selectedDetail?.materialShortage && (
                         <div>
                           <label className="block text-xs font-bold text-amber-800 mb-1 flex items-center gap-1">
-                            ⚠️ Phát sinh thiếu vật tư / vật liệu cần bổ sung:
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Phát sinh thiếu vật tư / vật liệu cần bổ sung:</span>
                           </label>
                           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 whitespace-pre-wrap">
                             {selectedDetail.materialShortage}
@@ -1310,8 +1737,9 @@ export default function SurveyJobs() {
                       {/* Survey Images */}
                       {splitImageUrls(selectedDetail?.surveyImages).length > 0 && (
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-2">
-                            📷 Ảnh chụp khảo sát hiện trường:
+                          <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                            <Camera className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Ảnh chụp khảo sát hiện trường:</span>
                           </label>
                           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                             {splitImageUrls(selectedDetail.surveyImages).map((url, idx) => (
@@ -1326,7 +1754,7 @@ export default function SurveyJobs() {
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                 />
                                 <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold">
-                                  🔍 Xem ảnh
+                                  <span>Xem ảnh</span>
                                 </div>
                               </div>
                             ))}
@@ -1358,9 +1786,10 @@ export default function SurveyJobs() {
                                 className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs"
                               >
                                 <div className="bg-slate-50 px-4 py-3 flex justify-between items-center border-b border-slate-100">
-                                  <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
                                     <span className="font-bold text-slate-800 text-xs">
-                                      📅 Báo cáo ngày {dailyReports.length - index}
+                                      Báo cáo ngày {dailyReports.length - index}
                                     </span>
                                     <span className="text-slate-400 text-[11px] ml-2">
                                       bởi {report.reporterName || report.createdByName || "Thợ / Giám sát"}
@@ -1382,11 +1811,11 @@ export default function SurveyJobs() {
                                     <div className="space-y-1">
                                       <div className="flex justify-between text-[11px]">
                                         <span className="text-slate-500 font-semibold">Tiến độ công trình:</span>
-                                        <span className="font-bold text-orange-600">{report.progressPercentage}%</span>
+                                        <span className="font-bold text-amber-600">{report.progressPercentage}%</span>
                                       </div>
                                       <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                         <div
-                                          className="h-full bg-orange-500 rounded-full"
+                                          className="h-full bg-amber-500 rounded-full"
                                           style={{ width: `${Math.min(100, Math.max(0, report.progressPercentage))}%` }}
                                         />
                                       </div>
@@ -1394,8 +1823,11 @@ export default function SurveyJobs() {
                                   )}
 
                                   {report.materialShortage && (
-                                    <div className="bg-amber-50 p-2.5 rounded-xl text-xs text-amber-800 border border-amber-200">
-                                      ⚠️ <strong>Phát sinh:</strong> {report.materialShortage}
+                                    <div className="bg-amber-50 p-2.5 rounded-xl text-xs text-amber-800 border border-amber-200 flex items-start gap-1.5">
+                                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                      <div>
+                                        <strong>Phát sinh:</strong> {report.materialShortage}
+                                      </div>
                                     </div>
                                   )}
 
@@ -1436,11 +1868,11 @@ export default function SurveyJobs() {
                             <div>
                               {contractData.customerSigned ? (
                                 <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full">
-                                  ✓ Khách đã ký
+                                  Đã ký hợp đồng
                                 </span>
                               ) : (
                                 <span className="px-3 py-1 bg-amber-100 text-amber-800 font-bold rounded-full">
-                                  ⏳ Chờ khách ký
+                                  Chờ khách ký
                                 </span>
                               )}
                             </div>
@@ -1497,7 +1929,7 @@ export default function SurveyJobs() {
                       onChange={(e) => setSurveyNote(e.target.value)}
                       rows={4}
                       placeholder="Mô tả hiện trạng công trình, diện tích, độ ẩm tường, các hạng mục cần khắc phục..."
-                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
                     />
                   </div>
 
@@ -1510,19 +1942,17 @@ export default function SurveyJobs() {
                       onChange={(e) => setMaterialNote(e.target.value)}
                       rows={3}
                       placeholder="Liệt kê loại sơn, số lượng thùng/lon, bột bả, keo chống thấm..."
-                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
                     />
                   </div>
 
-                  <div className="hidden">
-                  </div>
-
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2">
-                      📷 Ảnh chụp khảo sát hiện trường
+                    <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Ảnh chụp khảo sát hiện trường</span>
                     </label>
-                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition">
-                      <span className="text-xl mb-1">📸</span>
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:border-slate-400 hover:bg-slate-50 transition">
+                      <Camera className="w-6 h-6 text-slate-400 mb-1" />
                       <p className="text-xs text-slate-500">
                         Nhấp để chọn ảnh khảo sát hiện trường
                       </p>
@@ -1552,7 +1982,7 @@ export default function SurveyJobs() {
                               onClick={() => removeSurveyPreview(index)}
                               className="absolute top-1 right-1 w-5 h-5 bg-rose-600 text-white rounded-full text-xs font-bold flex items-center justify-center shadow-md cursor-pointer"
                             >
-                              ✕
+                              <X className="w-3 h-3 text-white" />
                             </button>
                           </div>
                         ))}
@@ -1576,14 +2006,14 @@ export default function SurveyJobs() {
                       onChange={(e) => setDailyContent(e.target.value)}
                       rows={4}
                       placeholder="Mô tả công việc đã làm trong ngày, các khu vực đã sơn/xử lý..."
-                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Tiến độ hoàn thành tổng thể (%)
+                        Tiến độ hoàn thành (%)
                       </label>
                       <input
                         type="number"
@@ -1592,7 +2022,22 @@ export default function SurveyJobs() {
                         value={dailyProgress}
                         onChange={(e) => setDailyProgress(e.target.value)}
                         placeholder="Ví dụ: 45"
-                        className="w-full border border-slate-200 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold text-orange-600"
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold text-amber-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Tiền vật liệu phát sinh (VNĐ)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="10000"
+                        value={dailyMaterialCost}
+                        onChange={(e) => setDailyMaterialCost(e.target.value)}
+                        placeholder="Ví dụ: 350000"
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-800"
                       />
                     </div>
 
@@ -1604,18 +2049,19 @@ export default function SurveyJobs() {
                         type="text"
                         value={dailyMaterialShortage}
                         onChange={(e) => setDailyMaterialShortage(e.target.value)}
-                        placeholder="Ví dụ: Thiếu 1 cuộn băng keo giấy"
-                        className="w-full border border-amber-200 rounded-xl px-3.5 py-2 text-xs bg-amber-50/40"
+                        placeholder="Ví dụ: 1 thùng sơn lót, băng keo"
+                        className="w-full border border-amber-200 rounded-xl px-3 py-2 text-xs bg-amber-50/40"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2">
-                      📷 Ảnh tiến độ thi công hôm nay
+                    <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Ảnh tiến độ thi công hôm nay</span>
                     </label>
-                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:border-orange-400 hover:bg-orange-50/40 transition">
-                      <span className="text-xl mb-1">📸</span>
+                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:border-amber-400 hover:bg-amber-50/40 transition">
+                      <Camera className="w-6 h-6 text-slate-400 mb-1" />
                       <p className="text-xs text-slate-500">
                         Chọn ảnh chụp tiến độ trong ngày
                       </p>
@@ -1645,7 +2091,7 @@ export default function SurveyJobs() {
                               onClick={() => removeProgressPreview(index)}
                               className="absolute top-1 right-1 w-5 h-5 bg-rose-600 text-white rounded-full text-xs font-bold flex items-center justify-center shadow-md cursor-pointer"
                             >
-                              ✕
+                              <X className="w-3 h-3 text-white" />
                             </button>
                           </div>
                         ))}
@@ -1670,11 +2116,12 @@ export default function SurveyJobs() {
                         onClick={() => setCustomerAgreed(true)}
                         className={`py-3 rounded-xl text-xs font-bold border-2 transition cursor-pointer flex items-center justify-center gap-2 ${
                           customerAgreed
-                            ? "border-emerald-600 bg-emerald-50 text-emerald-800 shadow-xs"
+                            ? "border-slate-900 bg-slate-900 text-white shadow-xs"
                             : "border-slate-200 text-slate-600 hover:bg-slate-50"
                         }`}
                       >
-                        ✅ Khách đồng ý làm
+                        <Check className="w-4 h-4" />
+                        <span>Khách đồng ý làm</span>
                       </button>
                       <button
                         type="button"
@@ -1685,7 +2132,8 @@ export default function SurveyJobs() {
                             : "border-slate-200 text-slate-600 hover:bg-slate-50"
                         }`}
                       >
-                        ❌ Khách không đồng ý
+                        <X className="w-4 h-4" />
+                        <span>Khách không đồng ý</span>
                       </button>
                     </div>
                   </div>
@@ -1700,7 +2148,7 @@ export default function SurveyJobs() {
                           value={contractContent}
                           onChange={(e) => setContractContent(e.target.value)}
                           rows={10}
-                          className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900"
                         />
                       </div>
 
@@ -1712,7 +2160,7 @@ export default function SurveyJobs() {
                           <button
                             type="button"
                             onClick={clearSurveySignature}
-                            className="text-xs text-rose-600 hover:underline font-bold"
+                            className="text-xs text-rose-600 hover:underline font-bold cursor-pointer"
                           >
                             Xóa chữ ký
                           </button>
@@ -1726,9 +2174,9 @@ export default function SurveyJobs() {
                         </div>
                         <p className="text-[11px] text-slate-400">
                           {hasSurveySignature ? (
-                            <span className="text-emerald-600 font-bold">✓ Đã ký tên xác nhận</span>
+                            <span className="text-emerald-600 font-bold">Đã ký tên xác nhận</span>
                           ) : (
-                            <span className="text-amber-600 font-semibold">⚠️ Vui lòng ký tên vào khung trước khi gửi hợp đồng</span>
+                            <span className="text-amber-600 font-semibold">Vui lòng ký tên vào khung trước khi gửi hợp đồng</span>
                           )}
                         </p>
                       </div>
@@ -1790,26 +2238,10 @@ export default function SurveyJobs() {
       )}
 
       {/* Lightbox / Modal xem ảnh phóng to */}
-      {selectedPreviewImage && (
-        <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4 cursor-pointer"
-          onClick={() => setSelectedPreviewImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <img
-              src={selectedPreviewImage}
-              alt="Preview"
-              className="max-h-[85vh] max-w-full rounded-2xl shadow-2xl object-contain"
-            />
-            <button
-              onClick={() => setSelectedPreviewImage(null)}
-              className="absolute -top-3 -right-3 w-8 h-8 bg-white text-slate-900 rounded-full font-bold shadow-lg flex items-center justify-center"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+      <ImageLightboxModal
+        imageUrl={selectedPreviewImage}
+        onClose={() => setSelectedPreviewImage(null)}
+      />
     </div>
   );
 }

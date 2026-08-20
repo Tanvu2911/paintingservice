@@ -65,6 +65,8 @@ public class BookingDto {
     /** Tiện cho frontend BookingDetail */
     private Boolean depositPaid;
     private Boolean finalPaid;
+    private LocalDateTime depositPaidAt;
+    private LocalDateTime finalPaidAt;
     // ================================
 
     private LocalDateTime createdAt;

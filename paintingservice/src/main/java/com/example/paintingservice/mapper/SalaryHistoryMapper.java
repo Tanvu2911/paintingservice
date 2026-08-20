@@ -21,6 +21,7 @@ public class SalaryHistoryMapper {
                 .amountEarned(history.getAmountEarned())
                 .paymentStatus(history.getPaymentStatus())
                 .calculatedAt(history.getCalculatedAt())
+                .paidAt(history.getPaidAt())
                 .build();
     }
 
@@ -34,6 +35,7 @@ public class SalaryHistoryMapper {
                 .amountEarned(dto.getAmountEarned())
                 .paymentStatus(dto.getPaymentStatus())
                 .calculatedAt(dto.getCalculatedAt())
+                .paidAt(dto.getPaidAt())
                 .build();
         if (dto.getWorkerId() != null) {
             history.setWorker(User.builder().id(dto.getWorkerId()).build());

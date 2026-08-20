@@ -59,6 +59,13 @@ public class DailyReport {
     private String materialShortage;
 
     /**
+     * Số tiền vật tư phát sinh trong ngày (nếu có).
+     */
+    @Column(name = "material_cost", precision = 15, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal materialCost = java.math.BigDecimal.ZERO;
+
+    /**
      * Thời gian tạo báo cáo.
      */
     @Column(name = "created_at", nullable = false, updatable = false)

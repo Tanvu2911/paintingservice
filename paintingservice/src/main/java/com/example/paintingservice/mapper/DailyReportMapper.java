@@ -55,6 +55,7 @@ public class DailyReportMapper {
                 .progressPercentage(report.getProgressPercentage())
                 .progressImages(report.getProgressImages())
                 .materialShortage(report.getMaterialShortage())
+                .materialCost(report.getMaterialCost() != null ? report.getMaterialCost() : java.math.BigDecimal.ZERO)
                 .createdAt(report.getCreatedAt())
                 .build();
     }
@@ -76,6 +77,7 @@ public class DailyReportMapper {
                 .progressPercentage(dto.getProgressPercentage())
                 .progressImages(dto.getProgressImages())
                 .materialShortage(dto.getMaterialShortage())
+                .materialCost(dto.getMaterialCost() != null ? dto.getMaterialCost() : java.math.BigDecimal.ZERO)
                 .build();
     }
 }

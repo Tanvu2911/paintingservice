@@ -60,7 +60,7 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
 
   const handleLogout = () => {
     onLogout();
-    showToast?.("Đăng xuất thành công!");
+    showToast?.("Đăng xuất thành công!", "success");
     navigate("/home");
   };
 
@@ -99,8 +99,8 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
                   to={item.path}
                   className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition ${
                     active
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
                   <IconComp className={`w-3.5 h-3.5 ${active ? "text-white" : "text-slate-500"}`} />
@@ -124,11 +124,12 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
               onDeleteAll={async () => {
                 await AxiosConfig.delete("/notifications/me");
                 setNotifications([]);
-                showToast?.("Đã xóa tất cả thông báo");
+                showToast?.("Đã xóa tất cả thông báo", "success");
               }}
               onDeleteOne={async (id) => {
                 await AxiosConfig.delete(`/notifications/me/${id}`);
                 setNotifications((prev) => prev.filter((n) => n.id !== id));
+                showToast?.("Đã xóa thông báo", "info");
               }}
             />
 
@@ -225,7 +226,7 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
                 to={item.path}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition ${
                   active
-                    ? "bg-slate-900 text-white"
+                    ? "bg-emerald-600 text-white font-bold"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >

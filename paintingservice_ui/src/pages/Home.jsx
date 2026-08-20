@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Paintbrush,
@@ -6,8 +6,6 @@ import {
   ClipboardList,
   History,
   User,
-  LogOut,
-  ChevronDown,
   ShieldCheck,
   Clock,
   Sparkles,
@@ -27,7 +25,8 @@ import {
   Building,
 } from "lucide-react";
 import AxiosConfig from "../util/AxiosConfig";
-import NotificationPopover from "../components/NotificationPopover";
+import NotificationPopover from "../components/layout/NotificationPopover";
+import UserMenuDropdown from "../components/layout/UserMenuDropdown";
 import { formatMoney } from "../util/formatters";
 import { isAdmin, isSurveyStaff, isTechnicianStaff, isCustomer, getRedirectPath } from "../util/roleUtils";
 
@@ -122,8 +121,6 @@ export default function Home({ user, onLogout, showToast }) {
   const [notifications, setNotifications] = useState([]);
   const [services, setServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(true);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const userMenuRef = useRef(null);
 
   // Tải danh sách dịch vụ thật từ backend API
   useEffect(() => {
@@ -149,15 +146,7 @@ export default function Home({ user, onLogout, showToast }) {
   }, [user]);
 
   // Xử lý đóng user menu khi click bên ngoài
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
-        setUserMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // (đã được xử lý bên trong UserMenuDropdown component)
 
   const handleMarkRead = async () => {
     if (notifications.some((n) => !n.isRead)) {
@@ -287,109 +276,32 @@ export default function Home({ user, onLogout, showToast }) {
                 />
 
                 {/* User Dropdown Menu */}
-                <div className="relative" ref={userMenuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition cursor-pointer shadow-xs"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
-                      {user.fullName ? user.fullName[0].toUpperCase() : user.username ? user.username[0].toUpperCase() : "U"}
-                    </div>
-                    <div className="hidden sm:block text-left">
-                      <div className="text-xs font-bold text-slate-800 max-w-[110px] truncate leading-tight">
-                        {user.fullName || user.username}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
-                        {isAdmin(user)
-                          ? "Quản trị viên"
-                          : isSurveyStaff(user)
-                          ? "NV Khảo sát"
-                          : isTechnicianStaff(user)
-                          ? "Kỹ thuật viên"
-                          : "Khách hàng"}
-                      </div>
-                    </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
-                  </button>
-
-                  {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 py-2 animate-in fade-in duration-150">
-                      <div className="px-4 py-2 border-b border-slate-100">
-                        <p className="text-xs font-bold text-slate-900 truncate">
-                          {user.fullName || user.username}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                          {user.email || "Tài khoản hệ thống"}
-                        </p>
-                      </div>
-
-                      {isCustomer(user) && (
-                        <div className="py-1">
-                          <Link
-                            to="/customer/booking"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
-                          >
-                            <CalendarPlus className="w-4 h-4 text-emerald-600" />
-                            <span>Đặt lịch khảo sát</span>
-                          </Link>
-                          <Link
-                            to="/customer/ongoing"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
-                          >
-                            <ClipboardList className="w-4 h-4 text-emerald-600" />
-                            <span>Quản lý yêu cầu</span>
-                          </Link>
-                          <Link
-                            to="/customer/history"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
-                          >
-                            <History className="w-4 h-4 text-emerald-600" />
-                            <span>Lịch sử hoàn thành</span>
-                          </Link>
-                          <Link
-                            to="/customer/profile"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
-                          >
-                            <User className="w-4 h-4 text-emerald-600" />
-                            <span>Hồ sơ & Địa chỉ</span>
-                          </Link>
-                        </div>
-                      )}
-
-                      {!isCustomer(user) && (
-                        <div className="py-1">
-                          <Link
-                            to={getRedirectPath(user)}
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
-                          >
-                            <User className="w-4 h-4 text-emerald-600" />
-                            <span>Trang quản lý</span>
-                          </Link>
-                        </div>
-                      )}
-
-                      <div className="pt-1 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUserMenuOpen(false);
-                            onLogout();
-                          }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition cursor-pointer text-left"
-                        >
-                          <LogOut className="w-4 h-4 text-slate-500" />
-                          <span>Đăng xuất</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <UserMenuDropdown
+                  profile={user}
+                  role={
+                    isAdmin(user)
+                      ? "admin"
+                      : isSurveyStaff(user)
+                      ? "survey"
+                      : isTechnicianStaff(user)
+                      ? "technician"
+                      : "customer"
+                  }
+                  color="emerald"
+                  onLogout={onLogout}
+                  menuItems={
+                    isCustomer(user)
+                      ? [
+                          { label: "Đặt lịch khảo sát", to: "/customer/booking", icon: <CalendarPlus /> },
+                          { label: "Quản lý yêu cầu", to: "/customer/ongoing", icon: <ClipboardList /> },
+                          { label: "Lịch sử hoàn thành", to: "/customer/history", icon: <History /> },
+                          { label: "Hồ sơ & Địa chỉ", to: "/customer/profile", icon: <User /> },
+                        ]
+                      : [
+                          { label: "Trang quản lý", to: getRedirectPath(user), icon: <User /> },
+                        ]
+                  }
+                />
               </div>
             ) : (
               <div className="flex items-center gap-2.5">

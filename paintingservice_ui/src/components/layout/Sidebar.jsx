@@ -1,5 +1,7 @@
+import { LogOut } from "lucide-react";
+
 export default function Sidebar({
-  logoIcon = "S",
+  logoIcon,
   logoTextPrimary = "Quản Trị",
   logoTextSecondary = "247",
   color = "blue",
@@ -8,89 +10,88 @@ export default function Sidebar({
   onLogout,
   menuItems = [],
 }) {
-
   const accentMap = {
     blue: {
-      logoBg: "bg-gradient-to-tr from-blue-600 to-indigo-600",
-      active: "bg-blue-600 text-white shadow-md shadow-blue-500/25 font-bold",
-      hover: "hover:bg-blue-50 hover:text-blue-700",
-      dot: "bg-blue-500",
+      logoBg: "bg-emerald-600",
+      active: "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold",
+      hover: "hover:bg-emerald-50 hover:text-emerald-800",
+      dot: "bg-emerald-600",
     },
     amber: {
-      logoBg: "bg-gradient-to-tr from-amber-500 to-orange-600",
-      active: "bg-amber-600 text-white shadow-md shadow-amber-500/25 font-bold",
-      hover: "hover:bg-amber-50 hover:text-amber-700",
-      dot: "bg-amber-500",
+      logoBg: "bg-emerald-600",
+      active: "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold",
+      hover: "hover:bg-emerald-50 hover:text-emerald-800",
+      dot: "bg-emerald-600",
     },
     emerald: {
-      logoBg: "bg-gradient-to-tr from-emerald-600 to-teal-600",
-      active: "bg-emerald-600 text-white shadow-md shadow-emerald-500/25 font-bold",
-      hover: "hover:bg-emerald-50 hover:text-emerald-700",
-      dot: "bg-emerald-500",
+      logoBg: "bg-emerald-600",
+      active: "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold",
+      hover: "hover:bg-emerald-50 hover:text-emerald-800",
+      dot: "bg-emerald-600",
     },
   };
-  const accent = accentMap[color] || accentMap.blue;
+  const accent = accentMap[color] || accentMap.emerald;
 
   return (
-    <aside
-      className="w-64 flex flex-col min-h-screen sticky top-0 bg-white border-r border-slate-200 shadow-xs z-20"
-    >
-      <div className={`p-5 border-b ${ "border-slate-100"}`}>
+    <aside className="w-64 flex flex-col min-h-screen sticky top-0 bg-white border-r border-slate-200 shadow-xs z-20">
+      <div className="p-5 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div
-            className={`w-10 h-10 ${accent.logoBg} rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg`}
+            className={`w-10 h-10 ${accent.logoBg} rounded-xl flex items-center justify-center text-white font-black text-lg shadow-sm`}
           >
-            {logoIcon}
+            {logoIcon || "P"}
           </div>
           <div>
-            <p className={`font-black leading-tight ${"text-slate-800"}`}>
+            <p className="font-black leading-tight text-slate-800 text-sm">
               {logoTextPrimary}
             </p>
-            <p className={`text-xs font-medium ${ "text-slate-400"}`}>
+            <p className="text-[11px] font-medium text-slate-400">
               {logoTextSecondary}
             </p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-        {menuItems.map((item) => (
-          <button
-            key={item.value}
-            onClick={() => onTabChange(item.value)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === item.value
-                ? accent.active
-                
-                : `text-slate-600 ${accent.hover}`
-            }`}
-          >
-            <span className="text-base shrink-0">{item.icon}</span>
-            <span className="flex-1 text-left">{item.label}</span>
-            {item.badge != null && item.badge > 0 && (
-              <span
-                className={`min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                  activeTab === item.value
-                    ? "bg-white/20 text-inherit"
-                    : `${accent.dot} text-white`
-                }`}
-              >
-                {item.badge}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {menuItems.map((item) => {
+          const isActive = activeTab === item.value;
+          return (
+            <button
+              key={item.value}
+              onClick={() => onTabChange(item.value)}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                isActive
+                  ? accent.active
+                  : `text-slate-600 ${accent.hover}`
+              }`}
+            >
+              <span className={`shrink-0 ${isActive ? "text-white" : "text-slate-500"}`}>
+                {item.icon}
               </span>
-            )}
-          </button>
-        ))}
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span
+                  className={`min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                    isActive
+                      ? "bg-white/20 text-inherit"
+                      : `${accent.dot} text-white`
+                  }`}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
-      <div className={`p-3 border-t ${ "border-slate-100"}`}>
+      <div className="p-3 border-t border-slate-100">
         <button
           onClick={onLogout}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-             "text-rose-600 hover:bg-rose-50"
-          }`}
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
         >
-          <span>🚪</span>
-          Đăng xuất
+          <LogOut className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>Đăng xuất</span>
         </button>
       </div>
     </aside>

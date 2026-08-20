@@ -8,6 +8,8 @@ import CustomerBooking from "../pages/customer/CustomerBooking";
 import OngoingBookings from "../pages/customer/CustomerOngoing";
 import VNPayCallback from "../pages/customer/VNPayCallback";
 
+import BookingDetail from "../pages/customer/BookingDetail";
+
 export default function CustomerRoutes({ user, onLogout, showToast }) {
   return (
     <Routes>
@@ -21,6 +23,8 @@ export default function CustomerRoutes({ user, onLogout, showToast }) {
         <Route path="dashboard" element={<CustomerDashboard />} />
         <Route path="booking" element={<CustomerBooking />} />
         <Route path="ongoing" element={<OngoingBookings />} />
+        <Route path="bookings/:id" element={<BookingDetail />} />
+        <Route path="orders/:id" element={<BookingDetail />} />
         <Route path="history" element={<CustomerHistory />} />
         <Route path="profile" element={<CustomerProfile />} />
         <Route path="wallet" element={<CustomerWallet />} />

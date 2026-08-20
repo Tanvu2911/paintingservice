@@ -3,6 +3,7 @@ package com.example.paintingservice.service.impl;
 import com.example.paintingservice.dto.DailyReportDto;
 import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.DailyReport;
+import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.mapper.DailyReportMapper;
 import com.example.paintingservice.repository.BookingRepository;
@@ -10,12 +11,14 @@ import com.example.paintingservice.repository.DailyReportRepository;
 import com.example.paintingservice.repository.UserRepository;
 import com.example.paintingservice.service.CloudinaryService;
 import com.example.paintingservice.service.DailyReportService;
+import com.example.paintingservice.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +31,7 @@ public class DailyReportServiceImpl implements DailyReportService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
+    private final NotificationService notificationService;
 
 
     // =========================================================
@@ -99,6 +103,32 @@ public class DailyReportServiceImpl implements DailyReportService {
         // 9. Lưu
         DailyReport savedReport =
                 dailyReportRepository.save(report);
+
+        // Thông báo cho Admin
+        userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title("Báo cáo tiến độ đơn #" + bookingId)
+                    .content(String.format("%s vừa gửi nhật ký thi công đơn #%d%s.",
+                            reporter.getUsername(), bookingId,
+                            request.getProgressPercentage() != null ? " (Tiến độ: " + request.getProgressPercentage() + "%)" : ""))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+
+        // Thông báo cho Khách hàng
+        if (booking.getCustomer() != null) {
+            notificationService.save(Notification.builder()
+                    .user(booking.getCustomer())
+                    .title("Cập nhật tiến độ thi công #" + bookingId)
+                    .content(String.format("Công trình #%d vừa có báo cáo tiến độ mới%s. Bạn có thể vào xem chi tiết hình ảnh thi công.",
+                            bookingId,
+                            request.getProgressPercentage() != null ? " (Đạt " + request.getProgressPercentage() + "%)" : ""))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
 
         // 10. Entity -> DTO
         return DailyReportMapper.toDto(savedReport);

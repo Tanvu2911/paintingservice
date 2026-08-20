@@ -32,6 +32,7 @@ public class SalaryHistoryDto {
 
     private SalaryStatus paymentStatus;
     private LocalDateTime calculatedAt;
+    private LocalDateTime paidAt;
 
     private String workerName;
     private String workerPhone;

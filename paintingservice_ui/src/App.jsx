@@ -9,8 +9,6 @@ import {
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
-import BookingDetail from "./pages/customer/BookingDetail";
-import VNPayCallback from "./pages/customer/VNPayCallback";
 import Toast from "./components/Toast";
 
 import AdminRoutes from "./routes/AdminRoutes";
@@ -91,24 +89,6 @@ function App() {
           path="/home"
           element={
             <Home user={user} onLogout={handleLogout} showToast={showToast} />
-          }
-        />
-
-        <Route
-          path="/customer/payment-callback"
-          element={<VNPayCallback />}
-        />
-
-        <Route
-          path="/customer/bookings/:id"
-          element={
-            user && isCustomer(user) ? (
-              <BookingDetail user={user} showToast={showToast} />
-            ) : user ? (
-              <Navigate to={getRedirectPath(user)} replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
           }
         />
 

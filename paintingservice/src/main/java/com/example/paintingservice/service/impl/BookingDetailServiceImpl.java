@@ -3,6 +3,7 @@ package com.example.paintingservice.service.impl;
 import com.example.paintingservice.dto.BookingDetailDto;
 import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.BookingDetail;
+import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.enums.BookingStatus;
 import com.example.paintingservice.mapper.BookingDetailMapper;
@@ -11,12 +12,14 @@ import com.example.paintingservice.repository.BookingRepository;
 import com.example.paintingservice.repository.UserRepository;
 import com.example.paintingservice.service.BookingDetailService;
 import com.example.paintingservice.service.CloudinaryService;
+import com.example.paintingservice.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -29,6 +32,7 @@ public class BookingDetailServiceImpl implements BookingDetailService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
+    private final NotificationService notificationService;
 
     @Override
     public BookingDetailDto create(BookingDetailDto request, String username) {
@@ -93,11 +97,37 @@ public class BookingDetailServiceImpl implements BookingDetailService {
     @Override
     public BookingDetailDto supervisorAccept(Long id, String username) {
         BookingDetail detail = getDetail(id);
-        ensureSurveyorOrAdmin(detail.getBooking(), username);
-        ensureReadyForAcceptance(detail.getBooking());
+        Booking booking = detail.getBooking();
+        ensureSurveyorOrAdmin(booking, username);
+        ensureReadyForAcceptance(booking);
         detail.setSupervisorAccepted(true);
         BookingDetail saved = bookingDetailRepository.save(detail);
-        completeBookingWhenAllDetailsAccepted(detail.getBooking());
+        completeBookingWhenAllDetailsAccepted(booking);
+
+        // Thông báo cho Admin
+        userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title("Giám sát đã nghiệm thu đơn #" + booking.getId())
+                    .content(String.format("Giám sát viên %s đã xác nhận nghiệm thu đạt chuẩn cho đơn hàng #%d.",
+                            username, booking.getId()))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+
+        // Thông báo cho Khách hàng
+        if (booking.getCustomer() != null) {
+            notificationService.save(Notification.builder()
+                    .user(booking.getCustomer())
+                    .title("Giám sát đã nghiệm thu công trình #" + booking.getId())
+                    .content(String.format("Giám sát viên %s đã hoàn tất nghiệm thu kỹ thuật cho công trình #%d. Kính mời quý khách kiểm tra thực tế và xác nhận nghiệm thu.",
+                            username, booking.getId()))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+
         return BookingDetailMapper.toDto(saved);
     }
 
@@ -110,6 +140,31 @@ public class BookingDetailServiceImpl implements BookingDetailService {
         detail.setCustomerAccepted(true);
         BookingDetail saved = bookingDetailRepository.save(detail);
         completeBookingWhenAllDetailsAccepted(booking);
+
+        // Thông báo cho Admin
+        userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title("Khách hàng đã nghiệm thu đơn #" + booking.getId())
+                    .content(String.format("Khách hàng %s đã xác nhận nghiệm thu hài lòng công trình #%d. Đơn chờ thanh toán tất toán 70%% còn lại.",
+                            username, booking.getId()))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+
+        // Thông báo cho Thợ thi công
+        if (booking.getTechnician() != null) {
+            notificationService.save(Notification.builder()
+                    .user(booking.getTechnician())
+                    .title("Khách hàng đã nghiệm thu công trình #" + booking.getId())
+                    .content(String.format("Khách hàng %s đã nghiệm thu hoàn tất công trình #%d của bạn. Chờ tất toán để nhận thù lao thi công.",
+                            username, booking.getId()))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+
         return BookingDetailMapper.toDto(saved);
     }
 

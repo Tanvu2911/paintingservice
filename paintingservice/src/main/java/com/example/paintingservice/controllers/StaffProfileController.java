@@ -2,6 +2,7 @@ package com.example.paintingservice.controllers;
 
 import com.example.paintingservice.dto.StaffProfileDto;
 import com.example.paintingservice.entity.Booking;
+import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.Role;
 import com.example.paintingservice.entity.StaffProfile;
 import com.example.paintingservice.entity.User;
@@ -15,6 +16,7 @@ import com.example.paintingservice.repository.RoleRepository;
 import com.example.paintingservice.repository.StaffProfileRepository;
 import com.example.paintingservice.repository.UserRepository;
 import com.example.paintingservice.service.BookingService;
+import com.example.paintingservice.service.NotificationService;
 import com.example.paintingservice.service.StaffProfileService;
 
 import jakarta.validation.Valid;
@@ -26,6 +28,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +50,7 @@ public class StaffProfileController {
     private final StaffProfileService staffProfileService;
     private final BookingService bookingService;
     private final BookingDetailRepository bookingDetailRepository;
+    private final NotificationService notificationService;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -360,6 +364,30 @@ public class StaffProfileController {
         booking.setStatus(BookingStatus.ACCEPTED);
         bookingService.save(booking);
 
+        // Thông báo cho Admin
+        userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title("Giám sát đã nhận đơn #" + id)
+                    .content(String.format("Giám sát viên %s đã nhận việc khảo sát đơn hàng #%d (Địa chỉ: %s).",
+                            currentUser.getUsername(), id, booking.getAddress() != null ? booking.getAddress() : "Theo đơn"))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+
+        // Thông báo cho Khách hàng
+        if (booking.getCustomer() != null) {
+            notificationService.save(Notification.builder()
+                    .user(booking.getCustomer())
+                    .title("Giám sát viên đã tiếp nhận lịch khảo sát #" + id)
+                    .content(String.format("Giám sát viên %s đã tiếp nhận đơn #%d và chuẩn bị đến khảo sát công trình của bạn theo lịch hẹn.",
+                            currentUser.getUsername(), id))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+
         return ResponseEntity.ok(Map.of(
                 "message", "Đã xác nhận nhận việc khảo sát",
                 "bookingId", id));
@@ -368,8 +396,7 @@ public class StaffProfileController {
     /**
      * Gửi báo cáo khảo sát
      * Chỉ cho khi đã nhận việc (ACCEPTED)
-     * Sau khi gửi report → giữ ACCEPTED (Giám sát sẽ tạo Contract →
-     * WAITING_CONTRACT_APPROVAL)
+     * Sau khi gửi report → chuyển sang WAITING_ADMIN_QUOTE để Admin lập báo giá & hợp đồng
      */
     @PostMapping("/survey/jobs/{id}/report")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
@@ -393,11 +420,20 @@ public class StaffProfileController {
                     "Chỉ được gửi báo cáo khi đã nhận việc khảo sát (hiện tại: " + booking.getStatus() + ")"));
         }
 
-        // Báo cáo khảo sát từ giám sát - chuyển sang trạng thái chờ Admin báo giá
-        // Không lưu totalAmount và depositAmount ở bước này nữa
-
         booking.setStatus(BookingStatus.WAITING_ADMIN_QUOTE);
         bookingService.save(booking);
+
+        // Thông báo cho Admin
+        userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title("Báo cáo khảo sát đơn #" + id)
+                    .content(String.format("Giám sát viên %s đã nộp báo cáo khảo sát hiện trường đơn hàng #%d. Vui lòng kiểm tra số liệu và gửi báo giá cho khách.",
+                            currentUser.getUsername(), id))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
 
         return ResponseEntity.ok(Map.of(
                 "message", "Đã gửi báo cáo / số liệu thành công. Chờ Admin duyệt và gửi báo giá.",
@@ -430,6 +466,18 @@ public class StaffProfileController {
 
         String note = body.get("note");
         String materialShortage = body.get("materialShortage");
+
+        // Thông báo cho Admin
+        userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title("Báo cáo tiến độ thi công #" + id)
+                    .content(String.format("Giám sát viên %s vừa gửi báo cáo tiến độ thi công cho đơn hàng #%d.",
+                            currentUser.getUsername(), id))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
 
         return ResponseEntity.ok(Map.of(
                 "message", "Đã gửi báo cáo ngày thành công",

@@ -9,8 +9,7 @@ import ContractManagement from "../pages/admin/contracts/ContractManagement";
 import PaymentToStaff from "../pages/admin/payments/PaymentToStaff";
 import ServiceManagement from "../pages/admin/services/ServiceManagement";
 import AccountManagement from "../pages/admin/accounts/AccountManagement";
-import AdminRevenue from "../pages/admin/revenue/AdminRevenue";
-import AdminWallet from "../pages/admin/wallet/AdminWallet";
+import { Navigate } from "react-router-dom";
 
 export default function AdminRoutes({ user, onLogout, showToast }) {
   return (
@@ -29,8 +28,8 @@ export default function AdminRoutes({ user, onLogout, showToast }) {
         <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="contracts" element={<ContractManagement />} />
         <Route path="payments" element={<PaymentToStaff />} />
-        <Route path="revenue" element={<AdminRevenue />} />
-        <Route path="wallet" element={<AdminWallet />} />
+        <Route path="revenue" element={<Navigate to="/admin/payments" replace />} />
+        <Route path="wallet" element={<Navigate to="/admin/payments" replace />} />
         <Route path="services" element={<ServiceManagement />} />
         <Route path="painting" element={<ServiceManagement />} />
       </Route>
