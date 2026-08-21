@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Wrench,
   Search,
+  Star,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import Sidebar from "../../components/layout/Sidebar";
@@ -34,6 +35,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
     if (path.includes("/history")) return "history";
     if (path.includes("/wallet")) return "wallet";
     if (path.includes("/statistics")) return "statistics";
+    if (path.includes("/reviews")) return "reviews";
     if (path.includes("/profile")) return "profile";
     return "dashboard";
   };
@@ -104,6 +106,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
     { label: "Lịch Sử Khảo Sát", icon: <History className="w-4 h-4" />, value: "history" },
     { label: "Ví Thu Nhập", icon: <Wallet className="w-4 h-4" />, value: "wallet" },
     { label: "Thống Kê", icon: <BarChart3 className="w-4 h-4" />, value: "statistics" },
+    { label: "Đánh Giá Của Khách", icon: <Star className="w-4 h-4" />, value: "reviews" },
     { label: "Trang Cá Nhân", icon: <User className="w-4 h-4" />, value: "profile" },
   ];
 
@@ -113,6 +116,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
     { label: "Lịch Sử Thi Công", icon: <History className="w-4 h-4" />, value: "history" },
     { label: "Ví Thu Nhập", icon: <Wallet className="w-4 h-4" />, value: "wallet" },
     { label: "Thống Kê", icon: <BarChart3 className="w-4 h-4" />, value: "statistics" },
+    { label: "Đánh Giá Của Khách", icon: <Star className="w-4 h-4" />, value: "reviews" },
     { label: "Trang Cá Nhân", icon: <User className="w-4 h-4" />, value: "profile" },
   ];
 
@@ -172,6 +176,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
                 { label: isTechnician ? "Công việc thi công" : "Lịch khảo sát", to: `${basePath}/jobs`, icon: <Briefcase /> },
                 { label: "Lịch sử", to: `${basePath}/history`, icon: <History /> },
                 { label: "Ví thu nhập", to: `${basePath}/wallet`, icon: <Wallet /> },
+                { label: "Đánh giá của khách", to: `${basePath}/reviews`, icon: <Star /> },
                 { label: "Trang cá nhân", to: `${basePath}/profile`, icon: <User /> },
               ]}
             />

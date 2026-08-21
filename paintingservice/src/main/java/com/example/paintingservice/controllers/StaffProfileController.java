@@ -3,66 +3,39 @@ package com.example.paintingservice.controllers;
 import com.example.paintingservice.dto.StaffProfileDto;
 import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.Notification;
-import com.example.paintingservice.entity.Role;
 import com.example.paintingservice.entity.StaffProfile;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.enums.BookingStatus;
-import com.example.paintingservice.enums.StaffType;
-import com.example.paintingservice.enums.UserStatus;
 import com.example.paintingservice.mapper.StaffProfileMapper;
-import com.example.paintingservice.repository.BookingRepository;
-import com.example.paintingservice.repository.BookingDetailRepository;
-import com.example.paintingservice.repository.RoleRepository;
-import com.example.paintingservice.repository.StaffProfileRepository;
 import com.example.paintingservice.repository.UserRepository;
 import com.example.paintingservice.service.BookingService;
 import com.example.paintingservice.service.NotificationService;
 import com.example.paintingservice.service.StaffProfileService;
-
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/staff")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class StaffProfileController {
 
-    private final StaffProfileRepository staffProfileRepository;
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
     private final StaffProfileService staffProfileService;
     private final BookingService bookingService;
-    private final BookingDetailRepository bookingDetailRepository;
+    private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    @Value("${app.upload.dir:uploads}")
-    private String uploadDir;
-
-    // 1. READ: Lấy danh sách tất cả Staff kèm thông tin profile
-    // @GetMapping
-    // @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
-    // public List<StaffProfileDto> getAllStaff() {
-    // List<StaffProfile> staffs = staffProfileService.findAll();
-    // return
-    // staffs.stream().map(StaffProfileMapper::toDto).collect(Collectors.toList());
-    // }
+    // 1. READ: Lấy danh sách tất cả Staff
     @GetMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
     public List<StaffProfileDto> getAllStaff(@RequestParam(required = false) String staffType) {
@@ -79,196 +52,47 @@ public class StaffProfileController {
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
     public ResponseEntity<StaffProfileDto> getStaffById(@PathVariable Long id) {
-        Optional<StaffProfile> profileOpt = staffProfileRepository.findById(id);
-        if (profileOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        StaffProfile profile = profileOpt.get();
-        User user = profile.getUser();
-
-        StaffProfileDto dto = StaffProfileMapper.toDto(profile);
-        return ResponseEntity.ok(dto);
+        return staffProfileService.findById(id)
+                .map(StaffProfileMapper::toDto)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     // 2.1 READ: Lấy thông tin StaffProfile của chính mình
     @GetMapping("/me")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<?> getMyStaffProfile(Authentication authentication) {
-        User currentUser = getCurrentUser(authentication);
-        Optional<StaffProfile> profileOpt = staffProfileRepository.findByUser_Id(currentUser.getId());
-        if (profileOpt.isEmpty()) {
-            return ResponseEntity.ok(StaffProfileDto.builder()
-                    .userId(currentUser.getId())
-                    .username(currentUser.getUsername())
-                    .email(currentUser.getEmail())
-                    .phoneNumber(currentUser.getPhoneNumber())
-                    .address(currentUser.getAddress())
-                    .build());
-        }
-        return ResponseEntity.ok(StaffProfileMapper.toDto(profileOpt.get()));
+    public ResponseEntity<StaffProfileDto> getMyStaffProfile(Authentication authentication) {
+        return ResponseEntity.ok(staffProfileService.getMyProfile(authentication.getName()));
     }
 
-    // 2.2 UPDATE: Nhân viên tự cập nhật khu vực hoạt động & thông tin ngân hàng của mình
+    // 2.2 UPDATE: Nhân viên tự cập nhật thông tin cá nhân
     @PutMapping("/me")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<?> updateMyStaffProfile(@RequestBody StaffProfileDto dto, Authentication authentication) {
-        User currentUser = getCurrentUser(authentication);
-        
-        if (dto.getEmail() != null) currentUser.setEmail(dto.getEmail());
-        if (dto.getPhoneNumber() != null) currentUser.setPhoneNumber(dto.getPhoneNumber());
-        if (dto.getAddress() != null) currentUser.setAddress(dto.getAddress());
-        userRepository.save(currentUser);
-
-        StaffProfile profile = staffProfileRepository.findByUser_Id(currentUser.getId())
-                .orElseGet(() -> {
-                    StaffProfile p = new StaffProfile();
-                    p.setUser(currentUser);
-                    p.setStaffType(StaffType.WORKER);
-                    p.setRating(5.0);
-                    p.setAvailable(true);
-                    return p;
-                });
-
-        if (dto.getSpecialty() != null) profile.setSpecialty(dto.getSpecialty());
-        if (dto.getExperienceYears() != null) profile.setExperienceYears(dto.getExperienceYears());
-        if (dto.getAvailable() != null) profile.setAvailable(dto.getAvailable());
-        if (dto.getServiceArea() != null) profile.setServiceArea(dto.getServiceArea());
-        if (dto.getBankName() != null) profile.setBankName(dto.getBankName());
-        if (dto.getBankAccountNumber() != null) profile.setBankAccountNumber(dto.getBankAccountNumber());
-        if (dto.getBankAccountName() != null) profile.setBankAccountName(dto.getBankAccountName());
-
-        StaffProfile saved = staffProfileRepository.save(profile);
-        return ResponseEntity.ok(StaffProfileMapper.toDto(saved));
+    public ResponseEntity<StaffProfileDto> updateMyStaffProfile(@RequestBody StaffProfileDto dto, Authentication authentication) {
+        return ResponseEntity.ok(staffProfileService.updateMyProfile(authentication.getName(), dto));
     }
 
-    // 3. CREATE: Tạo mới Staff (Tạo cả User và StaffProfile)
+    // 3. CREATE: Tạo mới Staff
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> createStaff(@Valid @RequestBody StaffProfileDto dto) {
-        if (userRepository.existsByUsername(dto.getUsername())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "Tên đăng nhập đã tồn tại!"));
-        }
-
-        // Tạo User
-        User user = new User();
-        user.setUsername(dto.getUsername());
-        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        } else {
-            return ResponseEntity.badRequest().body(Map.of("message", "Mật khẩu không được để trống!"));
-        }
-        user.setEmail(dto.getEmail());
-        user.setPhoneNumber(dto.getPhoneNumber());
-        user.setAddress(dto.getAddress());
-        user.setStatus(UserStatus.ACTIVE);
-
-        Role staffRole = roleRepository.findByName("ROLE_STAFF")
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy quyền ROLE_STAFF"));
-        user.setRole(staffRole);
-        User savedUser = userRepository.save(user);
-
-        // Tạo StaffProfile
-        StaffProfile profile = new StaffProfile();
-        profile.setUser(savedUser);
-        profile.setSpecialty(dto.getSpecialty());
-        profile.setExperienceYears(dto.getExperienceYears() != null ? dto.getExperienceYears() : 0);
-        profile.setRating(5.0);
-        profile.setAvailable(dto.getAvailable() != null ? dto.getAvailable() : true);
-        profile.setStaffType(dto.getStaffType());
-        profile.setServiceArea(dto.getServiceArea());
-        profile.setBankName(dto.getBankName());
-        profile.setBankAccountNumber(dto.getBankAccountNumber());
-        profile.setBankAccountName(dto.getBankAccountName());
-        StaffProfile savedProfile = staffProfileRepository.save(profile);
-
-        dto.setId(savedProfile.getId());
-        dto.setUserId(savedUser.getId());
-        dto.setPassword(null); // Không trả về password
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+    public ResponseEntity<StaffProfileDto> createStaff(@Valid @RequestBody StaffProfileDto dto) {
+        StaffProfileDto created = staffProfileService.createStaff(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     // 4. UPDATE: Cập nhật thông tin Staff và User liên quan
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> updateStaff(@PathVariable Long id, @Valid @RequestBody StaffProfileDto dto) {
-        Optional<StaffProfile> profileOpt = staffProfileRepository.findById(id);
-        if (profileOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        StaffProfile profile = profileOpt.get();
-        User user = profile.getUser();
-
-        // Cập nhật thông tin User
-        if (dto.getEmail() != null)
-            user.setEmail(dto.getEmail());
-        if (dto.getPhoneNumber() != null)
-            user.setPhoneNumber(dto.getPhoneNumber());
-        if (dto.getAddress() != null)
-            user.setAddress(dto.getAddress());
-
-        // Cập nhật mật khẩu nếu có truyền lên
-        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        }
-        userRepository.save(user);
-
-        // Cập nhật thông tin StaffProfile
-        if (dto.getSpecialty() != null)
-            profile.setSpecialty(dto.getSpecialty());
-        if (dto.getExperienceYears() != null)
-            profile.setExperienceYears(dto.getExperienceYears());
-        if (dto.getAvailable() != null)
-            profile.setAvailable(dto.getAvailable());
-        if (dto.getStaffType() != null)
-            profile.setStaffType(dto.getStaffType());
-        if (dto.getServiceArea() != null)
-            profile.setServiceArea(dto.getServiceArea());
-        if (dto.getBankName() != null)
-            profile.setBankName(dto.getBankName());
-        if (dto.getBankAccountNumber() != null)
-            profile.setBankAccountNumber(dto.getBankAccountNumber());
-        if (dto.getBankAccountName() != null)
-            profile.setBankAccountName(dto.getBankAccountName());
-
-        StaffProfile updatedProfile = staffProfileRepository.save(profile);
-
-        dto.setId(updatedProfile.getId());
-        dto.setUserId(user.getId());
-        dto.setPassword(null);
-
-        return ResponseEntity.ok(dto);
+    public ResponseEntity<StaffProfileDto> updateStaff(@PathVariable Long id, @Valid @RequestBody StaffProfileDto dto) {
+        return ResponseEntity.ok(staffProfileService.updateStaff(id, dto));
     }
 
-    // 5. DELETE: Xóa Staff (Xóa Profile và User tương ứng)
+    // 5. DELETE: Xóa Staff
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteStaff(@PathVariable Long id) {
-        Optional<StaffProfile> profileOpt = staffProfileRepository.findById(id);
-        if (profileOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        StaffProfile profile = profileOpt.get();
-        User user = profile.getUser();
-
-        // Xóa StaffProfile trước
-        staffProfileRepository.delete(profile);
-
-        // Xóa User liên quan (nếu muốn xóa tài khoản đăng nhập luôn)
-        if (user != null) {
-            userRepository.delete(user);
-        }
-
+        staffProfileService.deleteStaff(id);
         return ResponseEntity.noContent().build();
-    }
-
-    private User getCurrentUser(Authentication authentication) {
-        return userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
     }
 
     // ==================== SURVEY APIs ====================
@@ -281,13 +105,9 @@ public class StaffProfileController {
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalJobs", myJobs.size());
-
-        // Chờ nhận: SURVEY_ASSIGNED
         stats.put("pendingJobs", myJobs.stream()
                 .filter(b -> b.getStatus() == BookingStatus.SURVEY_ASSIGNED)
                 .count());
-
-        // Đang làm
         stats.put("processingJobs", myJobs.stream()
                 .filter(b -> b.getStatus() == BookingStatus.ACCEPTED
                         || b.getStatus() == BookingStatus.WAITING_ADMIN_QUOTE
@@ -298,8 +118,6 @@ public class StaffProfileController {
                         || b.getStatus() == BookingStatus.CONTRACT_APPROVED
                         || b.getStatus() == BookingStatus.PROCESSING)
                 .count());
-
-        // Hoàn thành
         stats.put("completedJobs", myJobs.stream()
                 .filter(b -> b.getStatus() == BookingStatus.WORKER_COMPLETED
                         || b.getStatus() == BookingStatus.COMPLETED)
@@ -331,17 +149,12 @@ public class StaffProfileController {
             map.put("paymentStatus", b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null);
             map.put("preferredTechnicianName",
                     b.getPreferredTechnician() != null ? b.getPreferredTechnician().getUsername() : null);
-
             return map;
         }).collect(Collectors.toList());
 
         return ResponseEntity.ok(result);
     }
 
-    /**
-     * Giám sát nhận việc khảo sát
-     * Chỉ cho nhận khi status = SURVEY_ASSIGNED
-     */
     @PutMapping("/survey/jobs/{id}/accept")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
     public ResponseEntity<?> acceptSurveyJob(@PathVariable Long id, Authentication authentication) {
@@ -350,21 +163,17 @@ public class StaffProfileController {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         if (booking.getSurveyor() == null || !booking.getSurveyor().getId().equals(currentUser.getId())) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("message", "Bạn không có quyền nhận đơn này"));
+            return ResponseEntity.status(403).body(Map.of("message", "Bạn không có quyền nhận đơn này"));
         }
 
-        // ★ Chỉ cho nhận khi SURVEY_ASSIGNED
         if (booking.getStatus() != BookingStatus.SURVEY_ASSIGNED) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "message",
-                    "Đơn hàng không ở trạng thái có thể nhận việc (hiện tại: " + booking.getStatus() + ")"));
+                    "message", "Đơn hàng không ở trạng thái có thể nhận việc (hiện tại: " + booking.getStatus() + ")"));
         }
 
         booking.setStatus(BookingStatus.ACCEPTED);
         bookingService.save(booking);
 
-        // Thông báo cho Admin
         userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
             notificationService.save(Notification.builder()
                     .user(admin)
@@ -376,7 +185,6 @@ public class StaffProfileController {
                     .build());
         });
 
-        // Thông báo cho Khách hàng
         if (booking.getCustomer() != null) {
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
@@ -388,42 +196,28 @@ public class StaffProfileController {
                     .build());
         }
 
-        return ResponseEntity.ok(Map.of(
-                "message", "Đã xác nhận nhận việc khảo sát",
-                "bookingId", id));
+        return ResponseEntity.ok(Map.of("message", "Đã xác nhận nhận việc khảo sát", "bookingId", id));
     }
 
-    /**
-     * Gửi báo cáo khảo sát
-     * Chỉ cho khi đã nhận việc (ACCEPTED)
-     * Sau khi gửi report → chuyển sang WAITING_ADMIN_QUOTE để Admin lập báo giá & hợp đồng
-     */
     @PostMapping("/survey/jobs/{id}/report")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<?> submitSurveyReport(
-            @PathVariable Long id,
-            @RequestBody Map<String, Object> body,
-            Authentication authentication) {
-
+    public ResponseEntity<?> submitSurveyReport(@PathVariable Long id, @RequestBody Map<String, Object> body, Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
         Booking booking = bookingService.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         if (booking.getSurveyor() == null || !booking.getSurveyor().getId().equals(currentUser.getId())) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("message", "Bạn không có quyền gửi báo cáo đơn này"));
+            return ResponseEntity.status(403).body(Map.of("message", "Bạn không có quyền gửi báo cáo đơn này"));
         }
 
         if (booking.getStatus() != BookingStatus.ACCEPTED) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "message",
-                    "Chỉ được gửi báo cáo khi đã nhận việc khảo sát (hiện tại: " + booking.getStatus() + ")"));
+                    "message", "Chỉ được gửi báo cáo khi đã nhận việc khảo sát (hiện tại: " + booking.getStatus() + ")"));
         }
 
         booking.setStatus(BookingStatus.WAITING_ADMIN_QUOTE);
         bookingService.save(booking);
 
-        // Thông báo cho Admin
         userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
             notificationService.save(Notification.builder()
                     .user(admin)
@@ -435,39 +229,24 @@ public class StaffProfileController {
                     .build());
         });
 
-        return ResponseEntity.ok(Map.of(
-                "message", "Đã gửi báo cáo / số liệu thành công. Chờ Admin duyệt và gửi báo giá.",
-                "bookingId", id));
+        return ResponseEntity.ok(Map.of("message", "Đã gửi báo cáo / số liệu thành công. Chờ Admin duyệt và gửi báo giá.", "bookingId", id));
     }
 
     @PostMapping("/survey/jobs/{id}/daily-report")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<?> submitDailyReport(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            Authentication authentication) {
-
+    public ResponseEntity<?> submitDailyReport(@PathVariable Long id, @RequestBody Map<String, String> body, Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
         Booking booking = bookingService.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         if (booking.getSurveyor() == null || !booking.getSurveyor().getId().equals(currentUser.getId())) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("message", "Bạn không có quyền gửi báo cáo đơn này"));
+            return ResponseEntity.status(403).body(Map.of("message", "Bạn không có quyền gửi báo cáo đơn này"));
         }
 
-        // Chỉ cho gửi daily report khi đơn đang thi công
-        if (booking.getStatus() != BookingStatus.PROCESSING
-                && booking.getStatus() != BookingStatus.CONTRACT_APPROVED) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "message",
-                    "Chỉ được gửi báo cáo ngày khi đơn đang ở trạng thái thi công"));
+        if (booking.getStatus() != BookingStatus.PROCESSING && booking.getStatus() != BookingStatus.CONTRACT_APPROVED) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Chỉ được gửi báo cáo ngày khi đơn đang ở trạng thái thi công"));
         }
 
-        String note = body.get("note");
-        String materialShortage = body.get("materialShortage");
-
-        // Thông báo cho Admin
         userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
             notificationService.save(Notification.builder()
                     .user(admin)
@@ -479,27 +258,11 @@ public class StaffProfileController {
                     .build());
         });
 
-        return ResponseEntity.ok(Map.of(
-                "message", "Đã gửi báo cáo ngày thành công",
-                "bookingId", id));
+        return ResponseEntity.ok(Map.of("message", "Đã gửi báo cáo ngày thành công", "bookingId", id));
     }
 
-    @PutMapping("/survey/jobs/{id}/complete")
-    @PreAuthorize("hasAnyRole('STAFF', 'ADMIN')")
-    public ResponseEntity<?> completeSurveyJob(@PathVariable Long id, Authentication authentication) {
-        User currentUser = getCurrentUser(authentication);
-        Booking booking = bookingService.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
-
-        if (booking.getSurveyor() == null || !booking.getSurveyor().getId().equals(currentUser.getId())) {
-            return ResponseEntity.status(403)
-                    .body(Map.of("message", "Bạn không có quyền hoàn thành đơn này"));
-        }
-
-        // Không set COMPLETED ở đây — COMPLETED do khách nghiệm thu / Admin
-        return ResponseEntity.badRequest().body(Map.of(
-                "message",
-                "Không dùng endpoint này để hoàn thành đơn. Đơn sẽ chuyển COMPLETED sau khi khách nghiệm thu."));
+    private User getCurrentUser(Authentication authentication) {
+        return userRepository.findByUsername(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User không tồn tại: " + authentication.getName()));
     }
-
 }

@@ -8,6 +8,7 @@ import SurveyHistory from "../pages/staff/survey/SurveyHistory";
 import SurveyWallet from "../pages/staff/survey/SurveyWallet";
 import SurveyStatistics from "../pages/staff/survey/SurveyStatistics";
 import SurveyProfile from "../pages/staff/survey/SurveyProfile";
+import StaffReviewsPage from "../pages/staff/reviews/StaffReviewsPage";
 
 export default function SurveyRoutes({ user, onLogout, showToast }) {
   return (
@@ -23,6 +24,7 @@ export default function SurveyRoutes({ user, onLogout, showToast }) {
         <Route path="history" element={<SurveyHistory />} />
         <Route path="wallet" element={<SurveyWallet />} />
         <Route path="statistics" element={<SurveyStatistics />} />
+        <Route path="reviews" element={<StaffReviewsPage />} />
         <Route path="profile" element={<SurveyProfile />} />
       </Route>
     </Routes>

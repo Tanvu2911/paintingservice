@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import AddressMapModal from "../../components/common/AddressMapModal";
 import {
   HANOI_DISTRICTS,
   TIME_SLOT_GROUPS,
@@ -60,6 +61,7 @@ export default function CustomerBooking() {
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedWard, setSelectedWard] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
+  const [mapModalOpen, setMapModalOpen] = useState(false);
 
   const setForm = (key, value) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
@@ -465,9 +467,19 @@ export default function CustomerBooking() {
 
             {/* Address Cascading Selector (Hanoi) */}
             <div className="space-y-2.5 bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Địa chỉ công trình tại Hà Nội <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Địa chỉ công trình tại Hà Nội <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setMapModalOpen(true)}
+                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
+                >
+                  <span>🗺️</span>
+                  <span>Mở Bản đồ chọn vị trí</span>
+                </button>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
@@ -504,6 +516,9 @@ export default function CustomerBooking() {
                         {w}
                       </option>
                     ))}
+                    {selectedWard && !districtObj?.wards?.includes(selectedWard) && (
+                      <option value={selectedWard}>{selectedWard}</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -523,16 +538,25 @@ export default function CustomerBooking() {
                 />
               </div>
 
-              <div className="text-[11px] text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200 break-words flex items-start gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-slate-400 font-semibold">Địa chỉ ghi nhận:</span>{" "}
-                  <span className="font-bold text-slate-800">
-                    {selectedDistrict
-                      ? formatHanoiAddress(streetAddress, selectedWard, selectedDistrict)
-                      : form.address || "Chưa nhập địa chỉ"}
-                  </span>
+              <div className="text-[11px] text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200 break-words flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-slate-400 font-semibold">Địa chỉ ghi nhận:</span>{" "}
+                    <span className="font-bold text-slate-800">
+                      {selectedDistrict
+                        ? formatHanoiAddress(streetAddress, selectedWard, selectedDistrict)
+                        : form.address || "Chưa nhập địa chỉ"}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setMapModalOpen(true)}
+                  className="text-emerald-700 hover:text-emerald-800 font-bold text-[11px] flex items-center gap-1 shrink-0 cursor-pointer self-end sm:self-auto"
+                >
+                  <span>📍 Mở bản đồ</span>
+                </button>
               </div>
 
               {errors.address && (
@@ -541,6 +565,27 @@ export default function CustomerBooking() {
                 </p>
               )}
             </div>
+
+            {/* Modal Map Selector */}
+            <AddressMapModal
+              isOpen={mapModalOpen}
+              onClose={() => setMapModalOpen(false)}
+              initialDistrict={selectedDistrict}
+              initialWard={selectedWard}
+              initialStreet={streetAddress}
+              initialAddress={form.address}
+              title="Chọn địa chỉ công trình trên Bản đồ Hà Nội"
+              onConfirm={(loc) => {
+                if (loc.district) setSelectedDistrict(loc.district);
+                if (loc.ward) setSelectedWard(loc.ward);
+                if (loc.street) setStreetAddress(loc.street);
+                const newFull = loc.district
+                  ? formatHanoiAddress(loc.street, loc.ward, loc.district)
+                  : loc.fullAddress;
+                setForm("address", newFull);
+                showToast?.("Đã cập nhật vị trí công trình từ bản đồ!", "success");
+              }}
+            />
 
             {/* Description */}
             <div>

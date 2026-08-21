@@ -55,7 +55,7 @@ export function getNotificationDestination(notification, user) {
   // 4. Khách hàng (Customer)
   if (bookingId) return `/customer/bookings/${bookingId}`;
   if (/ví|nạp tiền|thanh toán/i.test(fullText)) return "/customer/wallet";
-  if (/lịch sử/i.test(fullText)) return "/customer/history";
+  if (/lịch sử/i.test(fullText)) return "/customer/ongoing";
   if (/đặt lịch|tạo yêu cầu/i.test(fullText)) return "/customer/booking";
   if (/hồ sơ|thông tin/i.test(fullText)) return "/customer/profile";
   return "/customer/ongoing";

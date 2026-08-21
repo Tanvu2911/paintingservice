@@ -7,13 +7,13 @@ import com.example.paintingservice.repository.RoleRepository;
 import com.example.paintingservice.repository.UserRepository;
 import com.example.paintingservice.security.JwtRequestFilter;
 import com.example.paintingservice.service.AppUserDetailsService;
-import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
-
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -29,59 +29,90 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 @RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
 public class SecurityConfig {
-    AppUserDetailsService userDetailsService;
-    JwtRequestFilter jwtRequestFilter;
-    UserRepository userRepository;
-    RoleRepository roleRepository;
+
+    private final AppUserDetailsService userDetailsService;
+    private final JwtRequestFilter jwtRequestFilter;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000}")
+    private String allowedOriginsStr;
+
+    @Value("${app.default-admin.username:admin}")
+    private String defaultAdminUsername;
+
+    @Value("${app.default-admin.password:123456}")
+    private String defaultAdminPassword;
+
+    @Value("${app.default-admin.email:admin@suachua247.com}")
+    private String defaultAdminEmail;
+
+    @Value("${app.default-admin.phone:0987654321}")
+    private String defaultAdminPhone;
+
+    @Value("${app.default-admin.address:Hà Nội}")
+    private String defaultAdminAddress;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) {
-//        + cors: là cầu nối cho phép 2 port có thể liên lạc với nhau,
-//        vd: react (port: 3000) axios đến spring (port: 8080)
-//        + session: Một cách lưu thông tin người đăng nhập vào cookie hệ thống,
-//        ở đây ta dùng jwt token nên tắt session đi
-//        + csrf: Thưởng đi cùng với session để tránh tấn công giả mạo
-//        ở đây không dùng đến session nên bỏ cái này nốt
         httpSecurity.cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/login", "/api/register", "/status", "/health", "/api/payments/vnpay/**", "/api/payments/momo/ipn", "/api/payments/zalopay/callback").permitAll()
-                        .anyRequest().authenticated()
-                ).sessionManagement(session -> session
+                        .requestMatchers(
+                                "/api/login",
+                                "/api/register",
+                                "/status",
+                                "/health",
+                                "/error",
+                                "/api/payments/vnpay/**",
+                                "/api/payments/momo/ipn",
+                                "/api/payments/zalopay/callback"
+                        ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/services/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
+                        .anyRequest().authenticated())
+                .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }
+
     @Bean
     public CommandLineRunner initData() {
         return args -> {
-            // 1. Kiểm tra và tạo Role ADMIN nếu chưa có
-            Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElse(null);
-            if (adminRole == null) {
-                adminRole = new Role();
-                adminRole.setName("ROLE_ADMIN");
-                roleRepository.save(adminRole);
+            // 1. Kiểm tra và tạo các Role cơ bản nếu chưa có
+            List<String> requiredRoles = List.of("ROLE_ADMIN", "ROLE_STAFF", "ROLE_CUSTOMER", "ROLE_TECHNICIAN", "ROLE_SUPERVISOR");
+            for (String roleName : requiredRoles) {
+                if (roleRepository.findByName(roleName).isEmpty()) {
+                    Role r = new Role();
+                    r.setName(roleName);
+                    roleRepository.save(r);
+                }
             }
 
-            // 2. Kiểm tra và tạo tài khoản admin mặc định nếu chưa có
-            if (userRepository.findByUsername("admin") == null) {
+            Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElse(null);
+
+            // 2. Khởi tạo tài khoản admin mặc định từ cấu hình nếu chưa có
+            if (userRepository.findByUsername(defaultAdminUsername) == null) {
                 User admin = new User();
-                admin.setUsername("admin");
-                admin.setPassword(passwordEncoder().encode("123456"));
-                admin.setEmail("admin@suachua247.com");
-                admin.setPhoneNumber("0987654321");
-                admin.setAddress("Hà Nội");
+                admin.setUsername(defaultAdminUsername);
+                admin.setPassword(passwordEncoder().encode(defaultAdminPassword));
+                admin.setEmail(defaultAdminEmail);
+                admin.setPhoneNumber(defaultAdminPhone);
+                admin.setAddress(defaultAdminAddress);
                 admin.setStatus(UserStatus.ACTIVE);
                 admin.setRole(adminRole);
 
                 userRepository.save(admin);
-                System.out.println(">>> Đã khởi tạo thành công tài khoản mặc định: admin / 123456");
+                log.info(">>> Đã khởi tạo thành công tài khoản quản trị mặc định: {}", defaultAdminUsername);
             }
         };
     }
@@ -94,10 +125,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+
+        List<String> origins = Arrays.stream(allowedOriginsStr.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+
+        configuration.setAllowedOrigins(origins);
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

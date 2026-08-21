@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext, Link } from "react-router-dom";
-import { Calendar, Clock, CheckCircle2, Wallet, Search } from "lucide-react";
+import { Calendar, Clock, CheckCircle2, Wallet, Search, Star, ChevronRight } from "lucide-react";
 import AxiosConfig from "../../../util/AxiosConfig";
 import { formatMoney } from "../../../util/formatters";
 
@@ -16,13 +16,36 @@ export default function SurveyDashboard() {
 
   const [available, setAvailable] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [ratingStats, setRatingStats] = useState({ average: 5.0, count: 0 });
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const res = await AxiosConfig.get("/staff/survey/dashboard-stats");
-        setStats(res.data);
+        const [statRes, profRes, revRes] = await Promise.all([
+          AxiosConfig.get("/staff/survey/dashboard-stats").catch(() => ({ data: { pendingJobs: 0, completedJobs: 0, totalEarnings: 0 } })),
+          AxiosConfig.get("/staff/me").catch(() => null),
+          AxiosConfig.get("/reviews/staff/me").catch(() => null),
+        ]);
+
+        if (statRes?.data) setStats(statRes.data);
+        if (profRes?.data && profRes.data.available !== undefined) {
+          setAvailable(profRes.data.available);
+        }
+
+        const revs = Array.isArray(revRes?.data) ? revRes.data : [];
+        if (revs.length > 0) {
+          const sum = revs.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+          setRatingStats({
+            average: (sum / revs.length).toFixed(1),
+            count: revs.length,
+          });
+        } else if (profRes?.data?.rating) {
+          setRatingStats({
+            average: Number(profRes.data.rating).toFixed(1),
+            count: 0,
+          });
+        }
       } catch (err) {
         console.error("Lỗi lấy dữ liệu dashboard:", err);
       } finally {
@@ -30,19 +53,7 @@ export default function SurveyDashboard() {
       }
     };
 
-    const fetchStaffProfile = async () => {
-      try {
-        const res = await AxiosConfig.get("/staff/me");
-        if (res.data && res.data.available !== undefined) {
-          setAvailable(res.data.available);
-        }
-      } catch (err) {
-        console.error("Lỗi lấy thông tin staff:", err);
-      }
-    };
-
     fetchDashboardData();
-    fetchStaffProfile();
   }, []);
 
   const handleToggleAvailability = async () => {
@@ -141,11 +152,11 @@ export default function SurveyDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Khảo sát cần thực hiện
+              Khảo sát cần làm
             </span>
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <Clock className="w-5 h-5 text-amber-600" />
@@ -165,7 +176,35 @@ export default function SurveyDashboard() {
             </div>
           </div>
           <p className="text-3xl font-black text-emerald-600 mt-3">{stats.completedJobs || 0}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Hồ sơ khảo sát đã gửi báo cáo cho Admin</p>
+          <p className="text-[11px] text-slate-400 mt-1">Hồ sơ khảo sát đã gửi báo cáo</p>
+        </div>
+
+        {/* Thẻ Đánh giá & Uy tín */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Đánh giá khách hàng
+              </span>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5 mt-3">
+              <span className="text-3xl font-black text-slate-900">{ratingStats.average}</span>
+              <span className="text-xs text-slate-400 font-bold">/ 5.0</span>
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-[11px] text-slate-500">{ratingStats.count} lượt đánh giá</span>
+            <Link
+              to="/staff/survey/reviews"
+              className="text-[11px] font-bold text-amber-600 hover:text-amber-700 inline-flex items-center gap-0.5"
+            >
+              <span>Xem góp ý</span>
+              <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition">
@@ -177,7 +216,7 @@ export default function SurveyDashboard() {
               <Wallet className="w-5 h-5 text-slate-900" />
             </div>
           </div>
-          <p className="text-3xl font-black text-slate-900 mt-3">
+          <p className="text-2xl font-black text-slate-900 mt-3 truncate font-mono">
             {formatMoney(stats.totalEarnings || 0)}
           </p>
           <p className="text-[11px] text-slate-400 mt-1">Tổng thu nhập từ phí khảo sát</p>

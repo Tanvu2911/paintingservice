@@ -24,21 +24,25 @@ export default function BookingHistoryPage({
   showTechnicianFilter = false,
   showCustomerFilter = false,
   emptyMessage = "Chưa có dữ liệu lịch sử.",
+  defaultStatusFilter = "ALL",
   statusFilter = [], // Nhận prop statusFilter
 }) {
   const navigate = useNavigate();
   const { filtered, bookings, stats, loading, filters } = useBookingHistory(
     role,
-    showToast
+    showToast,
+    defaultStatusFilter
   );
 
-  // LỌC DỮ LIỆU: Chỉ giữ lại các đơn hàng có trạng thái nằm trong statusFilter (nếu có truyền vào)
+  // LỌC DỮ LIỆU: Chỉ giữ lại các đơn hàng có trạng thái nằm trong statusFilter (nếu có truyền vào và filter trên thanh chưa chọn cái khác)
   const displayData = useMemo(() => {
     if (statusFilter && statusFilter.length > 0) {
-      return filtered.filter((row) => statusFilter.includes(row.status));
+      if (filters.statusFilter === "ALL" || filters.statusFilter === defaultStatusFilter) {
+        return filtered.filter((row) => statusFilter.includes(row.status));
+      }
     }
     return filtered;
-  }, [filtered, statusFilter]);
+  }, [filtered, statusFilter, filters.statusFilter, defaultStatusFilter]);
 
   const columns = [
     {

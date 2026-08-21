@@ -8,6 +8,7 @@ import TechnicianHistory from "../pages/staff/technician/TechnicianHistory";
 import TechnicianWallet from "../pages/staff/technician/TechnicianWallet";
 import TechnicianStatistics from "../pages/staff/technician/TechnicianStatistics";
 import TechnicianProfile from "../pages/staff/technician/TechnicianProfile";
+import StaffReviewsPage from "../pages/staff/reviews/StaffReviewsPage";
 
 export default function TechnicianRoutes({ user, onLogout, showToast }) {
   return (
@@ -23,6 +24,7 @@ export default function TechnicianRoutes({ user, onLogout, showToast }) {
         <Route path="history" element={<TechnicianHistory />} />
         <Route path="wallet" element={<TechnicianWallet />} />
         <Route path="statistics" element={<TechnicianStatistics />} />
+        <Route path="reviews" element={<StaffReviewsPage />} />
         <Route path="profile" element={<TechnicianProfile />} />
       </Route>
     </Routes>

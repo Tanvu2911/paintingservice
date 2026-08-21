@@ -9,6 +9,7 @@ import ContractManagement from "../pages/admin/contracts/ContractManagement";
 import PaymentToStaff from "../pages/admin/payments/PaymentToStaff";
 import ServiceManagement from "../pages/admin/services/ServiceManagement";
 import AccountManagement from "../pages/admin/accounts/AccountManagement";
+import ReviewManagement from "../pages/admin/reviews/ReviewManagement";
 import { Navigate } from "react-router-dom";
 
 export default function AdminRoutes({ user, onLogout, showToast }) {
@@ -32,6 +33,7 @@ export default function AdminRoutes({ user, onLogout, showToast }) {
         <Route path="wallet" element={<Navigate to="/admin/payments" replace />} />
         <Route path="services" element={<ServiceManagement />} />
         <Route path="painting" element={<ServiceManagement />} />
+        <Route path="reviews" element={<ReviewManagement />} />
       </Route>
     </Routes>
   );

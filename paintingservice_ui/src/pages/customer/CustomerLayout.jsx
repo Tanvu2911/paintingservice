@@ -18,7 +18,6 @@ const menuItems = [
   { label: "Dashboard", Icon: LayoutDashboard, path: "/customer/dashboard" },
   { label: "Đặt lịch khảo sát", Icon: CalendarPlus, path: "/customer/booking" },
   { label: "Quản lý yêu cầu", Icon: ClipboardList, path: "/customer/ongoing" },
-  { label: "Lịch sử hoàn thành", Icon: History, path: "/customer/history" },
   { label: "Tài khoản", Icon: User, path: "/customer/profile" },
 ];
 

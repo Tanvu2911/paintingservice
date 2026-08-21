@@ -1,4 +1,4 @@
-const COMPLETED_STATUSES = ["WORKER_COMPLETED", "COMPLETED"];
+const COMPLETED_STATUSES = ["COMPLETED", "PAID_TO_STAFF", "WORKER_COMPLETED"];
 const CANCELLED_STATUSES = ["CANCELLED", "SURVEY_REJECTED", "WORKER_REJECTED"];
 
 export function normalizeBookingDate(value) {
@@ -25,19 +25,23 @@ export function filterBookings(bookings, filters = {}) {
 
   if (statusFilter === "PENDING") {
     result = result.filter((b) =>
-      ["PENDING", "SURVEY_ASSIGNED", "CONTRACT_APPROVED", "ASSIGNED"].includes(
-        b.status
-      )
+      [
+        "PENDING",
+        "SURVEY_ASSIGNED",
+        "ACCEPTED",
+        "WAITING_ADMIN_QUOTE",
+        "WAITING_CUSTOMER_QUOTE_APPROVAL",
+        "CUSTOMER_ACCEPTED_QUOTE",
+        "WAITING_CUSTOMER_SIGNATURE",
+        "WAITING_DEPOSIT",
+        "DEPOSIT_CONFIRMED",
+        "CONTRACT_APPROVED",
+        "ASSIGNED",
+      ].includes(b.status)
     );
   } else if (statusFilter === "IN_PROGRESS") {
     result = result.filter((b) =>
-      [
-        "ACCEPTED",
-        "SURVEYING",
-        "WAITING_CONTRACT_APPROVAL",
-        "CONTRACT_APPROVED",
-        "PROCESSING",
-      ].includes(b.status)
+      ["PROCESSING", "WORKER_COMPLETED", "WAITING_FINAL_PAYMENT"].includes(b.status)
     );
   } else if (statusFilter === "COMPLETED") {
     result = result.filter((b) => COMPLETED_STATUSES.includes(b.status));
@@ -115,12 +119,22 @@ export function computeBookingStats(bookings) {
   return {
     total: list.length,
     pending: list.filter((b) =>
-      ["PENDING", "SURVEY_ASSIGNED", "CONTRACT_APPROVED", "ASSIGNED"].includes(
-        b.status
-      )
+      [
+        "PENDING",
+        "SURVEY_ASSIGNED",
+        "ACCEPTED",
+        "WAITING_ADMIN_QUOTE",
+        "WAITING_CUSTOMER_QUOTE_APPROVAL",
+        "CUSTOMER_ACCEPTED_QUOTE",
+        "WAITING_CUSTOMER_SIGNATURE",
+        "WAITING_DEPOSIT",
+        "DEPOSIT_CONFIRMED",
+        "CONTRACT_APPROVED",
+        "ASSIGNED",
+      ].includes(b.status)
     ).length,
     inProgress: list.filter((b) =>
-      ["ACCEPTED", "PROCESSING", "SURVEYING"].includes(b.status)
+      ["PROCESSING", "WORKER_COMPLETED", "WAITING_FINAL_PAYMENT"].includes(b.status)
     ).length,
     completed: list.filter((b) => COMPLETED_STATUSES.includes(b.status)).length,
     cancelled: list.filter((b) => CANCELLED_STATUSES.includes(b.status)).length,

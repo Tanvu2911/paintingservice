@@ -70,7 +70,7 @@ export default function CustomerDashboard() {
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
           Lối tắt chức năng
         </h2>
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-3 gap-4">
           <QuickLink
             to="/customer/booking"
             title="Đăng ký khảo sát mới"
@@ -79,15 +79,9 @@ export default function CustomerDashboard() {
           />
           <QuickLink
             to="/customer/ongoing"
-            title="Quản lý yêu cầu đang làm"
-            desc="Theo dõi tiến độ khảo sát, ký hợp đồng, cọc và báo cáo thi công hàng ngày"
+            title="Quản lý yêu cầu & Lịch sử"
+            desc="Theo dõi tiến độ khảo sát, ký hợp đồng, nhật ký thi công và các công trình đã hoàn thành"
             Icon={ClipboardList}
-          />
-          <QuickLink
-            to="/customer/history"
-            title="Lịch sử công trình"
-            desc="Xem lại danh sách các công trình đã hoàn tất và thông tin bảo hành"
-            Icon={History}
           />
           <QuickLink
             to="/customer/profile"

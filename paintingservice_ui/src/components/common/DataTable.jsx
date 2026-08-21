@@ -1,93 +1,85 @@
-export default function FilterBar({
-  searchText = "",
-  onSearchChange,
-  searchPlaceholder = "Tìm kiếm...",
-  statusFilter = "ALL",
-  onStatusChange,
-  statusOptions = [
-      { value: "ALL", label: "Tất cả trạng thái" },
-      { value: "PENDING", label: "Chờ xử lý" },
-      { value: "IN_PROGRESS", label: "Đang thực hiện" },
-      { value: "COMPLETED", label: "Hoàn thành" },
-      { value: "CANCELLED", label: "Đã hủy / Từ chối" },
-  ],
-  startDate = "",
-  endDate = "",
-  onStartDateChange,
-  onEndDateChange,
-  sortOrder = "newest",
-  onSortChange,
-  showDateRange = true,
-  showSort = true,
-  extraFilters = null,
-  totalCount = 0,
-  filteredCount = 0,
+import EmptyState from "./EmptyState";
+import LoadingSkeleton from "./LoadingSkeleton";
+
+export default function DataTable({
+  columns = [],
+  data = [],
+  loading = false,
+  emptyMessage = "Chưa có dữ liệu lịch sử.",
+  rowKey = (row, index) => row.id ?? index,
+  onRowClick,
+  variant = "light",
 }) {
+  const isDark = variant === "dark";
+
+  if (loading) {
+    return <LoadingSkeleton rows={6} variant={variant} />;
+  }
+
+  if (!data || !data.length) {
+    return <EmptyState message={emptyMessage} variant={variant} />;
+  }
+
   return (
-      <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm space-y-4">
-          <div className="flex flex-col lg:flex-row gap-3">
-              {onSearchChange && (
-                  <input
-                      type="text"
-                      value={searchText}
-                      onChange={(e) => onSearchChange(e.target.value)}
-                      placeholder={searchPlaceholder}
-                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-              )}
-
-              {onStatusChange && (
-                  <select
-                      value={statusFilter}
-                      onChange={(e) => onStatusChange(e.target.value)}
-                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+    <div
+      className={`rounded-2xl overflow-hidden ${
+        isDark
+          ? "bg-slate-800/60 border border-slate-700/60 shadow-lg shadow-black/20"
+          : "bg-white shadow-xs border border-slate-200/90"
+      }`}
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs sm:text-sm">
+          <thead>
+            <tr
+              className={`uppercase text-[10.5px] font-black tracking-wider ${
+                isDark
+                  ? "bg-slate-900/50 text-slate-400 border-b border-slate-700/50"
+                  : "bg-slate-50/80 text-slate-500 border-b border-slate-200/70"
+              }`}
+            >
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`py-3.5 px-4 font-black ${
+                    col.headerClassName || ""
+                  }`}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody
+            className={
+              isDark
+                ? "divide-y divide-slate-700/50"
+                : "divide-y divide-slate-100"
+            }
+          >
+            {data.map((row, index) => (
+              <tr
+                key={rowKey(row, index)}
+                onClick={() => onRowClick?.(row)}
+                className={`transition-colors ${
+                  isDark
+                    ? "hover:bg-slate-700/40 text-slate-200"
+                    : "hover:bg-slate-50/90 text-slate-700"
+                } ${onRowClick ? "cursor-pointer" : ""}`}
+              >
+                {columns.map((col) => (
+                  <td
+                    key={col.key}
+                    className={`py-3.5 px-4 ${col.cellClassName || ""}`}
                   >
-                      {statusOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                          </option>
-                      ))}
-                  </select>
-              )}
-
-              {showSort && onSortChange && (
-                  <select
-                      value={sortOrder}
-                      onChange={(e) => onSortChange(e.target.value)}
-                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                      <option value="newest">Mới nhất</option>
-                      <option value="oldest">Cũ nhất</option>
-                  </select>
-              )}
-          </div>
-
-          {(showDateRange || extraFilters) && (
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                  {showDateRange && onStartDateChange && onEndDateChange && (
-                      <>
-                          <input
-                              type="date"
-                              value={startDate}
-                              onChange={(e) => onStartDateChange(e.target.value)}
-                              className="border border-slate-200 rounded-xl px-3 py-2 text-sm"
-                          />
-                          <span className="text-slate-400 text-sm">đến</span>
-                          <input
-                              type="date"
-                              value={endDate}
-                              onChange={(e) => onEndDateChange(e.target.value)}
-                              className="border border-slate-200 rounded-xl px-3 py-2 text-sm"
-                          />
-                      </>
-                  )}
-                  {extraFilters}
-              </div>
-          )}
-
-          <p className="text-xs text-slate-400">
-              Hiển thị <strong>{filteredCount}</strong> / {totalCount} bản ghi
-          </p>
+                    {col.render ? col.render(row) : row[col.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
+    </div>
   );
 }

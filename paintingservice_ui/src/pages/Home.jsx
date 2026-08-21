@@ -293,8 +293,7 @@ export default function Home({ user, onLogout, showToast }) {
                     isCustomer(user)
                       ? [
                           { label: "Đặt lịch khảo sát", to: "/customer/booking", icon: <CalendarPlus /> },
-                          { label: "Quản lý yêu cầu", to: "/customer/ongoing", icon: <ClipboardList /> },
-                          { label: "Lịch sử hoàn thành", to: "/customer/history", icon: <History /> },
+                          { label: "Quản lý yêu cầu & Lịch sử", to: "/customer/ongoing", icon: <ClipboardList /> },
                           { label: "Hồ sơ & Địa chỉ", to: "/customer/profile", icon: <User /> },
                         ]
                       : [

@@ -21,18 +21,22 @@ import {
   User,
   Wallet,
   Sparkles,
+  Star,
 } from "lucide-react";
+
 
 export default function OrderActionBanner({
   role = "customer",
   booking,
   contract,
+  review = null,
   canAcceptQuote = false,
   canCustomerConfirmAcceptance = false,
   canChangeSupervisor = false,
   dailyReportsCount = 0,
   onAction,
 }) {
+
   if (!booking) return null;
 
   const s = booking.status;
@@ -377,19 +381,31 @@ export default function OrderActionBanner({
               </p>
             </div>
           </div>
-          {contract && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => onAction?.("export_pdf")}
-              className="px-5 py-3 bg-white hover:bg-slate-100 text-slate-950 font-black rounded-2xl text-xs transition shrink-0 shadow-md flex items-center gap-2 cursor-pointer"
+              onClick={() => onAction?.("open_review")}
+              className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer hover:scale-105 duration-150"
             >
-              <Printer className="w-4 h-4 text-slate-900" />
-              <span>Xuất File PDF / In Hợp Đồng</span>
+              <Star className="w-4 h-4 fill-slate-950 text-slate-950" />
+              <span>{review ? `Đánh Giá Lại (${review.rating}★)` : "Đánh Giá & Góp Ý Thợ"}</span>
             </button>
-          )}
+            {contract && (
+              <button
+                type="button"
+                onClick={() => onAction?.("export_pdf")}
+                className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-xs transition border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-white" />
+                <span>Xuất File PDF</span>
+              </button>
+            )}
+          </div>
+
         </div>
       );
     }
+
   }
 
   /* ========================================================================= */

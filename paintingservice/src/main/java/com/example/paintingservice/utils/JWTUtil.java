@@ -1,10 +1,10 @@
 package com.example.paintingservice.utils;
 
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import io.jsonwebtoken.*;
-import lombok.extern.slf4j.Slf4j;
 
 import java.security.Key;
 import java.util.Date;
@@ -12,21 +12,22 @@ import java.util.Date;
 @Component
 @Slf4j
 public class JWTUtil {
-    // Đoạn JWT_SECRET này là bí mật, chỉ có phía server biết
+
     @Value("${jwt.signerKey}")
-    private String JWT_SECRET;
+    private String jwtSecret;
+
+    @Value("${jwt.expiration-ms:86400000}")
+    private long jwtExpirationMs;
 
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(JWT_SECRET.getBytes());
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
     // Tạo ra jwt từ thông tin user
     public String generateToken(String username) {
         Date now = new Date();
-        //Thời gian có hiệu lực của chuỗi jwt
-        long JWT_EXPIRATION = 604800000L;
-        Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION);
-        // Tạo chuỗi json web token từ id của user.
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(now)
@@ -51,13 +52,15 @@ public class JWTUtil {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
             return true;
         } catch (MalformedJwtException ex) {
-            log.error("Invalid JWT token");
+            log.error("Invalid JWT token format: {}", ex.getMessage());
         } catch (ExpiredJwtException ex) {
-            log.error("Expired JWT token");
+            log.warn("JWT token is expired: {}", ex.getMessage());
         } catch (UnsupportedJwtException ex) {
-            log.error("Unsupported JWT token");
+            log.error("Unsupported JWT token: {}", ex.getMessage());
         } catch (IllegalArgumentException ex) {
-            log.error("JWT claims string is empty.");
+            log.error("JWT claims string is empty: {}", ex.getMessage());
+        } catch (Exception ex) {
+            log.error("JWT validation error: {}", ex.getMessage());
         }
         return false;
     }

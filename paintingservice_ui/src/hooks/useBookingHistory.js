@@ -13,13 +13,13 @@ const FETCHERS = {
   admin: () => AxiosConfig.get("/bookings"),
 };
 
-export default function useBookingHistory(role = "customer", showToast) {
+export default function useBookingHistory(role = "customer", showToast, initialStatusFilter = "ALL") {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sortOrder, setSortOrder] = useState("newest");

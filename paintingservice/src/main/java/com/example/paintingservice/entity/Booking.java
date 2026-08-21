@@ -9,7 +9,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "bookings")
+@Table(name = "bookings", indexes = {
+        @Index(name = "idx_booking_customer", columnList = "customer_id"),
+        @Index(name = "idx_booking_technician", columnList = "technician_id"),
+        @Index(name = "idx_booking_surveyor", columnList = "surveyor_id"),
+        @Index(name = "idx_booking_status", columnList = "status"),
+        @Index(name = "idx_booking_created_at", columnList = "created_at")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -55,7 +61,7 @@ public class Booking {
     @Builder.Default
     private BigDecimal totalAmount = new BigDecimal("50000.00");
 
-    // ========== THÊM CÁC FIELD CHO THANH TOÁN ZALOPAY ==========
+    // ========== THÊM CÁC FIELD CHO THANH TOÁN ==========
     @Column(name = "deposit_amount", precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal depositAmount = BigDecimal.ZERO; // Tiền cọc (VD: 30% tổng tiền)

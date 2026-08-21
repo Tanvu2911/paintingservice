@@ -17,6 +17,7 @@ import {
   Check,
   AlertTriangle,
   XCircle,
+  Star,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -28,6 +29,8 @@ import ImageLightboxModal from "../../components/common/ImageLightboxModal";
 import PaymentSection from "../../components/payment/PaymentSection";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import RejectQuoteModal from "../../components/common/RejectQuoteModal";
+import ReviewModal from "../../components/review/ReviewModal";
+import ReviewCard from "../../components/review/ReviewCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { formatMoney } from "../../util/formatters";
 import { formatDate, parseImageUrls } from "../../util/orderFlowUtils";
@@ -44,6 +47,8 @@ export default function BookingDetail(props) {
   const [contract, setContract] = useState(null);
   const [dailyReports, setDailyReports] = useState([]);
   const [bookingDetails, setBookingDetails] = useState([]);
+  const [review, setReview] = useState(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [contractModal, setContractModal] = useState(false);
@@ -100,9 +105,25 @@ export default function BookingDetail(props) {
     }
   };
 
-  const refreshData = async () => {
-    await Promise.all([fetchBooking(), fetchContract(), fetchDailyReports(), fetchBookingDetails()]);
+  const fetchReview = async () => {
+    try {
+      const response = await AxiosConfig.get(`/reviews/booking/${id}`);
+      setReview(response.data || null);
+    } catch (e) {
+      setReview(null);
+    }
   };
+
+  const refreshData = async () => {
+    await Promise.all([
+      fetchBooking(),
+      fetchContract(),
+      fetchDailyReports(),
+      fetchBookingDetails(),
+      fetchReview(),
+    ]);
+  };
+
 
   useEffect(() => {
     if (!user) {
@@ -201,12 +222,34 @@ export default function BookingDetail(props) {
     }
   };
 
+  // Xóa đánh giá
+  const handleDeleteReview = () => {
+    if (!review) return;
+    setConfirmDialog({
+      title: "Xác nhận xóa đánh giá",
+      message: "Bạn có chắc chắn muốn xóa bài đánh giá & góp ý này không?",
+      onConfirm: async () => {
+        try {
+          await AxiosConfig.delete(`/reviews/${review.id}`);
+          showToast?.("Đã xóa đánh giá thành công!", "success");
+          await fetchReview();
+        } catch (error) {
+          showToast?.(error.response?.data?.message || "Không thể xóa đánh giá!", "error");
+        } finally {
+          setConfirmDialog(null);
+        }
+      },
+    });
+  };
+
   // Xử lý các hành động từ Banner
   const handleBannerAction = async (actionType) => {
     if (actionType === "reject_quote") {
       setRejectModalOpen(true);
     } else if (actionType === "open_contract") {
       setContractModal(true);
+    } else if (actionType === "open_review") {
+      setReviewModalOpen(true);
     } else if (actionType === "pay_deposit") {
       try {
         const res = await AxiosConfig.post(`/payments/vnpay/create?bookingId=${booking.id}&paymentType=DEPOSIT`);
@@ -232,6 +275,7 @@ export default function BookingDetail(props) {
       }
     }
   };
+
 
   if (loading) return <LoadingSpinner />;
 
@@ -315,9 +359,11 @@ export default function BookingDetail(props) {
         role="customer"
         booking={booking}
         contract={contract}
+        review={review}
         canAcceptQuote={canAcceptQuote}
         onAction={handleBannerAction}
       />
+
 
       {/* Cảnh báo nếu đơn đã hủy */}
       {booking.status === "CANCELLED" && (
@@ -559,6 +605,49 @@ export default function BookingDetail(props) {
               )}
             </div>
           )}
+          {/* Card 5: Đánh Giá & Góp Ý Cho Đội Thợ */}
+          {(["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) || booking.paymentStatus === "FULLY_PAID") && (
+            <div>
+              {review ? (
+                <ReviewCard
+                  review={review}
+                  onEdit={() => setReviewModalOpen(true)}
+                  onDelete={handleDeleteReview}
+                />
+              ) : (
+                <div className="bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-md border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 relative overflow-hidden">
+                  <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <div className="flex items-start gap-4 z-10">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-2xl shrink-0 border border-emerald-400/20">
+                      ⭐
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-200 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
+                          Chia sẻ trải nghiệm
+                        </span>
+                        <span className="text-xs text-emerald-300 font-bold">1 phút gửi đánh giá</span>
+                      </div>
+                      <h3 className="text-base font-bold text-white">
+                        Đánh giá chất lượng thi công &amp; Góp ý cho Đội thợ
+                      </h3>
+                      <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                        Công trình đã hoàn tất nghiệm thu! Mời bạn chấm điểm sao và gửi góp ý để giúp đội thợ ngày càng hoàn thiện tay nghề và phục vụ tốt hơn.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReviewModalOpen(true)}
+                    className="w-full sm:w-auto px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs transition shrink-0 shadow-lg flex items-center justify-center gap-2 cursor-pointer z-10 hover:scale-105 duration-150"
+                  >
+                    <Star className="w-4 h-4 fill-slate-950 text-slate-950" />
+                    <span>Đánh Giá Thợ Ngay</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Cột phải 1 phần: Nhân sự phụ trách & Thẻ Hợp đồng */}
@@ -663,6 +752,15 @@ export default function BookingDetail(props) {
       </div>
 
       {/* Shared Modals */}
+      <ReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        booking={booking}
+        existingReview={review}
+        showToast={showToast}
+        onSuccess={fetchReview}
+      />
+
       <ContractModal
         isOpen={contractModal}
         onClose={() => setContractModal(false)}
@@ -694,3 +792,4 @@ export default function BookingDetail(props) {
     </div>
   );
 }
+

@@ -7,6 +7,7 @@ const AxiosConfig = axios.create({
         "Content-Type": "application/json",
         Accept: "application/json",
     },
+    timeout: 30000,
 });
 
 const excludeEndpoints = [
@@ -40,41 +41,32 @@ AxiosConfig.interceptors.response.use(
     (response) => {
         return response;
     },
-
     (error) => {
         if (error.response) {
-
             const status = error.response.status;
 
             // 401: Token không hợp lệ / hết hạn / chưa đăng nhập
             if (status === 401) {
                 localStorage.removeItem("token");
+                localStorage.removeItem("user");
 
-                // Không redirect nếu đang ở trang login
+                // Bắn event để AuthContext tự động cập nhật
+                window.dispatchEvent(new Event("auth:logout"));
+
+                // Chuyển hướng về login nếu chưa ở trang login
                 if (window.location.pathname !== "/login") {
                     window.location.href = "/login";
                 }
             }
-
-            // 403: Có đăng nhập nhưng KHÔNG CÓ QUYỀN
+            // 403: Không có quyền
             else if (status === 403) {
-                console.error(
-                    "403 Forbidden: Bạn không có quyền truy cập API này."
-                );
-
-                // KHÔNG xóa token
-                // KHÔNG redirect /login
+                console.warn("403 Forbidden: Bạn không có quyền thực hiện thao tác này.");
             }
-
-            else if (status === 500) {
-                console.error("Lỗi server");
+            else if (status >= 500) {
+                console.error("Lỗi hệ thống từ máy chủ (5xx).");
             }
-        }
-
-        else if (error.code === "ECONNABORTED") {
-            console.error(
-                "Request cần quá nhiều thời gian để phản hồi, vui lòng thử lại sau"
-            );
+        } else if (error.code === "ECONNABORTED") {
+            console.error("Yêu cầu quá hạn thời gian xử lý (Timeout).");
         }
 
         return Promise.reject(error);

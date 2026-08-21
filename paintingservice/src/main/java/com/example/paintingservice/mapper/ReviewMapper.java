@@ -10,10 +10,29 @@ public class ReviewMapper {
         if (review == null) {
             return null;
         }
+
+        Booking booking = review.getBooking();
+        User customer = review.getCustomer();
+        User technician = (booking != null) ? (booking.getTechnician() != null ? booking.getTechnician() : booking.getPreferredTechnician()) : null;
+        User surveyor = (booking != null) ? booking.getSurveyor() : null;
+        String serviceName = (booking != null && booking.getService() != null) ? booking.getService().getName() : null;
+        String address = (booking != null) ? booking.getAddress() : null;
+        Double totalAmount = (booking != null && booking.getTotalAmount() != null) ? booking.getTotalAmount().doubleValue() : null;
+        String customerPhone = (customer != null) ? customer.getPhoneNumber() : null;
+
         return ReviewDto.builder()
                 .id(review.getId())
-                .bookingId(review.getBooking() != null ? review.getBooking().getId() : null)
-                .customerId(review.getCustomer() != null ? review.getCustomer().getId() : null)
+                .bookingId(booking != null ? booking.getId() : null)
+                .customerId(customer != null ? customer.getId() : null)
+                .customerUsername(customer != null ? customer.getUsername() : null)
+                .customerPhone(customerPhone)
+                .technicianId(technician != null ? technician.getId() : null)
+                .technicianUsername(technician != null ? technician.getUsername() : null)
+                .surveyorId(surveyor != null ? surveyor.getId() : null)
+                .surveyorUsername(surveyor != null ? surveyor.getUsername() : null)
+                .serviceName(serviceName)
+                .bookingAddress(address)
+                .bookingTotalAmount(totalAmount)
                 .rating(review.getRating())
                 .comment(review.getComment())
                 .createdAt(review.getCreatedAt())
@@ -39,3 +58,4 @@ public class ReviewMapper {
         return review;
     }
 }
+

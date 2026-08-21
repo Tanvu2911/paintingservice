@@ -4,7 +4,7 @@ import AxiosConfig from "../../util/AxiosConfig";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import StatusBadge from "../../components/common/StatusBadge";
 import { formatMoney } from "../../util/formatters";
-import { calculateFinancials } from "../../util/orderFlowUtils";
+import { calculateFinancials, formatDate } from "../../util/orderFlowUtils";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -36,6 +36,9 @@ import {
   Activity,
   Award,
   ChevronRight,
+  Star,
+  MessageSquare,
+  ThumbsUp,
 } from "lucide-react";
 
 // ── Palette màu hiện đại & chuẩn Design System
@@ -207,6 +210,7 @@ export default function Dashboard() {
   const [services, setServices] = useState([]);
   const [users, setUsers] = useState([]);
   const [staff, setStaff] = useState([]);
+  const [reviews, setReviews] = useState([]);
 
   // Filter & Search
   const [timeRange, setTimeRange] = useState("ALL"); // "30D" | "90D" | "ALL"
@@ -216,13 +220,14 @@ export default function Dashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [bRes, cRes, pRes, sRes, uRes, stRes] = await Promise.all([
+      const [bRes, cRes, pRes, sRes, uRes, stRes, rRes] = await Promise.all([
         AxiosConfig.get("/bookings").catch(() => ({ data: [] })),
         AxiosConfig.get("/contracts").catch(() => ({ data: [] })),
         AxiosConfig.get("/payments").catch(() => ({ data: [] })),
         AxiosConfig.get("/services").catch(() => ({ data: [] })),
         AxiosConfig.get("/users").catch(() => ({ data: [] })),
         AxiosConfig.get("/staff").catch(() => ({ data: [] })),
+        AxiosConfig.get("/reviews").catch(() => ({ data: [] })),
       ]);
 
       const normalize = (res) => (Array.isArray(res.data) ? res.data : res.data?.content || []);
@@ -232,6 +237,7 @@ export default function Dashboard() {
       setServices(normalize(sRes));
       setUsers(normalize(uRes));
       setStaff(normalize(stRes));
+      setReviews(normalize(rRes));
     } catch {
       showToast?.("Không tải được toàn bộ dữ liệu thống kê", "error");
     } finally {
@@ -379,6 +385,42 @@ export default function Dashboard() {
       { name: "Chờ thu từ khách", value: pendingPayment, color: PALETTE.warning },
     ].filter((d) => d.value > 0);
   }, [bookings]);
+
+  // ── 5. Thống kê Đánh giá & Mức độ hài lòng khách hàng
+  const reviewMetrics = useMemo(() => {
+    const total = reviews.length;
+    if (total === 0) {
+      return {
+        total: 0,
+        average: 5.0,
+        counts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        fiveStarPct: 0,
+        recent: [],
+      };
+    }
+
+    let sum = 0;
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviews.forEach((r) => {
+      const rate = Number(r.rating) || 5;
+      sum += rate;
+      if (counts[rate] !== undefined) counts[rate]++;
+    });
+
+    const average = (sum / total).toFixed(1);
+    const fiveStarPct = Math.round((counts[5] / total) * 100);
+    const recent = [...reviews]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, 4);
+
+    return {
+      total,
+      average,
+      counts,
+      fiveStarPct,
+      recent,
+    };
+  }, [reviews]);
 
   // ── Danh sách đơn hàng gần đây (Recent Active Projects)
   const recentOrders = useMemo(() => {
@@ -665,7 +707,133 @@ export default function Dashboard() {
         </DashboardSection>
       </div>
 
-      {/* ── ROW 3: BẢNG CÔNG TRÌNH & ĐƠN HÀNG GẦN ĐÂY */}
+      {/* ── ROW 3: ĐÁNH GIÁ & MỨC ĐỘ HÀI LÒNG KHÁCH HÀNG ── */}
+      <DashboardSection
+        title="Đánh Giá & Mức Độ Hài Lòng Khách Hàng"
+        subtitle="Tổng quan điểm chất lượng dịch vụ, phân bổ đánh giá sao và ý kiến mới nhất từ khách hàng"
+        action={
+          <button
+            type="button"
+            onClick={() => navigate("/admin/reviews")}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition cursor-pointer"
+          >
+            <span>Xem tất cả ({reviews.length})</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        }
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Cột 1: Điểm tổng kết & Phân bổ sao */}
+          <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-100 flex flex-col justify-between space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Điểm Đánh Giá Hệ Thống
+                </span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-3xl font-black text-slate-900">{reviewMetrics.average}</span>
+                  <span className="text-xs text-slate-400 font-bold">/ 5.0</span>
+                </div>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                <Star className="w-6 h-6 fill-amber-400 text-amber-400" />
+              </div>
+            </div>
+
+            {/* Thanh phân bổ 5 -> 1 sao */}
+            <div className="space-y-2 pt-2 border-t border-slate-200/60">
+              {[5, 4, 3, 2, 1].map((star) => {
+                const count = reviewMetrics.counts[star] || 0;
+                const pct = reviewMetrics.total > 0 ? Math.round((count / reviewMetrics.total) * 100) : 0;
+
+                return (
+                  <div key={star} className="flex items-center gap-2 text-xs">
+                    <div className="flex items-center gap-1 w-12 shrink-0 font-bold text-slate-600">
+                      <span>{star}</span>
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                    </div>
+                    <div className="flex-1 bg-slate-200/80 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          star >= 4 ? "bg-amber-400" : star === 3 ? "bg-blue-400" : "bg-rose-400"
+                        }`}
+                        style={{ width: `${Math.max(0, pct)}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right font-mono text-[11px] text-slate-500 font-semibold">
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 text-center text-xs text-slate-500">
+              <span className="font-bold text-emerald-600">{reviewMetrics.fiveStarPct}%</span> khách hàng đánh giá 5 sao xuất sắc
+            </div>
+          </div>
+
+          {/* Cột 2 & 3: Nhận xét mới nhất từ khách hàng */}
+          <div className="lg:col-span-2 space-y-3">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Ý Kiến &amp; Nhận Xét Gần Đây
+            </h4>
+            {reviewMetrics.recent.length === 0 ? (
+              <div className="h-44 flex flex-col items-center justify-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
+                <MessageSquare className="w-6 h-6 text-slate-300 mb-1.5" />
+                <span>Chưa có đánh giá nào từ khách hàng</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {reviewMetrics.recent.map((r) => {
+                  const customerName = r.customerUsername || "Khách hàng";
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => navigate(`/admin/reviews`)}
+                      className="p-3.5 rounded-2xl bg-white border border-slate-100 hover:border-blue-200 hover:shadow-xs transition cursor-pointer space-y-2 flex flex-col justify-between"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                            {customerName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 text-xs leading-tight">{customerName}</p>
+                            <p className="text-[10.5px] text-slate-400">{formatDate(r.createdAt)}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-3 h-3 ${
+                                s <= r.rating ? "fill-amber-400 text-amber-400" : "fill-slate-200 text-slate-200"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-700 font-medium line-clamp-2 leading-relaxed">
+                        {r.comment ? `"${r.comment}"` : <span className="text-slate-400 italic text-[11px]">(Đánh giá không kèm bình luận)</span>}
+                      </p>
+
+                      <div className="pt-1.5 border-t border-slate-50 flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="font-mono font-semibold text-blue-600">Đơn #{r.bookingId}</span>
+                        <span className="truncate max-w-[120px]">{r.serviceName || "Sơn nhà"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </DashboardSection>
+
+      {/* ── ROW 4: BẢNG CÔNG TRÌNH & ĐƠN HÀNG GẦN ĐÂY */}
       <DashboardSection
         title="Danh Sách Công Trình Gần Đây"
         subtitle="Theo dõi chi tiết các yêu cầu mới nhất cần xử lý hoặc phân công"

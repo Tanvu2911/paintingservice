@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import CustomerLayout from "../pages/customer/CustomerLayout";
-import CustomerHistory from "../pages/customer/CustomerHistory";
 import CustomerProfile from "../pages/customer/CustomerProfile";
 import CustomerWallet from "../pages/customer/CustomerWallet";
 import CustomerDashboard from "../pages/customer/CustomerDashboard";
@@ -25,7 +24,7 @@ export default function CustomerRoutes({ user, onLogout, showToast }) {
         <Route path="ongoing" element={<OngoingBookings />} />
         <Route path="bookings/:id" element={<BookingDetail />} />
         <Route path="orders/:id" element={<BookingDetail />} />
-        <Route path="history" element={<CustomerHistory />} />
+        <Route path="history" element={<Navigate to="/customer/ongoing" replace />} />
         <Route path="profile" element={<CustomerProfile />} />
         <Route path="wallet" element={<CustomerWallet />} />
       </Route>

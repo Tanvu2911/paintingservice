@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import AxiosConfig from "../../util/AxiosConfig";
+import AddressMapModal from "./AddressMapModal";
 import {
   HANOI_DISTRICTS,
   VIETNAMESE_BANKS,
@@ -27,6 +28,7 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedWard, setSelectedWard] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
+  const [mapModalOpen, setMapModalOpen] = useState(false);
 
   // Staff Specific Fields (Khu vực hoạt động & Tài khoản ngân hàng)
   const [staffData, setStaffData] = useState({
@@ -312,9 +314,19 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
             <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <span>📍</span> Địa chỉ khu vực Hà Nội
             </h3>
-            <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg">
-              Khu vực hoạt động: Hà Nội
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMapModalOpen(true)}
+                className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
+              >
+                <span>🗺️</span>
+                <span>Chọn trên Bản đồ</span>
+              </button>
+              <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg">
+                Khu vực: Hà Nội
+              </span>
+            </div>
           </div>
 
           <div className="space-y-3 bg-slate-50/70 p-3 sm:p-4 rounded-2xl border border-slate-200/80">
@@ -353,6 +365,9 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
                       {w}
                     </option>
                   ))}
+                  {selectedWard && !districtObj?.wards?.includes(selectedWard) && (
+                    <option value={selectedWard}>{selectedWard}</option>
+                  )}
                 </select>
               </div>
             </div>
@@ -370,16 +385,46 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
               />
             </div>
 
-            {/* Live Address Preview */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200 text-xs break-words">
-              <span className="text-slate-400 font-semibold">Địa chỉ đầy đủ hiển thị:</span>{" "}
-              <span className="font-bold text-slate-800">
-                {selectedDistrict
-                  ? formatHanoiAddress(streetAddress, selectedWard, selectedDistrict)
-                  : form.address || "Chưa thiết lập địa chỉ"}
-              </span>
+            {/* Live Address Preview & Map Quick Open */}
+            <div className="bg-white p-3 rounded-xl border border-slate-200 text-xs break-words flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <span className="text-slate-400 font-semibold">Địa chỉ đầy đủ hiển thị:</span>{" "}
+                <span className="font-bold text-slate-800">
+                  {selectedDistrict
+                    ? formatHanoiAddress(streetAddress, selectedWard, selectedDistrict)
+                    : form.address || "Chưa thiết lập địa chỉ"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMapModalOpen(true)}
+                className="text-emerald-700 hover:text-emerald-800 font-bold text-[11px] flex items-center gap-1 shrink-0 cursor-pointer self-end sm:self-auto"
+              >
+                <span>📍 Mở bản đồ</span>
+              </button>
             </div>
           </div>
+
+          {/* Modal Map Selector */}
+          <AddressMapModal
+            isOpen={mapModalOpen}
+            onClose={() => setMapModalOpen(false)}
+            initialDistrict={selectedDistrict}
+            initialWard={selectedWard}
+            initialStreet={streetAddress}
+            initialAddress={form.address}
+            title="Chọn địa chỉ hồ sơ trên Bản đồ Hà Nội"
+            onConfirm={(loc) => {
+              if (loc.district) setSelectedDistrict(loc.district);
+              if (loc.ward) setSelectedWard(loc.ward);
+              if (loc.street) setStreetAddress(loc.street);
+              const newFull = loc.district
+                ? formatHanoiAddress(loc.street, loc.ward, loc.district)
+                : loc.fullAddress;
+              setForm((prev) => ({ ...prev, address: newFull }));
+              showToast?.("Đã cập nhật địa chỉ từ bản đồ!", "success");
+            }}
+          />
         </div>
 
         {/* Section 2.5: Đổi mật khẩu (Tùy chọn) */}
