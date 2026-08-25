@@ -21,6 +21,7 @@ public class StaffProfileDto {
     private String phoneNumber;
     private String password;
     private String address;
+    private String avatar;
 
     // Thông tin Staff Profile
     private String specialty;

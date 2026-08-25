@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   CreditCard,
   Clock,
+  Eye,
 } from "lucide-react";
 import AxiosConfig from "../../../util/AxiosConfig";
 import StatusBadge from "../../../components/common/StatusBadge";
@@ -123,8 +124,8 @@ export default function PaymentToStaff() {
       return false;
     });
 
-    return { 
-      amount: rec ? Number(rec.amountEarned) || defaultAmt : defaultAmt, 
+    return {
+      amount: rec ? Number(rec.amountEarned) || defaultAmt : defaultAmt,
       isPaid: rec?.paymentStatus === "PAID",
       paidAt: rec?.paidAt,
       id: rec?.id
@@ -138,10 +139,10 @@ export default function PaymentToStaff() {
     const sp = getStaffProfile(staffId, staffName);
     setPayoutModal({
       orderId: order.id, staffId, staffName, role, amount,
-      bankName:          sp?.bankName || "MB Bank",
-      bankCode:          getVietQRBankCode(sp?.bankName || "MB Bank"),
+      bankName: sp?.bankName || "MB Bank",
+      bankCode: getVietQRBankCode(sp?.bankName || "MB Bank"),
       bankAccountNumber: sp?.bankAccountNumber || sp?.phoneNumber || "—",
-      bankAccountName:   sp?.bankAccountName || staffName,
+      bankAccountName: sp?.bankAccountName || staffName,
     });
   };
 
@@ -411,7 +412,7 @@ export default function PaymentToStaff() {
         </div>
 
         <button
-          type="button" 
+          type="button"
           onClick={() => loadData(true)}
           className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition cursor-pointer shadow-2xs self-start sm:self-auto"
         >
@@ -422,21 +423,21 @@ export default function PaymentToStaff() {
 
       {/* ── 4 THẺ KPI TÀI CHÍNH TINH GỌN */}
       <KpiStrip items={[
-        { 
-          label: "Tổng thực thu từ khách",  
-          value: formatMoney(kpi.totalCollected), 
-          sub: `Cọc: ${formatMoney(kpi.depositCollected)} · Tất toán: ${formatMoney(kpi.finalCollected)}`, 
-          accent: "border-t-blue-500" 
+        {
+          label: "Tổng thực thu từ khách",
+          value: formatMoney(kpi.totalCollected),
+          sub: `Cọc: ${formatMoney(kpi.depositCollected)} · Tất toán: ${formatMoney(kpi.finalCollected)}`,
+          accent: "border-t-blue-500"
         },
-        { 
-          label: "Đã chi trả nhân viên",   
-          value: formatMoney(kpi.staffPaid),        
-          sub: "Giám sát (10%+VT) & Kỹ thuật (60%)",  
-          accent: "border-t-indigo-500" 
+        {
+          label: "Đã chi trả nhân viên",
+          value: formatMoney(kpi.staffPaid),
+          sub: "Giám sát (10%+VT) & Kỹ thuật (60%)",
+          accent: "border-t-indigo-500"
         },
-        { 
-          label: "Chờ quyết toán nhân viên", 
-          value: formatMoney(kpi.staffPending),     
+        {
+          label: "Chờ quyết toán nhân viên",
+          value: formatMoney(kpi.staffPending),
           sub: `Còn ${orders.filter(o => {
             const fin = calculateFinancials(o);
             const supS = getSalary(o.id, o.supervisorId, "SURVEYOR", fin.total * 0.1);
@@ -445,14 +446,14 @@ export default function PaymentToStaff() {
               (o.supervisorId && !supS.isPaid) ||
               (o.technicianId && !worS.isPaid)
             );
-          }).length} đơn cần chi`, 
-          accent: "border-t-amber-500" 
+          }).length} đơn cần chi`,
+          accent: "border-t-amber-500"
         },
-        { 
-          label: "Số dư hệ thống (Dòng tiền ròng)", 
-          value: formatMoney(kpi.systemNetBalance),   
-          sub: `Thực thu KH (-${formatMoney(kpi.staffPaid)} đã chi NV)`, 
-          accent: "border-t-emerald-500" 
+        {
+          label: "Số dư hệ thống (Dòng tiền ròng)",
+          value: formatMoney(kpi.systemNetBalance),
+          sub: `Thực thu KH (-${formatMoney(kpi.staffPaid)} đã chi NV)`,
+          accent: "border-t-emerald-500"
         },
       ]} />
 
@@ -461,19 +462,18 @@ export default function PaymentToStaff() {
         <div className="flex gap-1.5 bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto overflow-x-auto">
           {[
             { id: "CUSTOMER", label: "1. Thu tiền công trình", icon: CreditCard, count: orders.length },
-            { id: "STAFF",    label: "2. Quyết toán nhân viên", icon: UsersIcon, count: orders.filter(o => o.supervisorId || o.technicianId).length },
+            { id: "STAFF", label: "2. Quyết toán nhân viên", icon: UsersIcon, count: orders.filter(o => o.supervisorId || o.technicianId).length },
             { id: "RECONCILIATION", label: "3. Sổ cái đối soát dòng tiền", icon: Wallet, count: reconciliationLedger.length },
           ].map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
             return (
               <button
-                key={t.id} 
-                type="button" 
+                key={t.id}
+                type="button"
                 onClick={() => setActiveTab(t.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                  active ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${active ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                  }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${active ? "text-blue-600" : "text-slate-400"}`} />
                 <span>{t.label}</span>
@@ -489,8 +489,8 @@ export default function PaymentToStaff() {
           <div className="relative flex-1">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
-              type="text" 
-              placeholder="Tìm theo mã đơn, khách, nhân viên..." 
+              type="text"
+              placeholder="Tìm theo mã đơn, khách, nhân viên..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
@@ -548,22 +548,19 @@ export default function PaymentToStaff() {
                 <table className="w-full text-left">
                   <thead>
                     <tr>
-                      <th className={thCls}>Mã đơn</th>
+                      <th className={thCls}>Mã đơn &amp; Ngày</th>
                       <th className={thCls}>Khách hàng</th>
-                      <th className={thCls}>Dịch vụ & Địa chỉ</th>
+                      <th className={thCls}>Dịch vụ &amp; Địa chỉ</th>
                       <th className={thCls + " text-right"}>Tổng giá trị</th>
-                      <th className={thCls + " text-center"}>Đặt cọc (30%)</th>
-                      <th className={thCls + " text-center"}>Tất toán (70%)</th>
-                      <th className={thCls + " text-right"}>Thực thu</th>
+                      <th className={thCls + " text-right"}>Thực thu (Cọc &amp; Tất toán)</th>
                       <th className={thCls + " text-center"}>Trạng thái</th>
-                      <th className={thCls}>Ngày tạo</th>
                       <th className={thCls + " text-right"}>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-xs">
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan="10" className="py-12 text-center text-slate-400">
+                        <td colSpan="7" className="py-12 text-center text-slate-400">
                           Không tìm thấy đơn hàng nào phù hợp bộ lọc.
                         </td>
                       </tr>
@@ -573,56 +570,47 @@ export default function PaymentToStaff() {
                         const customerName = o.customerName || o.customer?.fullName || o.customer?.username || "—";
 
                         return (
-                          <tr key={o.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className={tdCls + " font-bold text-slate-900 font-mono"}>#{o.id}</td>
+                          <tr
+                            key={o.id}
+                            onClick={() => navigate(`/admin/bookings/${o.id}`)}
+                            className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
+                          >
+                            <td className={tdCls}>
+                              <div className="font-bold text-slate-900 font-mono">#{o.id}</div>
+                              <div className="text-[11px] text-slate-400">{fmtDate(o.createdAt)}</div>
+                            </td>
                             <td className={tdCls}>
                               <p className="font-bold text-slate-800">{customerName}</p>
                               {o.customerPhone && <p className="text-[11px] text-slate-400">{o.customerPhone}</p>}
                             </td>
-                            <td className={tdCls + " max-w-[200px]"}>
+                            <td className={tdCls + " max-w-[220px]"}>
                               <p className="font-semibold text-slate-800 truncate">{o.serviceName || o.service?.name || "—"}</p>
                               <p className="text-[11px] text-slate-400 truncate">{o.address || "—"}</p>
                             </td>
                             <td className={tdCls + " text-right font-bold text-slate-900 font-mono"}>
                               {formatMoney(fin.total)}
                             </td>
-                            <td className={tdCls + " text-center"}>
-                              <div className="flex flex-col items-center gap-1">
-                                <span className="font-semibold text-slate-700 font-mono">{formatMoney(fin.deposit)}</span>
-                                <Badge ok={fin.isDepositPaid} okLabel="Đã thu" failLabel="Chưa cọc" />
+                            <td className={tdCls + " text-right"}>
+                              <div className="font-bold text-emerald-700 font-mono">{formatMoney(fin.collected)}</div>
+                              <div className="flex items-center justify-end gap-1 mt-0.5">
+                                <Badge ok={fin.isDepositPaid} okLabel="Cọc 30%" failLabel="Chưa cọc" />
+                                {fin.isFinalPaid && <Badge ok={true} okLabel="Tất toán 100%" />}
                               </div>
-                            </td>
-                            <td className={tdCls + " text-center"}>
-                              <div className="flex flex-col items-center gap-1">
-                                <span className="font-semibold text-slate-700 font-mono">{formatMoney(fin.remaining)}</span>
-                                <Badge ok={fin.isFinalPaid} okLabel="Đã thu" failLabel="Chưa thu" />
-                              </div>
-                            </td>
-                            <td className={tdCls + " text-right font-bold font-mono"}>
-                              <span className={fin.collected > 0 ? "text-emerald-700" : "text-slate-400"}>
-                                {formatMoney(fin.collected)}
-                              </span>
-                              {fin.uncollected > 0 && (
-                                <p className="text-[10px] text-amber-600 font-normal">
-                                  Còn: {formatMoney(fin.uncollected)}
-                                </p>
-                              )}
                             </td>
                             <td className={tdCls + " text-center"}>
                               <StatusBadge status={o.status} />
                             </td>
-                            <td className={tdCls + " text-slate-400 whitespace-nowrap"}>
-                              {fmtDate(o.createdAt)}
-                            </td>
-                            <td className={tdCls + " text-right"}>
-                              <button
-                                type="button" 
-                                onClick={() => navigate(`/admin/orders/${o.id}`)}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition cursor-pointer"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                <span>Chi tiết</span>
-                              </button>
+                            <td className={tdCls + " text-right whitespace-nowrap"} onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/admin/bookings/${o.id}`)}
+                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                  title="Xem chi tiết đơn hàng"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -654,22 +642,18 @@ export default function PaymentToStaff() {
                 <table className="w-full text-left">
                   <thead>
                     <tr>
-                      <th className={thCls}>Mã đơn</th>
-                      <th className={thCls}>Khách hàng</th>
+                      <th className={thCls}>Đơn hàng &amp; Khách</th>
                       <th className={thCls + " text-right"}>Tổng HĐ</th>
                       <th className={thCls}>Giám sát (10% + VT)</th>
-                      <th className={thCls + " text-center"}>Thù lao KS</th>
-                      <th className={thCls + " text-center"}>TT Giám sát</th>
                       <th className={thCls}>Đội thợ (60%)</th>
-                      <th className={thCls + " text-center"}>Thù lao KT</th>
-                      <th className={thCls + " text-center"}>TT Kỹ thuật</th>
-                      <th className={thCls + " text-right"}>Hành động chi trả</th>
+                      <th className={thCls + " text-center"}>Trạng thái chi</th>
+                      <th className={thCls + " text-right"}>Thao tác chi trả VietQR</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-xs">
                     {filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan="10" className="py-12 text-center text-slate-400">
+                        <td colSpan="6" className="py-12 text-center text-slate-400">
                           Không tìm thấy đơn hàng nào cần quyết toán.
                         </td>
                       </tr>
@@ -680,10 +664,8 @@ export default function PaymentToStaff() {
                         const surveyDefault = total * 0.10;
                         const workerDefault = total * 0.60;
 
-                        const supS  = getSalary(o.id, o.supervisorId,  "SURVEYOR",   surveyDefault);
-                        const worS  = getSalary(o.id, o.technicianId,  "TECHNICIAN", workerDefault);
-                        const supSp = getStaffProfile(o.supervisorId,  o.supervisorName);
-                        const worSp = getStaffProfile(o.technicianId,  o.technicianName);
+                        const supS = getSalary(o.id, o.supervisorId, "SURVEYOR", surveyDefault);
+                        const worS = getSalary(o.id, o.technicianId, "TECHNICIAN", workerDefault);
 
                         const hasSupervisor = Boolean(o.supervisorId);
                         const hasTechnician = Boolean(o.technicianId);
@@ -693,10 +675,16 @@ export default function PaymentToStaff() {
                         const isAllStaffPaid = (hasSupervisor || hasTechnician) && supPaid && worPaid;
 
                         return (
-                          <tr key={o.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className={tdCls + " font-bold text-slate-900 font-mono"}>#{o.id}</td>
-                            <td className={tdCls + " font-medium text-slate-800 max-w-[150px] truncate"}>
-                              {o.customerName || o.customer?.fullName || o.customer?.username || "—"}
+                          <tr
+                            key={o.id}
+                            onClick={() => navigate(`/admin/bookings/${o.id}`)}
+                            className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
+                          >
+                            <td className={tdCls}>
+                              <div className="font-bold text-slate-900 font-mono">#{o.id}</div>
+                              <div className="font-medium text-slate-600 truncate max-w-[140px]">
+                                {o.customerName || o.customer?.fullName || o.customer?.username || "—"}
+                              </div>
                             </td>
                             <td className={tdCls + " text-right font-bold text-slate-900 font-mono"}>
                               {formatMoney(total)}
@@ -704,53 +692,63 @@ export default function PaymentToStaff() {
 
                             {/* Giám sát */}
                             <td className={tdCls}>
-                              <p className="font-semibold text-slate-800">{o.supervisorName || "—"}</p>
-                              {supSp?.bankAccountNumber && (
-                                <p className="text-[10px] text-slate-400 font-mono">{supSp.bankName} - {supSp.bankAccountNumber}</p>
-                              )}
-                            </td>
-                            <td className={tdCls + " text-center"}>
                               {hasSupervisor ? (
-                                <div className="flex flex-col items-center font-mono">
-                                  <span className="font-bold text-slate-800">{formatMoney(supS.amount)}</span>
-                                  {supS.amount > surveyDefault && (
-                                    <span className="text-[10px] text-emerald-600 font-medium">
-                                      + {formatMoney(supS.amount - surveyDefault)} VT
-                                    </span>
-                                  )}
+                                <div>
+                                  <p className="font-semibold text-slate-800">{o.supervisorName || "Giám sát"}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="font-bold text-slate-900 font-mono">{formatMoney(supS.amount)}</span>
+                                    <Badge ok={supS.isPaid} okLabel="Đã chi" failLabel="Chưa chi" />
+                                  </div>
                                 </div>
-                              ) : <span className="text-slate-300">—</span>}
-                            </td>
-                            <td className={tdCls + " text-center"}>
-                              {hasSupervisor ? (
-                                <Badge ok={supS.isPaid} okLabel="Đã chi" failLabel="Chưa chi" />
-                              ) : <span className="text-slate-300">—</span>}
+                              ) : (
+                                <span className="text-slate-300">—</span>
+                              )}
                             </td>
 
                             {/* Kỹ thuật */}
                             <td className={tdCls}>
-                              <p className="font-semibold text-slate-800">{o.technicianName || "—"}</p>
-                              {worSp?.bankAccountNumber && (
-                                <p className="text-[10px] text-slate-400 font-mono">{worSp.bankName} - {worSp.bankAccountNumber}</p>
+                              {hasTechnician ? (
+                                <div>
+                                  <p className="font-semibold text-slate-800">{o.technicianName || "Đội thợ"}</p>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="font-bold text-slate-900 font-mono">{formatMoney(worS.amount)}</span>
+                                    <Badge ok={worS.isPaid} okLabel="Đã chi" failLabel="Chưa chi" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-slate-300">—</span>
                               )}
                             </td>
-                            <td className={tdCls + " text-center font-bold text-slate-800 font-mono"}>
-                              {hasTechnician ? formatMoney(worS.amount) : <span className="text-slate-300 font-normal">—</span>}
-                            </td>
+
+                            {/* Trạng thái chi */}
                             <td className={tdCls + " text-center"}>
-                              {hasTechnician ? (
-                                <Badge ok={worS.isPaid} okLabel="Đã chi" failLabel="Chưa chi" />
-                              ) : <span className="text-slate-300">—</span>}
+                              {isAllStaffPaid ? (
+                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200 inline-flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Đã chi đủ
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                                  Chờ quyết toán
+                                </span>
+                              )}
                             </td>
 
                             {/* Thao tác thanh toán VietQR độc lập cho từng người */}
-                            <td className={tdCls + " text-right"}>
-                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            <td className={tdCls + " text-right whitespace-nowrap"} onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/admin/bookings/${o.id}`)}
+                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                  title="Xem chi tiết đơn hàng"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
                                 {hasSupervisor && !supS.isPaid && (
                                   <button
                                     type="button"
                                     onClick={() => openPayoutQR(o, o.supervisorId, o.supervisorName || "Giám sát", "SURVEYOR", supS.amount)}
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition cursor-pointer"
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
                                     title="Quét VietQR chi trả Giám sát"
                                   >
                                     <QrCode className="w-3 h-3" /> Trả GS
@@ -760,19 +758,11 @@ export default function PaymentToStaff() {
                                   <button
                                     type="button"
                                     onClick={() => openPayoutQR(o, o.technicianId, o.technicianName || "Kỹ thuật viên", "TECHNICIAN", worS.amount)}
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-lg transition cursor-pointer"
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
                                     title="Quét VietQR chi trả Đội thợ"
                                   >
                                     <QrCode className="w-3 h-3" /> Trả Thợ
                                   </button>
-                                )}
-                                {isAllStaffPaid && (
-                                  <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
-                                    <Check className="w-3 h-3" /> Đã quyết toán đủ
-                                  </span>
-                                )}
-                                {!hasSupervisor && !hasTechnician && (
-                                  <span className="text-[11px] text-slate-400 italic">Chưa giao NV</span>
                                 )}
                               </div>
                             </td>
@@ -866,7 +856,11 @@ export default function PaymentToStaff() {
                         </tr>
                       ) : (
                         filteredLedger.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                          <tr
+                            key={item.id}
+                            onClick={() => navigate(`/admin/bookings/${item.bookingId}`)}
+                            className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
+                          >
                             {/* In/Out icon */}
                             <td className={tdCls}>
                               {item.type === "IN" ? (
@@ -915,8 +909,16 @@ export default function PaymentToStaff() {
                               {fmtDate(item.date)}
                             </td>
 
-                            <td className={tdCls + " text-right"}>
-                              <div className="flex items-center justify-end gap-1.5">
+                            <td className={tdCls + " text-right whitespace-nowrap"} onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/admin/bookings/${item.bookingId}`)}
+                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                  title="Xem chi tiết đơn hàng"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
                                 {item.canPayout && (
                                   <button
                                     type="button"
@@ -926,13 +928,6 @@ export default function PaymentToStaff() {
                                     <QrCode className="w-3 h-3" /> Quyết toán
                                   </button>
                                 )}
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/admin/orders/${item.bookingId}`)}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-lg transition cursor-pointer"
-                                >
-                                  <ExternalLink className="w-3 h-3" /> Chi tiết
-                                </button>
                               </div>
                             </td>
                           </tr>
@@ -971,10 +966,10 @@ export default function PaymentToStaff() {
           <div className="space-y-4">
             <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-xs space-y-2">
               {[
-                ["Nhân sự",       `${payoutModal.staffName} (${payoutModal.role === "SURVEYOR" ? "Giám sát viên" : "Kỹ thuật viên"})`],
-                ["Ngân hàng",     payoutModal.bankName],
-                ["Số tài khoản",  payoutModal.bankAccountNumber],
-                ["Chủ TK",        payoutModal.bankAccountName],
+                ["Nhân sự", `${payoutModal.staffName} (${payoutModal.role === "SURVEYOR" ? "Giám sát viên" : "Kỹ thuật viên"})`],
+                ["Ngân hàng", payoutModal.bankName],
+                ["Số tài khoản", payoutModal.bankAccountNumber],
+                ["Chủ TK", payoutModal.bankAccountName],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between">
                   <span className="text-slate-500">{k}:</span>
@@ -998,7 +993,7 @@ export default function PaymentToStaff() {
               subTitle={payoutModal.role === "SURVEYOR" ? "Giám sát viên" : "Kỹ thuật viên thi công"}
               note="Quét mã trên app ngân hàng rồi bấm Xác nhận để ghi nhận."
               confirmText={submitting ? "Đang xác nhận..." : `Xác nhận đã chuyển ${formatMoney(payoutModal.amount)}`}
-              confirmColor="bg-slate-900 hover:bg-slate-800"
+              confirmColor="bg-emerald-600 hover:bg-emerald-700"
               onConfirm={confirmPayout}
               onClose={() => setPayoutModal(null)}
               loading={submitting}

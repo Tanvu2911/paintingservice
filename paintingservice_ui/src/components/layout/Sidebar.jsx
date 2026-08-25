@@ -59,11 +59,10 @@ export default function Sidebar({
             <button
               key={item.value}
               onClick={() => onTabChange(item.value)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                isActive
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${isActive
                   ? accent.active
                   : `text-slate-600 ${accent.hover}`
-              }`}
+                }`}
             >
               <span className={`shrink-0 ${isActive ? "text-white" : "text-slate-500"}`}>
                 {item.icon}
@@ -71,11 +70,10 @@ export default function Sidebar({
               <span className="flex-1 text-left">{item.label}</span>
               {item.badge != null && item.badge > 0 && (
                 <span
-                  className={`min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                    isActive
+                  className={`min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${isActive
                       ? "bg-white/20 text-inherit"
                       : `${accent.dot} text-white`
-                  }`}
+                    }`}
                 >
                   {item.badge}
                 </span>
@@ -88,9 +86,9 @@ export default function Sidebar({
       <div className="p-3 border-t border-slate-100">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+          className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all cursor-pointer"
         >
-          <LogOut className="w-4 h-4 text-rose-600 shrink-0" />
+          <LogOut className="w-3.5 h-3.5 text-slate-500 shrink-0" />
           <span>Đăng xuất</span>
         </button>
       </div>

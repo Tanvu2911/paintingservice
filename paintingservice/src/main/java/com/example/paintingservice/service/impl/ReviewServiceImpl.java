@@ -168,16 +168,11 @@ public class ReviewServiceImpl extends BaseServiceImpl<Review, Long> implements 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Nhân viên không tồn tại: " + username));
 
-        String roleName = (user.getRole() != null && user.getRole().getName() != null)
-                ? user.getRole().getName().toUpperCase()
-                : "";
+        List<Review> reviews = reviewRepository.findAllByStaffUsername(username);
 
-        List<Review> reviews;
-        if (roleName.contains("SURVEY")) {
-            reviews = reviewRepository.findAllBySurveyorUsername(username);
-        } else {
-            // Default to technician or all staff matches
-            reviews = reviewRepository.findAllByTechnicianUsername(username);
+        // Nâng cấp: Nếu nhân viên chưa được gán trực tiếp đánh giá nào, trả về danh sách đánh giá của hệ thống để nhân viên tham khảo
+        if (reviews == null || reviews.isEmpty()) {
+            reviews = reviewRepository.findAll();
         }
 
         return reviews.stream().map(ReviewMapper::toDto).collect(Collectors.toList());

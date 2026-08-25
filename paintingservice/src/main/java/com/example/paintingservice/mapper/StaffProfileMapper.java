@@ -24,6 +24,7 @@ public class StaffProfileMapper {
                 .email(user != null ? user.getEmail() : null)
                 .phoneNumber(user != null ? user.getPhoneNumber() : null)
                 .address(user != null ? user.getAddress() : null)
+                .avatar(user != null ? user.getAvatar() : null)
 
                 .specialty(staffProfile.getSpecialty())
                 .experienceYears(staffProfile.getExperienceYears())

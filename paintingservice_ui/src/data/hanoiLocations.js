@@ -807,6 +807,19 @@ export const VIETNAMESE_BANKS = [
   { code: "VBA", name: "Agribank (Nông Nghiệp & PTNT)" },
 ];
 
+export function getMatchingBankValue(bankValue) {
+  if (!bankValue) return "";
+  const clean = String(bankValue).trim().toLowerCase();
+  const found = VIETNAMESE_BANKS.find(
+    (b) =>
+      b.name.toLowerCase() === clean ||
+      b.code.toLowerCase() === clean ||
+      clean.includes(b.code.toLowerCase()) ||
+      b.name.toLowerCase().includes(clean)
+  );
+  return found ? found.name : bankValue;
+}
+
 // Khung giờ khảo sát theo Sáng / Chiều / Tối
 export const TIME_SLOT_GROUPS = [
   {

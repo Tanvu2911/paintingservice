@@ -62,6 +62,13 @@ const Toast = ({ message, type = "success", title, onClose, duration = 3500 }) =
     progressBg: "bg-blue-600",
   };
 
+  const displayMessage =
+    typeof message === "object" && message !== null
+      ? message.message ||
+        (Array.isArray(message.messages) ? message.messages.join(", ") : message.error) ||
+        JSON.stringify(message)
+      : String(message || "");
+
   return (
     <div className="fixed top-5 right-5 z-[99999] max-w-sm sm:max-w-md w-full animate-in fade-in slide-in-from-top-4 duration-200">
       <div className="relative bg-white/98 backdrop-blur-md rounded-2xl shadow-2xl shadow-slate-900/15 border border-slate-200/90 overflow-hidden">
@@ -79,7 +86,7 @@ const Toast = ({ message, type = "success", title, onClose, duration = 3500 }) =
               {config.title}
             </h4>
             <p className="text-xs text-slate-600 font-medium leading-relaxed mt-0.5 break-words">
-              {message}
+              {displayMessage}
             </p>
           </div>
 

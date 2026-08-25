@@ -159,7 +159,7 @@ export default function PaymentSection({
             <button
               type="button"
               onClick={onOpenContract}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition shrink-0 shadow-xs cursor-pointer"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shrink-0 shadow-xs cursor-pointer"
             >
               Xem &amp; Ký HĐ
             </button>
@@ -296,11 +296,11 @@ export default function PaymentSection({
             type="button"
             onClick={() => handlePayVNPay("DEPOSIT")}
             disabled={paying}
-            className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
           >
             <CreditCard className="w-4 h-4 text-white" />
             <span>{paying ? "Đang xử lý..." : "Thanh toán Cọc (30%) qua VNPay Sandbox"}</span>
-            <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+            <ArrowRight className="w-4 h-4 text-white/80 ml-auto" />
           </button>
         )}
 
@@ -309,11 +309,11 @@ export default function PaymentSection({
             type="button"
             onClick={() => handlePayVNPay("FINAL")}
             disabled={paying}
-            className="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+            className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
           >
             <CreditCard className="w-4 h-4 text-white" />
             <span>{paying ? "Đang xử lý..." : "Tất toán hợp đồng (70%) qua VNPay Sandbox"}</span>
-            <ArrowRight className="w-4 h-4 text-slate-400 ml-auto" />
+            <ArrowRight className="w-4 h-4 text-white/80 ml-auto" />
           </button>
         )}
       </div>

@@ -2,11 +2,13 @@ package com.example.paintingservice.controllers;
 
 import com.example.paintingservice.dto.StaffProfileDto;
 import com.example.paintingservice.dto.UserDto;
+import com.example.paintingservice.entity.Role;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.enums.UserStatus;
 import com.example.paintingservice.mapper.UserMapper;
 import com.example.paintingservice.service.UserService;
 import com.example.paintingservice.repository.UserRepository;
+import com.example.paintingservice.repository.RoleRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 public class UserController {
     private final UserService userService;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder; // 1. Tiêm BCryptPasswordEncoder vào đây
     // Khai báo thêm các repository cần thiết trong UserController
 
@@ -100,7 +103,7 @@ public class UserController {
         return ResponseEntity.ok(dto);
     }
 
-    // 🛠️ ĐÃ SỬA: Mã hóa password khi tạo mới tài khoản
+    // 🛠️ ĐÃ SỬA: Mã hóa password và tự động gán Role khi tạo mới tài khoản
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> create(@Valid @RequestBody UserDto dto) {
@@ -109,6 +112,22 @@ public class UserController {
         // Tiến hành mã hóa mật khẩu nhận được từ React trước khi lưu xuống DB
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             userEntity.setPassword(passwordEncoder.encode(dto.getPassword()));
+        }
+
+        // Tự động tìm hoặc gán Role hợp lệ (mặc định ROLE_CUSTOMER nếu chưa có)
+        if (dto.getRoleId() != null) {
+            roleRepository.findById(dto.getRoleId()).ifPresent(userEntity::setRole);
+        } else if (dto.getRole() != null && !dto.getRole().isBlank()) {
+            roleRepository.findByName(dto.getRole().trim()).ifPresent(userEntity::setRole);
+        }
+
+        if (userEntity.getRole() == null || userEntity.getRole().getId() == null) {
+            Role customerRole = roleRepository.findByName("ROLE_CUSTOMER").orElseGet(() -> {
+                Role r = new Role();
+                r.setName("ROLE_CUSTOMER");
+                return roleRepository.save(r);
+            });
+            userEntity.setRole(customerRole);
         }
 
         UserDto result = UserMapper.toDto(userService.save(userEntity));

@@ -33,5 +33,6 @@ public class UserDto {
     private Integer roleId;
     private String role;
     private String staffType;
+    private String avatar;
     private LocalDateTime createdAt;
 }

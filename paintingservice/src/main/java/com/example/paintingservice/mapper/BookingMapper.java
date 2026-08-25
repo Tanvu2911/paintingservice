@@ -50,15 +50,23 @@ public class BookingMapper {
         if (booking.getSurveyor() != null) {
             Long surveyorId = booking.getSurveyor().getId();
             String surveyorName = getUserDisplayName(booking.getSurveyor());
+            String surveyorPhone = booking.getSurveyor().getPhoneNumber();
+            String surveyorAvatar = booking.getSurveyor().getAvatar();
             dto.setSurveyorId(surveyorId);
             dto.setSurveyorName(surveyorName);
+            dto.setSurveyorPhone(surveyorPhone);
+            dto.setSurveyorAvatar(surveyorAvatar);
             dto.setSupervisorId(surveyorId);
             dto.setSupervisorName(surveyorName);
+            dto.setSupervisorPhone(surveyorPhone);
+            dto.setSupervisorAvatar(surveyorAvatar);
         }
 
         if (booking.getTechnician() != null) {
             dto.setTechnicianId(booking.getTechnician().getId());
             dto.setTechnicianName(getUserDisplayName(booking.getTechnician()));
+            dto.setTechnicianPhone(booking.getTechnician().getPhoneNumber());
+            dto.setTechnicianAvatar(booking.getTechnician().getAvatar());
         }
 
         if (booking.getPreferredTechnician() != null) {

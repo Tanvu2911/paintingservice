@@ -35,9 +35,8 @@ public class StaffProfileController {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    // 1. READ: Lấy danh sách tất cả Staff
+    // 1. READ: Lấy danh sách tất cả Staff (Công khai / Khách hàng xem)
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
     public List<StaffProfileDto> getAllStaff(@RequestParam(required = false) String staffType) {
         List<StaffProfile> staffs;
         if (staffType != null && !staffType.isBlank()) {
@@ -50,9 +49,17 @@ public class StaffProfileController {
 
     // 2. READ: Lấy thông tin Staff theo ID
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
     public ResponseEntity<StaffProfileDto> getStaffById(@PathVariable Long id) {
         return staffProfileService.findById(id)
+                .map(StaffProfileMapper::toDto)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // 2.0 READ: Lấy thông tin Staff theo User ID
+    @GetMapping("/by-user/{userId}")
+    public ResponseEntity<StaffProfileDto> getStaffByUserId(@PathVariable Long userId) {
+        return staffProfileService.findByUserId(userId)
                 .map(StaffProfileMapper::toDto)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -72,6 +79,14 @@ public class StaffProfileController {
         return ResponseEntity.ok(staffProfileService.updateMyProfile(authentication.getName(), dto));
     }
 
+    // 2.3 UPLOAD AVATAR: Nhân viên tự tải avatar lên
+    @PostMapping("/me/avatar")
+    @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
+    public ResponseEntity<?> uploadMyAvatar(@RequestParam("file") org.springframework.web.multipart.MultipartFile file, Authentication authentication) {
+        String avatarUrl = staffProfileService.uploadMyAvatar(authentication.getName(), file);
+        return ResponseEntity.ok(Map.of("avatar", avatarUrl, "message", "Tải ảnh đại diện thành công"));
+    }
+
     // 3. CREATE: Tạo mới Staff
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -85,6 +100,14 @@ public class StaffProfileController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<StaffProfileDto> updateStaff(@PathVariable Long id, @Valid @RequestBody StaffProfileDto dto) {
         return ResponseEntity.ok(staffProfileService.updateStaff(id, dto));
+    }
+
+    // 4.1 UPLOAD AVATAR: Admin tải avatar cho Staff
+    @PostMapping("/{id}/avatar")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> uploadStaffAvatar(@PathVariable Long id, @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        String avatarUrl = staffProfileService.uploadAvatar(id, file);
+        return ResponseEntity.ok(Map.of("avatar", avatarUrl, "message", "Tải ảnh đại diện cho nhân viên thành công"));
     }
 
     // 5. DELETE: Xóa Staff

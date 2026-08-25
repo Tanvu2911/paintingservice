@@ -1172,17 +1172,30 @@ export default function OrderDetail() {
                 {/* Giám sát viên */}
                 {order.supervisorId && (
                   <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="text-[10.5px] font-bold text-blue-700 uppercase">
-                        Giám sát (10% + Hoàn tiền vật tư): @{order.supervisorName || order.supervisor?.username || "Giám sát"}
-                      </div>
-                      <div className="text-slate-800 font-bold text-sm flex items-center gap-2">
-                        <span>Thù lao: <strong className="text-blue-700">{formatMoney(supervisorFee)}</strong></span>
-                        {materialReimbursement > 0 && (
-                          <span className="text-[10.5px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            (10%: {formatMoney(supervisorBaseFee)} + VT: {formatMoney(materialReimbursement)})
-                          </span>
-                        )}
+                    <div className="flex items-center gap-3">
+                      {order.supervisorAvatar || order.surveyorAvatar ? (
+                        <img
+                          src={order.supervisorAvatar || order.surveyorAvatar}
+                          alt="Supervisor"
+                          className="w-10 h-10 rounded-xl object-cover border border-blue-200 shrink-0 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-black text-sm flex items-center justify-center shrink-0 border border-blue-200">
+                          {(order.supervisorName || order.supervisor?.username || "S").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="space-y-0.5">
+                        <div className="text-[10.5px] font-bold text-blue-700 uppercase">
+                          Giám sát (10% + Hoàn tiền vật tư): @{order.supervisorName || order.supervisor?.username || "Giám sát"}
+                        </div>
+                        <div className="text-slate-800 font-bold text-sm flex items-center gap-2">
+                          <span>Thù lao: <strong className="text-blue-700">{formatMoney(supervisorFee)}</strong></span>
+                          {materialReimbursement > 0 && (
+                            <span className="text-[10.5px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              (10%: {formatMoney(supervisorBaseFee)} + VT: {formatMoney(materialReimbursement)})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div>
@@ -1208,12 +1221,25 @@ export default function OrderDetail() {
                 {/* Đội thợ thi công */}
                 {order.technicianId && (
                   <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="text-[10.5px] font-bold text-emerald-700 uppercase">
-                        Đội thợ (60%): @{order.technicianName || order.technician?.username || "Đội thợ"}
-                      </div>
-                      <div className="text-slate-800 font-bold text-sm">
-                        Thù lao thi công: <span className="text-emerald-700">{formatMoney(workerFee)}</span>
+                    <div className="flex items-center gap-3">
+                      {order.technicianAvatar ? (
+                        <img
+                          src={order.technicianAvatar}
+                          alt="Technician"
+                          className="w-10 h-10 rounded-xl object-cover border border-emerald-200 shrink-0 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center shrink-0 border border-emerald-200">
+                          {(order.technicianName || order.technician?.username || "T").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="space-y-0.5">
+                        <div className="text-[10.5px] font-bold text-emerald-700 uppercase">
+                          Đội thợ (60%): @{order.technicianName || order.technician?.username || "Đội thợ"}
+                        </div>
+                        <div className="text-slate-800 font-bold text-sm">
+                          Thù lao thi công: <span className="text-emerald-700">{formatMoney(workerFee)}</span>
+                        </div>
                       </div>
                     </div>
                     <div>
@@ -1334,33 +1360,30 @@ export default function OrderDetail() {
                 <button
                   type="button"
                   onClick={() => setSupervisorModalTab("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    supervisorModalTab === "all"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "all"
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   Tất cả ({eligibleSupervisors.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setSupervisorModalTab("district")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    supervisorModalTab === "district"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "district"
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   ★ Cùng khu vực ({districtSupervisors.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setSupervisorModalTab("idle")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    supervisorModalTab === "idle"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "idle"
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   ⚡ Đang rảnh ({idleSupervisors.length})
                 </button>
@@ -1380,33 +1403,30 @@ export default function OrderDetail() {
                 <button
                   type="button"
                   onClick={() => setWorkerModalTab("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    workerModalTab === "all"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "all"
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   Tất cả ({eligibleWorkers.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setWorkerModalTab("district")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    workerModalTab === "district"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "district"
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   ★ Cùng khu vực ({districtWorkers.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setWorkerModalTab("idle")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    workerModalTab === "idle"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "idle"
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   ⚡ Đang rảnh ({idleWorkers.length})
                 </button>
@@ -1438,41 +1458,59 @@ export default function OrderDetail() {
                     key={sId}
                     onClick={() => setSelectedId(sId)}
                     className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${isSelected
-                        ? "border-emerald-600 bg-emerald-50/60 shadow-xs"
-                        : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"
+                      ? "border-emerald-600 bg-emerald-50/60 shadow-xs"
+                      : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"
                       }`}
                   >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-xs truncate">
-                          @{s.username} {s.fullName ? `(${s.fullName})` : ""}
-                        </span>
-
-                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                          Đang hoạt động
-                        </span>
-
-                        {isDistrictMatch && (
-                          <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
-                            ★ Cùng khu vực
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {s.avatar ? (
+                        <img
+                          src={s.avatar}
+                          alt={s.username}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                        />
+                      ) : (
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${assignModal === "supervisor"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-emerald-100 text-emerald-800"
+                            }`}
+                        >
+                          {(s.username || "S").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-xs truncate">
+                            @{s.username} {s.fullName ? `(${s.fullName})` : ""}
                           </span>
-                        )}
-                      </div>
 
-                      <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span>Chuyên môn: <strong className="text-slate-700">{s.specialty || "Sơn nhà"}</strong></span>
-                        <span>
-                          Khu vực: <strong className="text-slate-700">{s.serviceArea || "Toàn Hà Nội"}</strong>
-                        </span>
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                            Đang hoạt động
+                          </span>
+
+                          {isDistrictMatch && (
+                            <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
+                              ★ Cùng khu vực
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span>Chuyên môn: <strong className="text-slate-700">{s.specialty || "Sơn nhà"}</strong></span>
+                          <span>
+                            Khu vực: <strong className="text-slate-700">{s.serviceArea || "Toàn Hà Nội"}</strong>
+                          </span>
+                        </div>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
                       <span
                         className={`text-xs font-bold px-2.5 py-1 rounded-xl block ${currentLoad === 0
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-slate-100 text-slate-700"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-700"
                           }`}
                       >
                         {currentLoad === 0 ? "⚡ Đang rảnh (0 đơn)" : `Đang làm: ${currentLoad} đơn`}

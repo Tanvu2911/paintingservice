@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import AxiosConfig from "../../../util/AxiosConfig";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { formatDate } from "../../../util/orderFlowUtils";
 import { formatMoney } from "../../../util/formatters";
 import {
@@ -267,11 +268,10 @@ export default function ReviewManagement() {
             {[1, 2, 3, 4, 5].map((s) => (
               <Star
                 key={s}
-                className={`w-4 h-4 ${
-                  s <= Math.round(Number(computedStats.average))
+                className={`w-4 h-4 ${s <= Math.round(Number(computedStats.average))
                     ? "fill-amber-400 text-amber-400"
                     : "fill-slate-200 text-slate-200"
-                }`}
+                  }`}
               />
             ))}
             <span className="text-[11px] font-bold text-slate-500 ml-1.5">
@@ -333,9 +333,8 @@ export default function ReviewManagement() {
                 {computedStats.lowRatings}
               </h3>
             </div>
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-              computedStats.lowRatings > 0 ? "bg-rose-50 text-rose-600" : "bg-slate-50 text-slate-400"
-            }`}>
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${computedStats.lowRatings > 0 ? "bg-rose-50 text-rose-600" : "bg-slate-50 text-slate-400"
+              }`}>
               <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
@@ -359,11 +358,10 @@ export default function ReviewManagement() {
             <button
               type="button"
               onClick={() => setStarFilter("ALL")}
-              className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
-                starFilter === "ALL"
+              className={`p-3 rounded-2xl border text-left transition cursor-pointer ${starFilter === "ALL"
                   ? "bg-slate-900 text-white border-slate-900 shadow-sm"
                   : "bg-slate-50/70 hover:bg-slate-100/80 text-slate-700 border-slate-200/80"
-              }`}
+                }`}
             >
               <div className="text-[11px] font-semibold opacity-80">Tất cả</div>
               <div className="text-lg font-black mt-0.5">{computedStats.total}</div>
@@ -374,12 +372,12 @@ export default function ReviewManagement() {
                 s === 5
                   ? computedStats.fiveStars
                   : s === 4
-                  ? computedStats.fourStars
-                  : s === 3
-                  ? computedStats.threeStars
-                  : s === 2
-                  ? computedStats.twoStars
-                  : computedStats.oneStar;
+                    ? computedStats.fourStars
+                    : s === 3
+                      ? computedStats.threeStars
+                      : s === 2
+                        ? computedStats.twoStars
+                        : computedStats.oneStar;
 
               const isSelected = starFilter === String(s);
 
@@ -388,11 +386,10 @@ export default function ReviewManagement() {
                   key={s}
                   type="button"
                   onClick={() => setStarFilter(isSelected ? "ALL" : String(s))}
-                  className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
-                    isSelected
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer ${isSelected
                       ? "bg-amber-500 text-white border-amber-500 shadow-sm ring-2 ring-amber-400/40"
                       : "bg-slate-50/70 hover:bg-slate-100/80 text-slate-700 border-slate-200/80"
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-1 text-[11px] font-bold">
                     <span>{s} Sao</span>
@@ -487,9 +484,13 @@ export default function ReviewManagement() {
                   const techName = r.technicianUsername || "Chưa gán";
 
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr
+                      key={r.id}
+                      onClick={() => setSelectedReview(r)}
+                      className="hover:bg-slate-50/70 transition cursor-pointer group"
+                    >
                       {/* Đơn hàng & Ngày */}
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-6" onClick={(e) => e.stopPropagation()}>
                         <div className="space-y-1">
                           <button
                             type="button"
@@ -514,7 +515,7 @@ export default function ReviewManagement() {
                             {customerName.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 leading-tight">{customerName}</p>
+                            <p className="font-bold text-slate-900 group-hover:text-blue-600 transition leading-tight">{customerName}</p>
                             {r.customerPhone && (
                               <p className="text-[11px] text-slate-400 mt-0.5">{r.customerPhone}</p>
                             )}
@@ -545,11 +546,10 @@ export default function ReviewManagement() {
                             {[1, 2, 3, 4, 5].map((star) => (
                               <Star
                                 key={star}
-                                className={`w-3 h-3 ${
-                                  star <= r.rating
+                                className={`w-3 h-3 ${star <= r.rating
                                     ? "fill-amber-400 text-amber-400"
                                     : "fill-slate-200 text-slate-200"
-                                }`}
+                                  }`}
                               />
                             ))}
                           </div>
@@ -570,12 +570,12 @@ export default function ReviewManagement() {
                       </td>
 
                       {/* Hành động */}
-                      <td className="py-4 px-6 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1.5">
+                      <td className="py-4 px-6 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => setSelectedReview(r)}
-                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
                             title="Xem chi tiết đánh giá"
                           >
                             <Eye className="w-4 h-4" />
@@ -640,11 +640,10 @@ export default function ReviewManagement() {
                     {[1, 2, 3, 4, 5].map((s) => (
                       <Star
                         key={s}
-                        className={`w-4 h-4 ${
-                          s <= selectedReview.rating
+                        className={`w-4 h-4 ${s <= selectedReview.rating
                             ? "fill-amber-400 text-amber-400"
                             : "fill-slate-200 text-slate-200"
-                        }`}
+                          }`}
                       />
                     ))}
                   </div>
@@ -720,42 +719,16 @@ export default function ReviewManagement() {
       )}
 
       {/* ── MODAL XÁC NHẬN XÓA / KIỂM DUYỆT ĐÁNH GIÁ ── */}
-      {deletingReview && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-slate-100 text-center animate-in zoom-in-95 duration-150">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="font-bold text-slate-900 text-base">Xóa đánh giá này?</h3>
-              <p className="text-xs text-slate-500">
-                Đánh giá #{deletingReview.id} của đơn #{deletingReview.bookingId} sẽ bị xóa vĩnh viễn khỏi hệ thống.
-              </p>
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                disabled={actionLoading}
-                onClick={() => setDeletingReview(null)}
-                className="flex-1 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                disabled={actionLoading}
-                onClick={handleDeleteReview}
-                className="flex-1 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                {actionLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>Xác nhận xóa</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!deletingReview}
+        onClose={() => setDeletingReview(null)}
+        onConfirm={handleDeleteReview}
+        title="Xóa đánh giá"
+        message={`Đánh giá #${deletingReview?.id} của đơn #${deletingReview?.bookingId} sẽ bị xóa vĩnh viễn khỏi hệ thống.`}
+        confirmText="Xóa vĩnh viễn"
+        confirmColor="bg-rose-600 hover:bg-rose-700"
+        submitting={actionLoading}
+      />
     </div>
   );
 }

@@ -214,20 +214,18 @@ export default function ContractManagement() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-wider">
-                  <th className="py-3.5 px-5">Mã HĐ</th>
-                  <th className="py-3.5 px-5">Đơn hàng</th>
-                  <th className="py-3.5 px-5">Trạng thái</th>
-                  <th className="py-3.5 px-5">Ngày lập</th>
-                  <th className="py-3.5 px-5">Khách ký</th>
-                  <th className="py-3.5 px-5">Admin ký</th>
+                <tr className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-slate-100">
+                  <th className="py-3.5 px-5">Mã HĐ &amp; Ngày lập</th>
+                  <th className="py-3.5 px-5">Mã Đơn hàng</th>
+                  <th className="py-3.5 px-5">Trạng thái HĐ</th>
+                  <th className="py-3.5 px-5">Tiến độ ký kết</th>
                   <th className="py-3.5 px-5 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {paginatedContracts.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-10 text-slate-400 font-medium">
+                    <td colSpan="5" className="text-center py-10 text-slate-400 font-medium">
                       {contracts.length === 0
                         ? "Chưa có hợp đồng nào"
                         : "Không tìm thấy hợp đồng phù hợp với bộ lọc"}
@@ -236,50 +234,60 @@ export default function ContractManagement() {
                 ) : (
                   paginatedContracts.map((c) => {
                     return (
-                      <tr key={c.id} className="hover:bg-slate-50/60 transition">
-                        <td className="py-4 px-5 font-bold text-slate-900">
-                          {c.contractCode || `#${c.id}`}
+                      <tr
+                        key={c.id}
+                        onClick={() => openDetail(c)}
+                        className="hover:bg-slate-50/70 transition cursor-pointer group"
+                      >
+                        <td className="py-4 px-5">
+                          <div className="font-bold text-slate-900 group-hover:text-emerald-600 transition">
+                            {c.contractCode || `#${c.id}`}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {c.createdAt
+                              ? new Date(c.createdAt).toLocaleDateString("vi-VN")
+                              : "—"}
+                          </div>
                         </td>
-                        <td className="py-4 px-5 font-medium text-emerald-800">
+                        <td className="py-4 px-5 font-bold font-mono text-slate-800">
                           #{c.bookingId || "—"}
                         </td>
                         <td className="py-4 px-5">
                           <StatusBadge status={getStatus(c)} />
                         </td>
-                        <td className="py-4 px-5 text-slate-500">
-                          {c.createdAt
-                            ? new Date(c.createdAt).toLocaleDateString("vi-VN")
-                            : "—"}
-                        </td>
                         <td className="py-4 px-5">
-                          {c.customerSigned ? (
-                            <span className="text-emerald-700 font-bold text-xs bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              Đã ký
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                c.customerSigned
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                              }`}
+                            >
+                              Khách: {c.customerSigned ? "Đã ký" : "Chờ"}
                             </span>
-                          ) : (
-                            <span className="text-amber-700 text-xs font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                              Chưa ký
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                c.adminSigned
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                              }`}
+                            >
+                              Admin: {c.adminSigned ? "Đã ký" : "Chờ"}
                             </span>
-                          )}
+                          </div>
                         </td>
-                        <td className="py-4 px-5">
-                          {c.adminSigned ? (
-                            <span className="text-blue-700 font-bold text-xs bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                              Đã ký
-                            </span>
-                          ) : (
-                            <span className="text-amber-700 text-xs font-semibold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                              Chưa ký
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-5 text-right space-x-2 whitespace-nowrap">
-                          <button
-                            onClick={() => openDetail(c)}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-800 font-bold rounded-xl text-xs hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer"
-                          >
-                            Chi tiết HĐ
-                          </button>
+                        <td className="py-4 px-5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openDetail(c)}
+                              className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                              title="Xem chi tiết HĐ"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

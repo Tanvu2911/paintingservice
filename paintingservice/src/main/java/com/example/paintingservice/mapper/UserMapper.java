@@ -19,6 +19,7 @@ public class UserMapper {
                 .phoneNumber(user.getPhoneNumber())
                 .address(user.getAddress())
                 .status(user.getStatus())
+                .avatar(user.getAvatar())
                 .roleId(user.getRole() != null
                         ? user.getRole().getId()
                         : null)
@@ -41,6 +42,7 @@ public class UserMapper {
                 .email(dto.getEmail())
                 .phoneNumber(dto.getPhoneNumber())
                 .address(dto.getAddress())
+                .avatar(dto.getAvatar())
                 .status(dto.getStatus())
                 .createdAt(dto.getCreatedAt())
                 .build();

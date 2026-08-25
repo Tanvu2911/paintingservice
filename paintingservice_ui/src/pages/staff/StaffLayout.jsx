@@ -16,6 +16,7 @@ import AxiosConfig from "../../util/AxiosConfig";
 import Sidebar from "../../components/layout/Sidebar";
 import NotificationPopover from "../../components/layout/NotificationPopover";
 import UserMenuDropdown from "../../components/layout/UserMenuDropdown";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 export default function StaffLayout({ user, onLogout, showToast }) {
   const navigate = useNavigate();
@@ -91,12 +92,16 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   };
 
   // 5. Xử lý Đăng xuất
-  const handleLogout = () => {
-    if (window.confirm("Bạn có chắc muốn đăng xuất?")) {
-      onLogout();
-      showToast?.("Đăng xuất thành công!", "success");
-      navigate("/login");
-    }
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const handleLogoutRequest = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    onLogout();
+    showToast?.("Đăng xuất thành công!", "success");
+    navigate("/login");
   };
 
   // 6. Cấu hình Menu linh hoạt theo vai trò bằng SVG Lucide Icons
@@ -139,7 +144,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
         onTabChange={(tab) =>
           navigate(`${basePath}/${tab === "dashboard" ? "dashboard" : tab}`)
         }
-        onLogout={handleLogout}
+        onLogout={handleLogoutRequest}
         menuItems={currentMenuItems}
       />
 
@@ -147,9 +152,8 @@ export default function StaffLayout({ user, onLogout, showToast }) {
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                isTechnician ? "bg-amber-600" : "bg-blue-600"
-              }`}
+              className={`w-2.5 h-2.5 rounded-full ${isTechnician ? "bg-amber-600" : "bg-blue-600"
+                }`}
             ></span>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               {isTechnician ? "Hệ Thống Đội Thợ Thi Công" : "Hệ Thống Giám Sát Khảo Sát"}
@@ -170,7 +174,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
               profile={profile || user}
               role={isTechnician ? "technician" : "survey"}
               color={isTechnician ? "amber" : "blue"}
-              onLogout={handleLogout}
+              onLogout={handleLogoutRequest}
               menuItems={[
                 { label: "Tổng quan", to: `${basePath}/dashboard`, icon: <LayoutDashboard /> },
                 { label: isTechnician ? "Công việc thi công" : "Lịch khảo sát", to: `${basePath}/jobs`, icon: <Briefcase /> },
@@ -187,6 +191,15 @@ export default function StaffLayout({ user, onLogout, showToast }) {
           <Outlet context={{ user: profile, showToast, setNotifications }} />
         </main>
       </div>
+
+      <ConfirmDialog
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={confirmLogout}
+        title="Đăng xuất"
+        message="Bạn có chắc muốn đăng xuất khỏi hệ thống?"
+        confirmColor="bg-emerald-600 hover:bg-emerald-700"
+      />
     </div>
   );
 }

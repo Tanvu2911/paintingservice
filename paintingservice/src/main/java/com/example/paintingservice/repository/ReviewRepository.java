@@ -29,6 +29,13 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("SELECT r FROM Review r WHERE r.booking.surveyor.username = :username ORDER BY r.createdAt DESC")
     List<Review> findAllBySurveyorUsername(@Param("username") String username);
 
+    @Query("SELECT DISTINCT r FROM Review r WHERE " +
+           "r.booking.technician.username = :username OR " +
+           "(r.booking.technician IS NULL AND r.booking.preferredTechnician.username = :username) OR " +
+           "r.booking.surveyor.username = :username " +
+           "ORDER BY r.createdAt DESC")
+    List<Review> findAllByStaffUsername(@Param("username") String username);
+
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.booking.technician.id = :technicianId OR (r.booking.technician IS NULL AND r.booking.preferredTechnician.id = :technicianId)")
     Double findAverageRatingByTechnicianId(@Param("technicianId") Long technicianId);
 

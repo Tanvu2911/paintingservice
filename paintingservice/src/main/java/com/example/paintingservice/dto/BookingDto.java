@@ -27,12 +27,18 @@ public class BookingDto {
 
     private Long surveyorId;
     private String surveyorName;
+    private String surveyorPhone;
+    private String surveyorAvatar;
 
     private Long supervisorId;
     private String supervisorName;
+    private String supervisorPhone;
+    private String supervisorAvatar;
 
     private Long technicianId;
     private String technicianName;
+    private String technicianPhone;
+    private String technicianAvatar;
 
     private Long preferredTechnicianId;
     private String preferredTechnicianName;

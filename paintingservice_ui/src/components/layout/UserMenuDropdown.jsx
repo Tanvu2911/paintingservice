@@ -4,13 +4,7 @@ import { ChevronDown, LogOut } from "lucide-react";
 
 /**
  * UserMenuDropdown — Component dùng chung cho Header của tất cả các Layout.
- *
- * Props:
- *  - profile       : object { fullName, username, email }
- *  - role          : "admin" | "survey" | "technician" | "customer"
- *  - onLogout      : () => void
- *  - menuItems     : [{ label, icon: ReactNode, to: string }]
- *  - color         : "blue" | "amber" | "emerald"  (mặc định "blue")
+ * Hộp tên & nút đăng xuất giống trang customer: icon nhỏ không màu (trung tính).
  */
 export default function UserMenuDropdown({
   profile,
@@ -37,28 +31,6 @@ export default function UserMenuDropdown({
     customer: "Khách hàng",
   }[role] ?? role;
 
-  const palette = {
-    blue: {
-      avatarBg: "bg-blue-50 text-blue-700",
-      hover: "hover:bg-blue-50 hover:text-blue-700",
-      iconColor: "text-blue-600",
-    },
-    amber: {
-      avatarBg: "bg-amber-50 text-amber-700",
-      hover: "hover:bg-amber-50 hover:text-amber-700",
-      iconColor: "text-amber-600",
-    },
-    emerald: {
-      avatarBg: "bg-emerald-50 text-emerald-700",
-      hover: "hover:bg-emerald-50 hover:text-emerald-700",
-      iconColor: "text-emerald-600",
-    },
-  }[color] ?? {
-    avatarBg: "bg-blue-50 text-blue-700",
-    hover: "hover:bg-blue-50 hover:text-blue-700",
-    iconColor: "text-blue-600",
-  };
-
   const displayName =
     profile?.fullName || profile?.username || "Tài khoản";
   const initial = displayName.charAt(0).toUpperCase();
@@ -71,11 +43,17 @@ export default function UserMenuDropdown({
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition cursor-pointer shadow-xs"
       >
-        <div
-          className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${palette.avatarBg}`}
-        >
-          {initial}
-        </div>
+        {profile?.avatar ? (
+          <img
+            src={profile.avatar}
+            alt={displayName}
+            className="w-7 h-7 rounded-lg object-cover border border-slate-200 shrink-0"
+          />
+        ) : (
+          <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center font-bold text-xs shrink-0">
+            {initial}
+          </div>
+        )}
         <div className="hidden sm:block text-left">
           <div className="text-xs font-bold text-slate-800 max-w-[110px] truncate leading-tight">
             {displayName}
@@ -112,10 +90,10 @@ export default function UserMenuDropdown({
                   key={item.to}
                   to={item.to}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 transition ${palette.hover}`}
+                  className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
                 >
                   {item.icon && (
-                    <span className={`w-4 h-4 shrink-0 ${palette.iconColor}`}>
+                    <span className="w-3.5 h-3.5 shrink-0 text-slate-500 flex items-center justify-center">
                       {item.icon}
                     </span>
                   )}
@@ -133,9 +111,9 @@ export default function UserMenuDropdown({
                 setOpen(false);
                 onLogout?.();
               }}
-              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition cursor-pointer text-left"
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition cursor-pointer text-left"
             >
-              <LogOut className="w-4 h-4 text-slate-500 shrink-0" />
+              <LogOut className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Đăng xuất</span>
             </button>
           </div>
@@ -144,3 +122,4 @@ export default function UserMenuDropdown({
     </div>
   );
 }
+

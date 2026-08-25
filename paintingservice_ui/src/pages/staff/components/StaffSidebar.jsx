@@ -10,7 +10,7 @@ import {
   Paintbrush,
 } from 'lucide-react';
 
-const StaffSidebar = () => {
+const StaffSidebar = ({ onLogout }) => {
   const location = useLocation();
   const isSurvey = location.pathname.includes('/survey');
   const basePath = isSurvey ? '/staff/survey' : '/staff/technician';
@@ -56,8 +56,11 @@ const StaffSidebar = () => {
       </nav>
       
       <div className="p-3 border-t border-slate-800">
-        <button className="w-full py-2.5 px-4 bg-rose-500/10 text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer">
-          <LogOut className="w-4 h-4" />
+        <button
+          onClick={onLogout}
+          className="w-full py-2 px-3.5 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-2.5 cursor-pointer text-left"
+        >
+          <LogOut className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span>Đăng xuất</span>
         </button>
       </div>

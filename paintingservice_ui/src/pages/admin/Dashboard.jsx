@@ -129,52 +129,62 @@ const PremiumTooltip = ({ active, payload, label, isMoney = false }) => {
 function MetricCard({ title, value, subValue, icon: Icon, badge, trendText, colorScheme = "blue" }) {
   const schemeStyles = {
     blue: {
-      bgIcon: "bg-blue-50 text-blue-600",
-      border: "hover:border-blue-300",
-      accent: "from-blue-600 to-indigo-600",
+      cardBg: "bg-gradient-to-br from-indigo-50/70 via-white to-white border-indigo-100",
+      bgIcon: "bg-indigo-600 text-white shadow-xs shadow-indigo-500/20",
+      border: "hover:border-indigo-300",
+      titleColor: "text-indigo-950 font-bold",
+      valColor: "text-indigo-600",
     },
     emerald: {
-      bgIcon: "bg-emerald-50 text-emerald-600",
+      cardBg: "bg-gradient-to-br from-emerald-50/70 via-white to-white border-emerald-100",
+      bgIcon: "bg-emerald-600 text-white shadow-xs shadow-emerald-500/20",
       border: "hover:border-emerald-300",
-      accent: "from-emerald-600 to-teal-600",
+      titleColor: "text-emerald-950 font-bold",
+      valColor: "text-emerald-600",
     },
     amber: {
-      bgIcon: "bg-amber-50 text-amber-600",
+      cardBg: "bg-gradient-to-br from-amber-50/70 via-white to-white border-amber-100",
+      bgIcon: "bg-amber-500 text-white shadow-xs shadow-amber-500/20",
       border: "hover:border-amber-300",
-      accent: "from-amber-500 to-orange-500",
+      titleColor: "text-amber-950 font-bold",
+      valColor: "text-amber-600",
     },
     teal: {
-      bgIcon: "bg-teal-50 text-teal-600",
+      cardBg: "bg-gradient-to-br from-teal-50/70 via-white to-white border-teal-100",
+      bgIcon: "bg-teal-600 text-white shadow-xs shadow-teal-500/20",
       border: "hover:border-teal-300",
-      accent: "from-teal-600 to-emerald-600",
+      titleColor: "text-teal-950 font-bold",
+      valColor: "text-teal-600",
     },
   }[colorScheme] || {
-    bgIcon: "bg-teal-50 text-teal-600",
+    cardBg: "bg-gradient-to-br from-teal-50/70 via-white to-white border-teal-100",
+    bgIcon: "bg-teal-600 text-white shadow-xs shadow-teal-500/20",
     border: "hover:border-teal-300",
-    accent: "from-teal-600 to-emerald-600",
+    titleColor: "text-teal-950 font-bold",
+    valColor: "text-teal-600",
   };
 
   return (
-    <div className={`relative bg-white rounded-2xl p-5 border border-slate-100 shadow-xs ${schemeStyles.border} transition-all duration-200 group hover:shadow-md overflow-hidden flex flex-col justify-between`}>
+    <div className={`relative rounded-3xl p-5 border shadow-xs ${schemeStyles.cardBg} ${schemeStyles.border} transition-all duration-300 group hover:shadow-lg overflow-hidden flex flex-col justify-between`}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
-          <h3 className="text-2xl font-black text-slate-900 mt-1 tracking-tight">{value}</h3>
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{title}</p>
+          <h3 className={`text-2xl font-black mt-1 tracking-tight ${schemeStyles.valColor}`}>{value}</h3>
         </div>
-        <div className={`w-11 h-11 rounded-xl ${schemeStyles.bgIcon} flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 duration-200`}>
+        <div className={`w-11 h-11 rounded-2xl ${schemeStyles.bgIcon} flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 duration-200`}>
           <Icon className="w-5 h-5" />
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between text-xs">
-        <span className="text-slate-500 font-medium truncate max-w-[190px]">{subValue}</span>
+      <div className="mt-4 pt-3 border-t border-slate-100/80 flex items-center justify-between text-xs">
+        <span className="text-slate-600 font-medium truncate max-w-[190px]">{subValue}</span>
         {badge && (
-          <span className="inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+          <span className="inline-flex items-center gap-1 font-bold text-[10px] uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200">
             {badge}
           </span>
         )}
         {trendText && (
-          <span className="inline-flex items-center gap-0.5 font-bold text-[11px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-0.5 font-bold text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
             <TrendingUp className="w-3 h-3" /> {trendText}
           </span>
         )}

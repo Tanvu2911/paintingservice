@@ -4,10 +4,11 @@ import AxiosConfig from "../../../util/AxiosConfig";
 import DashboardHeader from "../../../components/layout/DashboardHeader";
 import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import Pagination from "../../../components/common/Pagination";
-import { HANOI_DISTRICTS, VIETNAMESE_BANKS } from "../../../data/hanoiLocations";
-import { Search, UserPlus, Filter, ShieldCheck, MapPin, Eye, Edit2, Trash2, Phone, Mail, Building, CreditCard, Award, Check } from "lucide-react";
+import { HANOI_DISTRICTS, VIETNAMESE_BANKS, getMatchingBankValue } from "../../../data/hanoiLocations";
+import { Search, UserPlus, Filter, ShieldCheck, MapPin, Eye, Edit2, Trash2, Phone, Mail, Building, CreditCard, Award, Check, Camera } from "lucide-react";
 
 export default function EmployeeManagement() {
   const context = useOutletContext() || {};
@@ -21,6 +22,8 @@ export default function EmployeeManagement() {
   const [selectedStaffForDetail, setSelectedStaffForDetail] = useState(null);
   const [copiedBankField, setCopiedBankField] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,6 +47,7 @@ export default function EmployeeManagement() {
     bankName: "",
     bankAccountNumber: "",
     bankAccountName: "",
+    avatar: "",
   });
 
   useEffect(() => {
@@ -105,6 +109,8 @@ export default function EmployeeManagement() {
 
   const openCreate = () => {
     setEditingStaff(null);
+    setAvatarFile(null);
+    setAvatarPreview("");
     setFormData({
       username: "",
       email: "",
@@ -119,12 +125,15 @@ export default function EmployeeManagement() {
       bankName: "",
       bankAccountNumber: "",
       bankAccountName: "",
+      avatar: "",
     });
     setIsModalOpen(true);
   };
 
   const openEdit = (staff) => {
     setEditingStaff(staff);
+    setAvatarFile(null);
+    setAvatarPreview(staff.avatar || "");
     setFormData({
       username: staff.username || "",
       email: staff.email || "",
@@ -139,8 +148,21 @@ export default function EmployeeManagement() {
       bankName: staff.bankName || "",
       bankAccountNumber: staff.bankAccountNumber || "",
       bankAccountName: staff.bankAccountName || "",
+      avatar: staff.avatar || "",
     });
     setIsModalOpen(true);
+  };
+
+  const handleAvatarFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        showToast?.("Vui lòng chọn file hình ảnh!", "warning");
+        return;
+      }
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
   };
 
   const toggleDistrictInForm = (districtName) => {
@@ -167,14 +189,21 @@ export default function EmployeeManagement() {
     setFormData((prev) => ({ ...prev, specialty: currentSkills.join(", ") }));
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) return;
+  const [deletingStaffTarget, setDeletingStaffTarget] = useState(null);
+  const [deletingStaff, setDeletingStaff] = useState(false);
+
+  const handleConfirmDeleteStaff = async () => {
+    if (!deletingStaffTarget) return;
+    setDeletingStaff(true);
     try {
-      await AxiosConfig.delete(`/staff/${id}`);
-      setEmployees((prev) => prev.filter((e) => e.id !== id));
+      await AxiosConfig.delete(`/staff/${deletingStaffTarget.id}`);
+      setEmployees((prev) => prev.filter((e) => e.id !== deletingStaffTarget.id));
       showToast?.("Đã xóa nhân viên thành công", "success");
+      setDeletingStaffTarget(null);
     } catch {
       showToast?.("Không thể xóa nhân viên", "error");
+    } finally {
+      setDeletingStaff(false);
     }
   };
 
@@ -194,18 +223,35 @@ export default function EmployeeManagement() {
         bankName: formData.bankName,
         bankAccountNumber: formData.bankAccountNumber,
         bankAccountName: formData.bankAccountName,
+        avatar: formData.avatar,
       };
       if (formData.password?.trim()) payload.password = formData.password;
 
+      let staffId = editingStaff?.id;
       if (editingStaff) {
         await AxiosConfig.put(`/staff/${editingStaff.id}`, payload);
+        if (avatarFile) {
+          const fd = new FormData();
+          fd.append("file", avatarFile);
+          await AxiosConfig.post(`/staff/${editingStaff.id}/avatar`, fd, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
         showToast?.("Cập nhật thông tin nhân viên thành công", "success");
       } else {
         if (!payload.password) {
           showToast?.("Vui lòng nhập mật khẩu", "error");
           return;
         }
-        await AxiosConfig.post("/staff", payload);
+        const res = await AxiosConfig.post("/staff", payload);
+        staffId = res.data?.id;
+        if (staffId && avatarFile) {
+          const fd = new FormData();
+          fd.append("file", avatarFile);
+          await AxiosConfig.post(`/staff/${staffId}/avatar`, fd, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        }
         showToast?.("Thêm nhân viên mới thành công", "success");
       }
       setIsModalOpen(false);
@@ -302,7 +348,6 @@ export default function EmployeeManagement() {
                   <th className="py-3.5 px-5">Nhân viên &amp; Vai trò</th>
                   <th className="py-3.5 px-5">Liên hệ</th>
                   <th className="py-3.5 px-5">Khu vực phụ trách (HN)</th>
-                  <th className="py-3.5 px-5">Tài khoản ngân hàng</th>
                   <th className="py-3.5 px-5">Trạng thái</th>
                   <th className="py-3.5 px-5 text-right">Hành động</th>
                 </tr>
@@ -310,7 +355,7 @@ export default function EmployeeManagement() {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {paginatedEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-10 text-slate-400 font-medium">
+                    <td colSpan="5" className="text-center py-10 text-slate-400 font-medium">
                       Không tìm thấy nhân viên nào phù hợp
                     </td>
                   </tr>
@@ -323,26 +368,32 @@ export default function EmployeeManagement() {
                     >
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`w-9 h-9 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-inner ${
-                              emp.staffType === "SUPERVISOR"
-                                ? "bg-blue-100 text-blue-700 border border-blue-200"
-                                : "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                            }`}
-                          >
-                            {(emp.username || "S").charAt(0).toUpperCase()}
-                          </div>
+                          {emp.avatar ? (
+                            <img
+                              src={emp.avatar}
+                              alt={emp.username}
+                              className="w-9 h-9 rounded-2xl object-cover shrink-0 shadow-inner border border-slate-200"
+                            />
+                          ) : (
+                            <div
+                              className={`w-9 h-9 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-inner ${emp.staffType === "SUPERVISOR"
+                                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                  : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                }`}
+                            >
+                              {(emp.username || "S").charAt(0).toUpperCase()}
+                            </div>
+                          )}
                           <div>
                             <div className="font-bold text-slate-900 group-hover:text-blue-700 transition">
                               @{emp.username}
                             </div>
                             <div className="mt-0.5">
                               <span
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
-                                  emp.staffType === "SUPERVISOR"
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${emp.staffType === "SUPERVISOR"
                                     ? "bg-blue-50 text-blue-700 border border-blue-200"
                                     : "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                }`}
+                                  }`}
                               >
                                 {emp.staffType === "SUPERVISOR" ? "Giám sát viên" : "Đội thợ thi công"}
                               </span>
@@ -382,63 +433,44 @@ export default function EmployeeManagement() {
                       </td>
 
                       <td className="py-4 px-5">
-                        {emp.bankAccountNumber ? (
-                          <div className="text-[11px]">
-                            <div className="font-bold text-slate-800">{emp.bankName || "Ngân hàng"}</div>
-                            <div className="font-mono text-emerald-700 font-bold">{emp.bankAccountNumber}</div>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">Chưa cập nhật STK</span>
-                        )}
-                      </td>
-
-                      <td className="py-4 px-5">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                            emp.available
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${emp.available
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                               : "bg-rose-50 text-rose-700 border border-rose-200"
-                          }`}
+                            }`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${emp.available ? "bg-emerald-500" : "bg-rose-500"}`} />
                           <span>{emp.available ? "Sẵn sàng" : "Tạm nghỉ"}</span>
                         </span>
                       </td>
 
-                      <td className="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedStaffForDetail(emp);
-                          }}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-xl transition text-xs cursor-pointer border border-blue-200 inline-flex items-center gap-1"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Chi tiết</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEdit(emp);
-                          }}
-                          className="px-3 py-1.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-xs cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Sửa</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(emp.id);
-                          }}
-                          className="px-3 py-1.5 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition text-xs cursor-pointer border border-rose-200 inline-flex items-center gap-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Xóa</span>
-                        </button>
+                      <td className="py-4 px-5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStaffForDetail(emp)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(emp)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Sửa thông tin"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingStaffTarget(emp)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                            title="Xóa nhân viên"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -467,6 +499,60 @@ export default function EmployeeManagement() {
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
+          {/* Avatar Section */}
+          <div className="flex items-center gap-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+            {avatarPreview ? (
+              <img
+                src={avatarPreview}
+                alt="Avatar preview"
+                className="w-14 h-14 rounded-2xl object-cover border border-slate-300 shadow-xs shrink-0"
+              />
+            ) : (
+              <div
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shrink-0 shadow-inner ${formData.staffType === "SUPERVISOR"
+                    ? "bg-blue-100 text-blue-700 border border-blue-200"
+                    : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  }`}
+              >
+                {(formData.username || "S").charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="flex-1 space-y-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Ảnh đại diện (Avatar)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  id="staffAvatarPicker"
+                  accept="image/*"
+                  onChange={handleAvatarFileChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="staffAvatarPicker"
+                  className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs cursor-pointer inline-flex items-center gap-1.5 shadow-2xs transition"
+                >
+                  <Camera className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Chọn ảnh đại diện</span>
+                </label>
+                {avatarPreview && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAvatarFile(null);
+                      setAvatarPreview("");
+                      setFormData((p) => ({ ...p, avatar: "" }));
+                    }}
+                    className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    Xóa ảnh
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1">
@@ -589,11 +675,10 @@ export default function EmployeeManagement() {
                       key={service.id || skillName}
                       type="button"
                       onClick={() => toggleSkillInForm(skillName)}
-                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-left transition flex items-center justify-between border cursor-pointer ${
-                        selected
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-left transition flex items-center justify-between border cursor-pointer ${selected
                           ? "bg-emerald-600 text-white border-emerald-600"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       <span className="truncate">{skillName}</span>
                       <span>{selected ? "✓" : "+"}</span>
@@ -618,8 +703,8 @@ export default function EmployeeManagement() {
                     type="button"
                     onClick={() => toggleDistrictInForm(d.name)}
                     className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-left transition flex items-center justify-between border cursor-pointer ${selected
-                        ? "bg-emerald-600 text-white border-emerald-600"
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
                       }`}
                   >
                     <span className="truncate">{d.name}</span>
@@ -631,20 +716,23 @@ export default function EmployeeManagement() {
           </div>
 
           {/* Thông tin tài khoản ngân hàng */}
-          <div className="bg-slate-900 text-white p-4 rounded-2xl space-y-3">
-            <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+          <div className="bg-emerald-50/80 border border-emerald-200 text-slate-900 p-4 rounded-2xl space-y-3">
+            <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
               💳 Thông tin tài khoản ngân hàng (Admin chuyển thù lao)
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Ngân hàng</label>
+                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Ngân hàng</label>
                 <select
-                  value={formData.bankName}
+                  value={getMatchingBankValue(formData.bankName)}
                   onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">-- Chọn ngân hàng --</option>
+                  {formData.bankName && !VIETNAMESE_BANKS.some((b) => b.name === getMatchingBankValue(formData.bankName)) && (
+                    <option value={formData.bankName}>{formData.bankName}</option>
+                  )}
                   {VIETNAMESE_BANKS.map((b) => (
                     <option key={b.code} value={b.name}>
                       {b.name}
@@ -654,24 +742,24 @@ export default function EmployeeManagement() {
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Số tài khoản</label>
+                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Số tài khoản</label>
                 <input
                   type="text"
                   placeholder="0355880362"
                   value={formData.bankAccountNumber}
                   onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white font-mono outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-mono outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Chủ tài khoản</label>
+                <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Chủ tài khoản (viết hoa)</label>
                 <input
                   type="text"
                   placeholder="NGUYEN VAN A"
-                  value={formData.bankAccountName}
-                  onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value.toUpperCase() })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white uppercase font-bold outline-none focus:ring-2 focus:ring-emerald-400"
+                  value={formData.bankAccountHolder}
+                  onChange={(e) => setFormData({ ...formData, bankAccountHolder: e.target.value.toUpperCase() })}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 font-bold uppercase outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -706,15 +794,22 @@ export default function EmployeeManagement() {
           <div className="space-y-5">
             {/* Header Profile */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/40 border border-slate-200">
-              <div
-                className={`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shadow-md ${
-                  selectedStaffForDetail.staffType === "SUPERVISOR"
-                    ? "bg-blue-600 text-white"
-                    : "bg-emerald-600 text-white"
-                }`}
-              >
-                {(selectedStaffForDetail.username || "S").charAt(0).toUpperCase()}
-              </div>
+              {selectedStaffForDetail.avatar ? (
+                <img
+                  src={selectedStaffForDetail.avatar}
+                  alt={selectedStaffForDetail.username}
+                  className="w-16 h-16 rounded-2xl object-cover shadow-md border-2 border-slate-200 shrink-0"
+                />
+              ) : (
+                <div
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shadow-md shrink-0 ${selectedStaffForDetail.staffType === "SUPERVISOR"
+                      ? "bg-blue-600 text-white"
+                      : "bg-emerald-600 text-white"
+                    }`}
+                >
+                  {(selectedStaffForDetail.username || "S").charAt(0).toUpperCase()}
+                </div>
+              )}
 
               <div className="flex-1 text-center sm:text-left space-y-1">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -722,22 +817,20 @@ export default function EmployeeManagement() {
                     @{selectedStaffForDetail.username}
                   </h3>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${
-                      selectedStaffForDetail.staffType === "SUPERVISOR"
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${selectedStaffForDetail.staffType === "SUPERVISOR"
                         ? "bg-blue-100 text-blue-800 border border-blue-200"
                         : "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                    }`}
+                      }`}
                   >
                     {selectedStaffForDetail.staffType === "SUPERVISOR"
                       ? "Giám sát viên (Khảo sát)"
                       : "Đội thợ sơn (Thi công)"}
                   </span>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      selectedStaffForDetail.available
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedStaffForDetail.available
                         ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                         : "bg-rose-50 text-rose-700 border border-rose-200"
-                    }`}
+                      }`}
                   >
                     {selectedStaffForDetail.available ? "🟢 Sẵn sàng nhận việc" : "🔴 Tạm nghỉ"}
                   </span>
@@ -885,7 +978,7 @@ export default function EmployeeManagement() {
                   setSelectedStaffForDetail(null);
                   openEdit(staffToEdit);
                 }}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
               >
                 <Edit2 className="w-3.5 h-3.5" />
                 <span>Chỉnh Sửa Hồ Sơ</span>
@@ -894,6 +987,17 @@ export default function EmployeeManagement() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deletingStaffTarget}
+        onClose={() => setDeletingStaffTarget(null)}
+        onConfirm={handleConfirmDeleteStaff}
+        title="Xóa nhân viên"
+        message={`Bạn có chắc chắn muốn xóa tài khoản nhân viên "${deletingStaffTarget?.username}" (${deletingStaffTarget?.fullName || "Chưa đặt tên"}) khỏi hệ thống?`}
+        confirmText="Xóa"
+        confirmColor="bg-rose-600 hover:bg-rose-700"
+        submitting={deletingStaff}
+      />
     </div>
   );
 }

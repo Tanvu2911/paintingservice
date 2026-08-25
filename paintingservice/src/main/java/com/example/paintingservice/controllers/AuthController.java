@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import com.example.paintingservice.repository.StaffProfileRepository;
 
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -46,28 +47,43 @@ public class AuthController {
         this.staffProfileRepository = staffProfileRepository;
     }
 
-   @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest req) {
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody AuthRequest req) {
+        try {
+            if (req == null || req.getUsername() == null || req.getUsername().isBlank() ||
+                req.getPassword() == null || req.getPassword().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng điền tên đăng nhập và mật khẩu."));
+            }
 
-        Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        req.getUsername(),
-                        req.getPassword()));
+            Authentication auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            req.getUsername().trim(),
+                            req.getPassword().trim()));
 
-        User user = userRepository.findByUsername(auth.getName())
-                .orElseThrow();
+            User user = userRepository.findByUsername(auth.getName())
+                    .orElseThrow(() -> new IllegalArgumentException("Tài khoản không tồn tại trên hệ thống."));
 
-        String token = jwtUtil.generateToken(user.getUsername());
+            String token = jwtUtil.generateToken(user.getUsername());
 
-        AuthResponse res = new AuthResponse(token);
-        res.setUsername(user.getUsername());
-        res.setRole(user.getRole().getName());
+            AuthResponse res = new AuthResponse(token);
+            res.setUsername(user.getUsername());
+            res.setRole(user.getRole() != null ? user.getRole().getName() : "ROLE_CUSTOMER");
 
-        staffProfileRepository.findByUser(user)
-                .ifPresent(profile ->
-                        res.setStaffType(profile.getStaffType().name()));
+            staffProfileRepository.findByUser(user)
+                    .ifPresent(profile -> {
+                        if (profile.getStaffType() != null) {
+                            res.setStaffType(profile.getStaffType().name());
+                        }
+                    });
 
-        return ResponseEntity.ok(res);
+            return ResponseEntity.ok(res);
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Tên đăng nhập hoặc mật khẩu không chính xác."));
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Đăng nhập không thành công: " + e.getMessage()));
+        }
     }
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {

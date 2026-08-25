@@ -61,9 +61,12 @@ function Login({ onLogin, showToast }) {
       });
     } catch (error) {
       console.error("Lỗi đăng nhập:", error);
+      const data = error.response?.data;
       const msg =
-        error.response?.data?.message ||
-        error.response?.data ||
+        data?.message ||
+        (Array.isArray(data?.messages) ? data.messages.join(", ") : null) ||
+        data?.error ||
+        (typeof data === "string" ? data : null) ||
         "Đăng nhập thất bại! Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.";
       showToast?.(msg, "error");
     } finally {
@@ -231,7 +234,7 @@ function Login({ onLogin, showToast }) {
                 className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
                   loading
                     ? "bg-slate-400 cursor-not-allowed"
-                    : "bg-slate-900 hover:bg-slate-800 active:scale-[0.99] shadow-slate-900/10"
+                    : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] shadow-emerald-600/20"
                 }`}
               >
                 {loading ? (

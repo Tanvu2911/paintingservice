@@ -31,6 +31,7 @@ public class StaffProfileService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final CloudinaryService cloudinaryService;
 
     public List<StaffProfile> findAll() {
         return repository.findAll();
@@ -77,6 +78,7 @@ public class StaffProfileService {
                     .email(currentUser.getEmail())
                     .phoneNumber(currentUser.getPhoneNumber())
                     .address(currentUser.getAddress())
+                    .avatar(currentUser.getAvatar())
                     .build();
         }
         return StaffProfileMapper.toDto(profileOpt.get());
@@ -90,6 +92,7 @@ public class StaffProfileService {
         if (dto.getEmail() != null) currentUser.setEmail(dto.getEmail());
         if (dto.getPhoneNumber() != null) currentUser.setPhoneNumber(dto.getPhoneNumber());
         if (dto.getAddress() != null) currentUser.setAddress(dto.getAddress());
+        if (dto.getAvatar() != null) currentUser.setAvatar(dto.getAvatar());
         userRepository.save(currentUser);
 
         StaffProfile profile = repository.findByUser_Id(currentUser.getId())
@@ -130,6 +133,7 @@ public class StaffProfileService {
         user.setEmail(dto.getEmail());
         user.setPhoneNumber(dto.getPhoneNumber());
         user.setAddress(dto.getAddress());
+        user.setAvatar(dto.getAvatar());
         user.setStatus(UserStatus.ACTIVE);
 
         Role staffRole = roleRepository.findByName("ROLE_STAFF")
@@ -167,6 +171,7 @@ public class StaffProfileService {
             if (dto.getEmail() != null) user.setEmail(dto.getEmail());
             if (dto.getPhoneNumber() != null) user.setPhoneNumber(dto.getPhoneNumber());
             if (dto.getAddress() != null) user.setAddress(dto.getAddress());
+            if (dto.getAvatar() != null) user.setAvatar(dto.getAvatar());
             if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
                 user.setPassword(passwordEncoder.encode(dto.getPassword()));
             }
@@ -188,6 +193,40 @@ public class StaffProfileService {
         dto.setPassword(null);
 
         return dto;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public String uploadAvatar(Long staffId, org.springframework.web.multipart.MultipartFile file) {
+        StaffProfile profile = repository.findById(staffId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên #" + staffId));
+        User user = profile.getUser();
+        if (user == null) {
+            throw new RuntimeException("Không tìm thấy tài khoản người dùng của nhân viên #" + staffId);
+        }
+
+        try {
+            String avatarUrl = cloudinaryService.uploadImage(file, "avatars");
+            user.setAvatar(avatarUrl);
+            userRepository.save(user);
+            return avatarUrl;
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Lỗi khi tải ảnh lên Cloudinary: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public String uploadMyAvatar(String username, org.springframework.web.multipart.MultipartFile file) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại: " + username));
+
+        try {
+            String avatarUrl = cloudinaryService.uploadImage(file, "avatars");
+            user.setAvatar(avatarUrl);
+            userRepository.save(user);
+            return avatarUrl;
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Lỗi khi tải ảnh lên Cloudinary: " + e.getMessage(), e);
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

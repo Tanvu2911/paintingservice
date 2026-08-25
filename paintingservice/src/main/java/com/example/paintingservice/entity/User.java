@@ -41,6 +41,9 @@ public class User {
     private Role role;
 
 
+    @Column(columnDefinition = "TEXT")
+    private String avatar;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }

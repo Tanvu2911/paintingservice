@@ -32,6 +32,7 @@ import RejectQuoteModal from "../../components/common/RejectQuoteModal";
 import ReviewModal from "../../components/review/ReviewModal";
 import ReviewCard from "../../components/review/ReviewCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import StaffDetailModal from "../../components/common/StaffDetailModal";
 import { formatMoney } from "../../util/formatters";
 import { formatDate, parseImageUrls } from "../../util/orderFlowUtils";
 import { exportContractPDF } from "../../util/contractPdfExport";
@@ -58,6 +59,8 @@ export default function BookingDetail(props) {
   const [selectedStartDate, setSelectedStartDate] = useState("");
   const [acceptingQuote, setAcceptingQuote] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [selectedStaffProfile, setSelectedStaffProfile] = useState(null);
+  const [loadingStaffProfile, setLoadingStaffProfile] = useState(false);
 
   const fetchBooking = async () => {
     try {
@@ -276,6 +279,47 @@ export default function BookingDetail(props) {
     }
   };
 
+  // Xem thông tin chi tiết nhân sự (Giám sát / Thợ)
+  const handleOpenStaffModal = async (type) => {
+    const isSupervisor = type === "supervisor";
+    const userId = isSupervisor ? (booking.supervisorId || booking.surveyorId) : booking.technicianId;
+    const username = isSupervisor ? (booking.supervisorName || booking.surveyorName) : booking.technicianName;
+    const phone = isSupervisor ? booking.supervisorPhone : booking.technicianPhone;
+    const avatar = isSupervisor ? (booking.supervisorAvatar || booking.surveyorAvatar) : booking.technicianAvatar;
+
+    if (!userId && !username) {
+      showToast?.("Chưa có nhân sự được phân công cho vị trí này!", "info");
+      return;
+    }
+
+    setLoadingStaffProfile(true);
+    try {
+      if (userId) {
+        const res = await AxiosConfig.get(`/staff/by-user/${userId}`);
+        if (res.data) {
+          setSelectedStaffProfile(res.data);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch full staff profile, falling back to booking fields", e);
+    } finally {
+      setLoadingStaffProfile(false);
+    }
+
+    // Fallback if full profile API fails or returns null
+    setSelectedStaffProfile({
+      username: username || "Nhân viên",
+      fullName: username || "Nhân sự phụ trách",
+      phoneNumber: phone || "",
+      avatar: avatar || "",
+      staffType: isSupervisor ? "SUPERVISOR" : "WORKER",
+      specialty: isSupervisor ? "Giám sát & Khảo sát công trình" : "Thi công sơn sửa nhà",
+      experienceYears: isSupervisor ? 5 : 3,
+      rating: 5.0,
+      serviceArea: "Hà Nội",
+    });
+  };
 
   if (loading) return <LoadingSpinner />;
 
@@ -333,7 +377,7 @@ export default function BookingDetail(props) {
             <button
               type="button"
               onClick={() => setContractModal(true)}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <FileText className="w-3.5 h-3.5 text-white" />
               <span>{contract.customerSigned ? "Xem Hợp Đồng" : "Ký Hợp Đồng"}</span>
@@ -661,41 +705,97 @@ export default function BookingDetail(props) {
 
             <div className="space-y-3 text-xs">
               {/* Giám sát viên */}
-              <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 space-y-1.5">
-                <span className="text-[10.5px] font-bold uppercase text-blue-800 block">
-                  Giám sát viên khảo sát
-                </span>
-                <div className="font-black text-slate-900 text-sm">
-                  {booking.supervisorName || booking.surveyorName ? `@${booking.supervisorName || booking.surveyorName}` : "Đang sắp xếp..."}
-                </div>
-                {booking.supervisorPhone && (
-                  <a
-                    href={`tel:${booking.supervisorPhone}`}
-                    className="inline-flex items-center gap-1.5 text-blue-700 font-bold hover:underline pt-0.5"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>{booking.supervisorPhone}</span>
-                  </a>
+              <div
+                onClick={() => (booking.supervisorName || booking.surveyorName) && handleOpenStaffModal("supervisor")}
+                className={`p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-start gap-3 transition ${
+                  booking.supervisorName || booking.surveyorName
+                    ? "hover:bg-blue-100/70 hover:border-blue-300 cursor-pointer group shadow-2xs"
+                    : "opacity-80"
+                }`}
+              >
+                {booking.supervisorAvatar || booking.surveyorAvatar ? (
+                  <img
+                    src={booking.supervisorAvatar || booking.surveyorAvatar}
+                    alt={booking.supervisorName || booking.surveyorName}
+                    className="w-10 h-10 rounded-xl object-cover border border-blue-200 shrink-0 shadow-2xs group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-black text-sm flex items-center justify-center shrink-0 border border-blue-200 group-hover:scale-105 transition-transform">
+                    {(booking.supervisorName || booking.surveyorName || "S").charAt(0).toUpperCase()}
+                  </div>
                 )}
+                <div className="space-y-0.5 flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-blue-800 block">
+                      Giám sát viên khảo sát
+                    </span>
+                    {(booking.supervisorName || booking.surveyorName) && (
+                      <span className="text-[10px] text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                        Xem hồ sơ →
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-black text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
+                    {booking.supervisorName || booking.surveyorName ? `@${booking.supervisorName || booking.surveyorName}` : "Đang sắp xếp..."}
+                  </div>
+                  {booking.supervisorPhone && (
+                    <a
+                      href={`tel:${booking.supervisorPhone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-blue-700 font-bold hover:underline text-[11px]"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>{booking.supervisorPhone}</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Đội thợ sơn */}
-              <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 space-y-1.5">
-                <span className="text-[10.5px] font-bold uppercase text-emerald-800 block">
-                  Đội thợ thi công
-                </span>
-                <div className="font-black text-slate-900 text-sm">
-                  {booking.technicianName ? `@${booking.technicianName}` : "Sẽ gán sau khi cọc 30%"}
-                </div>
-                {booking.technicianPhone && (
-                  <a
-                    href={`tel:${booking.technicianPhone}`}
-                    className="inline-flex items-center gap-1.5 text-emerald-700 font-bold hover:underline pt-0.5"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>{booking.technicianPhone}</span>
-                  </a>
+              <div
+                onClick={() => booking.technicianName && handleOpenStaffModal("technician")}
+                className={`p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-start gap-3 transition ${
+                  booking.technicianName
+                    ? "hover:bg-emerald-100/70 hover:border-emerald-300 cursor-pointer group shadow-2xs"
+                    : "opacity-80"
+                }`}
+              >
+                {booking.technicianAvatar ? (
+                  <img
+                    src={booking.technicianAvatar}
+                    alt={booking.technicianName}
+                    className="w-10 h-10 rounded-xl object-cover border border-emerald-200 shrink-0 shadow-2xs group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center shrink-0 border border-emerald-200 group-hover:scale-105 transition-transform">
+                    {(booking.technicianName || "T").charAt(0).toUpperCase()}
+                  </div>
                 )}
+                <div className="space-y-0.5 flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-emerald-800 block">
+                      Đội thợ thi công
+                    </span>
+                    {booking.technicianName && (
+                      <span className="text-[10px] text-emerald-700 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                        Xem hồ sơ →
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-black text-slate-900 text-sm truncate group-hover:text-emerald-800 transition-colors">
+                    {booking.technicianName ? `@${booking.technicianName}` : "Sẽ gán sau khi cọc 30%"}
+                  </div>
+                  {booking.technicianPhone && (
+                    <a
+                      href={`tel:${booking.technicianPhone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-emerald-700 font-bold hover:underline text-[11px]"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>{booking.technicianPhone}</span>
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -728,7 +828,7 @@ export default function BookingDetail(props) {
                 <button
                   type="button"
                   onClick={() => setContractModal(true)}
-                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>{contract.customerSigned ? "Xem Chi Tiết Hợp Đồng" : "Ký Hợp Đồng Ngay"}</span>
@@ -781,6 +881,12 @@ export default function BookingDetail(props) {
       />
 
       <ImageLightboxModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+
+      <StaffDetailModal
+        isOpen={Boolean(selectedStaffProfile)}
+        onClose={() => setSelectedStaffProfile(null)}
+        staff={selectedStaffProfile}
+      />
 
       <ConfirmDialog
         isOpen={Boolean(confirmDialog)}

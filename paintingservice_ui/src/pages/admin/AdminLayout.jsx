@@ -15,6 +15,7 @@ import AxiosConfig from "../../util/AxiosConfig";
 import Sidebar from "../../components/layout/Sidebar";
 import NotificationPopover from "../../components/layout/NotificationPopover";
 import UserMenuDropdown from "../../components/layout/UserMenuDropdown";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 
 export default function AdminLayout({ user, onLogout, showToast }) {
   const navigate = useNavigate();
@@ -84,12 +85,16 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     }
   };
 
-  const handleLogout = () => {
-    if (window.confirm("Bạn có chắc muốn đăng xuất?")) {
-      onLogout();
-      showToast?.("Đăng xuất thành công!", "success");
-      navigate("/login");
-    }
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const handleLogoutRequest = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    onLogout();
+    showToast?.("Đăng xuất thành công!", "success");
+    navigate("/login");
   };
 
   const adminMenuItems = [
@@ -112,7 +117,7 @@ export default function AdminLayout({ user, onLogout, showToast }) {
         color="blue"
         activeTab={getActiveTab()}
         onTabChange={(tab) => navigate(`/admin/${tab === "dashboard" ? "" : tab}`)}
-        onLogout={handleLogout}
+        onLogout={handleLogoutRequest}
         menuItems={adminMenuItems}
       />
 
@@ -139,7 +144,7 @@ export default function AdminLayout({ user, onLogout, showToast }) {
               profile={profile || user}
               role="admin"
               color="blue"
-              onLogout={handleLogout}
+              onLogout={handleLogoutRequest}
               menuItems={[
                 { label: "Tổng quan", to: "/admin/", icon: <LayoutDashboard /> },
                 { label: "Quản lý nhân viên", to: "/admin/employees", icon: <Users /> },
@@ -157,6 +162,15 @@ export default function AdminLayout({ user, onLogout, showToast }) {
           <Outlet context={{ user: profile, showToast, setNotifications }} />
         </main>
       </div>
+
+      <ConfirmDialog
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={confirmLogout}
+        title="Đăng xuất"
+        message="Bạn có chắc muốn đăng xuất khỏi hệ thống?"
+        confirmColor="bg-emerald-600 hover:bg-emerald-700"
+      />
     </div>
   );
 }

@@ -30,7 +30,7 @@ export default function CustomerDashboard() {
         </div>
         <Link
           to="/customer/booking"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-xs self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-xs self-start sm:self-auto"
         >
           <CalendarPlus className="w-4 h-4 text-white" />
           <span>Đặt lịch khảo sát mới</span>
@@ -39,26 +39,26 @@ export default function CustomerDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+        <div className="bg-gradient-to-br from-indigo-50/60 via-white to-white rounded-2xl p-5 border border-indigo-100 shadow-xs hover:border-indigo-300 transition-colors">
+          <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1">
             Tổng yêu cầu
           </p>
-          <p className="text-3xl font-black text-blue-600">{stats.total}</p>
+          <p className="text-3xl font-black text-indigo-600">{stats.total}</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+        <div className="bg-gradient-to-br from-amber-50/60 via-white to-white rounded-2xl p-5 border border-amber-100 shadow-xs hover:border-amber-300 transition-colors">
+          <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">
             Chờ tiếp nhận
           </p>
           <p className="text-3xl font-black text-amber-600">{stats.pending}</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+        <div className="bg-gradient-to-br from-sky-50/60 via-white to-white rounded-2xl p-5 border border-sky-100 shadow-xs hover:border-sky-300 transition-colors">
+          <p className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-1">
             Đang thực hiện
           </p>
-          <p className="text-3xl font-black text-blue-600">{stats.inProgress}</p>
+          <p className="text-3xl font-black text-sky-600">{stats.inProgress}</p>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+        <div className="bg-gradient-to-br from-emerald-50/60 via-white to-white rounded-2xl p-5 border border-emerald-100 shadow-xs hover:border-emerald-300 transition-colors">
+          <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">
             Hoàn thành
           </p>
           <p className="text-3xl font-black text-emerald-600">{stats.completed}</p>
@@ -99,15 +99,15 @@ function QuickLink({ to, title, desc, Icon }) {
   return (
     <Link
       to={to}
-      className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex items-start gap-4 group"
+      className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-emerald-300 hover:shadow-md transition-all duration-200 flex items-start gap-4 group"
     >
-      <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+      <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
         <Icon className="w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-bold text-slate-900 text-sm group-hover:text-blue-600 transition-colors">{title}</p>
-          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+          <p className="font-bold text-slate-900 text-sm group-hover:text-emerald-600 transition-colors">{title}</p>
+          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
         </div>
         <p className="text-xs text-slate-500 mt-1 leading-relaxed">{desc}</p>
       </div>

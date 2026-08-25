@@ -244,7 +244,7 @@ export default function CustomerOngoing() {
               step: "Tất cả",
               Icon: Layers,
               count: counts.total,
-              activeCls: "bg-slate-900 text-white shadow-lg shadow-slate-900/15 border-slate-900",
+              activeCls: "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 border-emerald-600",
               inactiveCls: "bg-white text-slate-700 hover:bg-slate-50 border-slate-200",
               badgeActive: "bg-white/20 text-white",
               badgeInactive: "bg-slate-100 text-slate-700",
@@ -637,7 +637,7 @@ export default function CustomerOngoing() {
                         ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                         : b.status === "CANCELLED"
                         ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                        : "bg-slate-900 hover:bg-slate-800 text-white"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
                     }`}
                   >
                     <span>

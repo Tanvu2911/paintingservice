@@ -30,6 +30,9 @@ export default function StaffReviewsPage() {
   const roleTitle = isTechnician ? "Đội Thợ Thi Công" : "Nhân Viên Khảo Sát";
 
   const [reviews, setReviews] = useState([]);
+  const [myReviews, setMyReviews] = useState([]);
+  const [allReviews, setAllReviews] = useState([]);
+  const [viewScope, setViewScope] = useState("MY_REVIEWS"); // 'MY_REVIEWS' | 'ALL_REVIEWS'
   const [loading, setLoading] = useState(true);
 
   // Filters & Search
@@ -40,22 +43,38 @@ export default function StaffReviewsPage() {
   const fetchStaffReviews = async () => {
     setLoading(true);
     try {
-      // 1. Fetch reviews for currently authenticated staff
-      let res = await AxiosConfig.get("/reviews/staff/me").catch(() => null);
+      const [staffRes, allRes] = await Promise.all([
+        AxiosConfig.get("/reviews/staff/me").catch(() => null),
+        AxiosConfig.get("/reviews").catch(() => null),
+      ]);
 
-      // 2. Fallback if needed
-      if (!res || !Array.isArray(res.data)) {
-        if (user?.id) {
-          res = await AxiosConfig.get(`/reviews/technician/${user.id}`).catch(() => ({ data: [] }));
-        }
+      const staffData = Array.isArray(staffRes?.data) ? staffRes.data : [];
+      const allData = Array.isArray(allRes?.data) ? allRes.data : [];
+
+      setMyReviews(staffData);
+      setAllReviews(allData);
+
+      if (staffData.length > 0) {
+        setReviews(staffData);
+        setViewScope("MY_REVIEWS");
+      } else {
+        setReviews(allData);
+        setViewScope("ALL_REVIEWS");
       }
-
-      setReviews(Array.isArray(res?.data) ? res.data : []);
     } catch (err) {
-      console.error(err);
-      showToast?.("Lỗi khi tải danh sách đánh giá của bạn", "error");
+      console.error("Lỗi tải đánh giá staff:", err);
+      showToast?.("Không tải được dữ liệu đánh giá", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleScopeChange = (scope) => {
+    setViewScope(scope);
+    if (scope === "MY_REVIEWS") {
+      setReviews(myReviews);
+    } else {
+      setReviews(allReviews);
     }
   };
 
@@ -243,6 +262,34 @@ export default function StaffReviewsPage() {
 
       {/* ── BỘ LỌC & TÌM KIẾM ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+        {/* Chuyển đổi phạm vi đánh giá */}
+        <div className="flex border-b border-slate-100 pb-3 gap-2 text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => handleScopeChange("MY_REVIEWS")}
+            className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+              viewScope === "MY_REVIEWS"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+            }`}
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Công trình của tôi ({myReviews.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleScopeChange("ALL_REVIEWS")}
+            className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+              viewScope === "ALL_REVIEWS"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>Tất cả đánh giá khách hàng ({allReviews.length})</span>
+          </button>
+        </div>
+
         {/* Nút lọc theo sao */}
         <div className="flex flex-wrap items-center gap-2">
           <button

@@ -318,7 +318,7 @@ export default function ContractModal({
                 exportContractPDF(contract, booking);
                 showToast?.("Đã tải xuống file PDF hợp đồng thành công!", "success");
               }}
-              className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               <Printer className="w-4 h-4 text-white" />
               <span>Xuất File PDF</span>

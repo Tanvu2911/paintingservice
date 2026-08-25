@@ -377,16 +377,14 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("ALL")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "ALL"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "ALL"
+              ? "bg-slate-900 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+              }`}
           >
             <span>Tất cả</span>
-            <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${
-              selectedStatusTab === "ALL" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-            }`}>
+            <span className={`px-1.5 py-0.2 rounded-md text-[10px] ${selectedStatusTab === "ALL" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+              }`}>
               {counts.total}
             </span>
           </button>
@@ -394,11 +392,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("PENDING")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "PENDING"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-700"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "PENDING"
+              ? "bg-amber-600 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+              }`}
           >
             <span>Chờ tiếp nhận</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-amber-100 text-amber-800">
@@ -409,11 +406,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("SURVEY")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "SURVEY"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "SURVEY"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-blue-700"
+              }`}
           >
             <span>Đang khảo sát</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-blue-100 text-blue-800">
@@ -424,11 +420,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("QUOTE")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "QUOTE"
-                ? "bg-amber-700 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-800"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "QUOTE"
+              ? "bg-amber-700 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-800"
+              }`}
           >
             <span>Chờ gửi báo giá</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-amber-100 text-amber-900 font-black">
@@ -439,11 +434,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("DEPOSIT")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "DEPOSIT"
-                ? "bg-teal-700 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-teal-50 hover:text-teal-700"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "DEPOSIT"
+              ? "bg-teal-700 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-teal-50 hover:text-teal-700"
+              }`}
           >
             <span>Ký HĐ &amp; Cọc</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-teal-100 text-teal-800 font-bold">
@@ -454,11 +448,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("PROGRESS")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "PROGRESS"
-                ? "bg-indigo-600 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "PROGRESS"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
+              }`}
           >
             <span>Đang thi công</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-indigo-100 text-indigo-800">
@@ -469,11 +462,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("ACCEPTANCE")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "ACCEPTANCE"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "ACCEPTANCE"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+              }`}
           >
             <span>Nghiệm thu</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-emerald-100 text-emerald-800">
@@ -484,11 +476,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("COMPLETED")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "COMPLETED"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "COMPLETED"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
+              }`}
           >
             <span>Hoàn thành</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-emerald-100 text-emerald-800">
@@ -499,11 +490,10 @@ export default function OrderList() {
           <button
             type="button"
             onClick={() => setSelectedStatusTab("CANCELLED")}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-              selectedStatusTab === "CANCELLED"
-                ? "bg-rose-600 text-white shadow-xs"
-                : "bg-slate-50 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
-            }`}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${selectedStatusTab === "CANCELLED"
+              ? "bg-rose-600 text-white shadow-xs"
+              : "bg-slate-50 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
+              }`}
           >
             <span>Đã hủy</span>
             <span className="px-1.5 py-0.2 rounded-md text-[10px] bg-rose-100 text-rose-800">
@@ -619,11 +609,10 @@ export default function OrderList() {
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded-lg transition cursor-pointer ${
-                  viewMode === "table"
-                    ? "bg-white text-slate-900 shadow-xs font-bold"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`p-1.5 rounded-lg transition cursor-pointer ${viewMode === "table"
+                  ? "bg-white text-slate-900 shadow-xs font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+                  }`}
                 title="Xem dạng bảng"
               >
                 <List className="w-4 h-4" />
@@ -631,11 +620,10 @@ export default function OrderList() {
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded-lg transition cursor-pointer ${
-                  viewMode === "grid"
-                    ? "bg-white text-slate-900 shadow-xs font-bold"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
+                className={`p-1.5 rounded-lg transition cursor-pointer ${viewMode === "grid"
+                  ? "bg-white text-slate-900 shadow-xs font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+                  }`}
                 title="Xem dạng thẻ lưới"
               >
                 <LayoutGrid className="w-4 h-4" />
@@ -676,13 +664,12 @@ export default function OrderList() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-slate-100">
-                  <th className="py-4 px-5">Mã &amp; Dịch vụ</th>
-                  <th className="py-4 px-5">Khách hàng</th>
-                  <th className="py-4 px-5">Công trình &amp; Khu vực</th>
-                  <th className="py-4 px-5">Nhân sự phụ trách</th>
-                  <th className="py-4 px-5">Dự toán &amp; Cọc</th>
-                  <th className="py-4 px-5">Trạng thái</th>
-                  <th className="py-4 px-5 text-right">Hành động</th>
+                  <th className="py-3.5 px-5">Đơn hàng &amp; Dịch vụ</th>
+                  <th className="py-3.5 px-5">Khách hàng</th>
+                  <th className="py-3.5 px-5">Công trình &amp; Khu vực</th>
+                  <th className="py-3.5 px-5">Dự toán &amp; Nhân sự</th>
+                  <th className="py-3.5 px-5">Trạng thái</th>
+                  <th className="py-3.5 px-5 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -694,6 +681,9 @@ export default function OrderList() {
                     o.paymentStatus === "FULLY_PAID" ||
                     o.depositPaid;
 
+                  const supName = o.supervisorName || o.supervisor?.username || o.surveyorName;
+                  const techName = o.technicianName || o.technician?.username;
+
                   return (
                     <tr
                       key={o.id}
@@ -701,128 +691,80 @@ export default function OrderList() {
                       className="hover:bg-slate-50/80 transition cursor-pointer group"
                     >
                       {/* 1. Mã đơn & Dịch vụ */}
-                      <td className="py-4 px-5 align-top">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-black text-slate-900 text-sm group-hover:text-emerald-700 transition">
-                              #{o.id}
-                            </span>
-                          </div>
-                          <span className="inline-block text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 max-w-[140px] truncate">
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className="font-mono text-slate-900 group-hover:text-emerald-700 transition">
+                            #{o.id}
+                          </span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-800 truncate max-w-[150px]">
                             {srvName}
                           </span>
-                          <div className="text-[10px] text-slate-400">
-                            {o.createdAt ? new Date(o.createdAt).toLocaleDateString("vi-VN") : "—"}
-                          </div>
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          Ngày tạo: {o.createdAt ? new Date(o.createdAt).toLocaleDateString("vi-VN") : "—"}
                         </div>
                       </td>
 
                       {/* 2. Khách hàng */}
-                      <td className="py-4 px-5 align-top">
-                        <div className="flex items-start gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 font-black flex items-center justify-center text-xs shrink-0 mt-0.5">
-                            {(o.customerName || o.customer?.username || "K").charAt(0).toUpperCase()}
-                          </div>
-                          <div className="space-y-0.5 min-w-0">
-                            <div className="font-bold text-slate-900 truncate">
-                              {o.customerName || o.customer?.fullName || o.customer?.username || "Khách vãng lai"}
-                            </div>
-                            <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                              <Phone className="w-3 h-3 text-slate-400" />
-                              <span>{o.customerPhone || o.customer?.phoneNumber || "—"}</span>
-                            </div>
-                          </div>
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="font-bold text-slate-900 truncate">
+                          {o.customerName || o.customer?.fullName || o.customer?.username || "Khách vãng lai"}
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span>{o.customerPhone || o.customer?.phoneNumber || "—"}</span>
                         </div>
                       </td>
 
                       {/* 3. Địa chỉ & Khu vực */}
-                      <td className="py-4 px-5 align-top max-w-xs">
-                        <div className="space-y-1">
-                          <div className="text-slate-800 font-medium text-xs leading-snug line-clamp-2" title={o.address}>
-                            {o.address || "—"}
-                          </div>
-                          {parsed.district && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      <td className="py-3.5 px-5 align-top max-w-xs">
+                        <div className="text-slate-700 font-medium text-xs truncate" title={o.address}>
+                          {o.address || "—"}
+                        </div>
+                        {parsed.district && (
+                          <div className="mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
                               <MapPin className="w-2.5 h-2.5 text-emerald-600" />
                               <span>{parsed.district}</span>
                             </span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* 4. Dự toán & Nhân sự */}
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="font-black text-slate-900 text-xs">
+                          {Number(o.totalAmount) > 0 ? (
+                            <span className="font-mono text-emerald-700">{formatMoney(o.totalAmount)} {hasDeposit ? "(Đã cọc)" : ""}</span>
+                          ) : (
+                            <span className="text-slate-400 italic font-normal text-[11px]">Chưa báo giá</span>
                           )}
                         </div>
-                      </td>
-
-                      {/* 4. Nhân sự phụ trách */}
-                      <td className="py-4 px-5 align-top">
-                        <div className="space-y-1.5 text-[11px]">
-                          {/* Giám sát */}
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-slate-400 font-semibold w-6">GS:</span>
-                            {o.supervisorName || o.supervisor?.username || o.surveyorName ? (
-                              <span className="font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                @{o.supervisorName || o.supervisor?.username || o.surveyorName}
-                              </span>
-                            ) : (
-                              <span className="text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[10px]">
-                                Chưa gán GS
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Đội thợ */}
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-slate-400 font-semibold w-6">Thợ:</span>
-                            {o.technicianName || o.technician?.username ? (
-                              <span className="font-bold text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                @{o.technicianName || o.technician?.username}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 italic text-[10.5px]">
-                                Chưa gán thợ
-                              </span>
-                            )}
-                          </div>
+                        <div className="text-[10.5px] text-slate-500 mt-0.5 space-x-1.5">
+                          <span>GS: <strong className={supName ? "text-blue-900" : "text-amber-700"}>{supName ? `@${supName}` : "Chưa gán"}</strong></span>
+                          <span>·</span>
+                          <span>Thợ: <strong className={techName ? "text-emerald-900" : "text-slate-400"}>{techName ? `@${techName}` : "Chưa gán"}</strong></span>
                         </div>
                       </td>
 
-                      {/* 5. Dự toán & Cọc */}
-                      <td className="py-4 px-5 align-top">
-                        <div className="space-y-1">
-                          <div className="font-black text-slate-900 text-sm">
-                            {Number(o.totalAmount) > 0 ? formatMoney(o.totalAmount) : "Chưa báo giá"}
-                          </div>
-                          {Number(o.totalAmount) > 0 && (
-                            <div className="text-[10px]">
-                              {hasDeposit ? (
-                                <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                  ✓ Đã cọc 30%
-                                </span>
-                              ) : (
-                                <span className="font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                                  Chưa nộp cọc
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* 6. Trạng thái */}
-                      <td className="py-4 px-5 align-top">
+                      {/* 5. Trạng thái */}
+                      <td className="py-3.5 px-5 align-top">
                         <StatusBadge status={o.status} />
                       </td>
 
-                      {/* 7. Hành động */}
-                      <td className="py-4 px-5 text-right align-top">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/admin/bookings/${o.id}`);
-                          }}
-                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-xs flex items-center gap-1.5 ml-auto cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-white" />
-                          <span>Chi tiết</span>
-                        </button>
+                      {/* 6. Hành động */}
+                      <td className="py-3.5 px-5 text-right align-top whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/admin/bookings/${o.id}`)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                            title="Xem chi tiết đơn hàng"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

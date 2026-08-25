@@ -96,11 +96,10 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition ${
-                    active
+                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl transition ${active
                       ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
+                    }`}
                 >
                   <IconComp className={`w-3.5 h-3.5 ${active ? "text-white" : "text-slate-500"}`} />
                   <span>{item.label}</span>
@@ -143,8 +142,8 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
                   {profile?.fullName
                     ? profile.fullName[0].toUpperCase()
                     : profile?.username
-                    ? profile.username[0].toUpperCase()
-                    : "U"}
+                      ? profile.username[0].toUpperCase()
+                      : "U"}
                 </div>
                 <div className="hidden sm:block text-left">
                   <div className="text-xs font-bold text-slate-800 truncate max-w-[110px] leading-tight">
@@ -223,11 +222,10 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition ${
-                  active
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap transition ${active
                     ? "bg-emerald-600 text-white font-bold"
                     : "text-slate-600 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 <IconComp className={`w-3.5 h-3.5 ${active ? "text-white" : "text-slate-500"}`} />
                 <span>{item.label}</span>
@@ -247,7 +245,7 @@ export default function CustomerLayout({ user, onLogout, showToast }) {
         onConfirm={handleLogout}
         title="Đăng xuất"
         message="Bạn có chắc muốn đăng xuất khỏi hệ thống?"
-        confirmColor="bg-slate-900 hover:bg-slate-800"
+        confirmColor="bg-emerald-600 hover:bg-emerald-700"
       />
     </div>
   );
