@@ -28,10 +28,10 @@ const Toast = ({ message, type = "success", title, onClose, duration = 3500 }) =
   const config = {
     success: {
       title: title || "Thành công",
-      icon: <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />,
-      iconBg: "bg-emerald-50 border-emerald-100",
-      accentBar: "bg-emerald-600",
-      progressBg: "bg-emerald-600",
+      icon: <CheckCircle2 className="w-5 h-5 text-[#1E3A8A] shrink-0" />,
+      iconBg: "bg-blue-50 border-blue-100",
+      accentBar: "bg-[#1E3A8A]",
+      progressBg: "bg-[#1E3A8A]",
     },
     error: {
       title: title || "Lỗi thao tác",

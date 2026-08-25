@@ -6,15 +6,15 @@ export default function HomeFooter() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold text-sm">
-              <Paintbrush className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-[#1E3A8A] text-white rounded-lg flex items-center justify-center font-bold text-sm">
+              <Paintbrush className="w-4 h-4 text-amber-400" />
             </div>
             <span className="text-base font-black text-slate-900">
-              PAINTING<span className="text-emerald-600">247</span>
+              PAINTING<span className="text-[#1E3A8A]">247</span>
             </span>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Hệ thống dịch vụ sơn sửa nhà trọn gói uy tín hàng đầu. Cam kết chất lượng, bảo hành dài hạn và giá thành minh bạch.
+            Hệ thống dịch vụ sơn sửa nhà trọn gói Precision Paint uy tín hàng đầu. Cam kết chất lượng, bảo hành dài hạn và giá thành minh bạch.
           </p>
         </div>
 
@@ -44,19 +44,19 @@ export default function HomeFooter() {
           <h5 className="font-bold text-slate-900 text-sm mb-3">Liên hệ hỗ trợ</h5>
           <ul className="space-y-2 text-slate-600">
             <li className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <MapPin className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
               <span>Trụ sở: Hà Nội &amp; TP. Hồ Chí Minh</span>
             </li>
             <li className="flex items-center gap-1.5">
-              <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <Phone className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
               <span>Hotline 24/7: 1900.247.xxx</span>
             </li>
             <li className="flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <Mail className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
               <span>Email: support@painting247.vn</span>
             </li>
             <li className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <Clock className="w-3.5 h-3.5 text-[#1E3A8A] shrink-0" />
               <span>Giờ làm việc: 7:30 - 20:30 hàng ngày</span>
             </li>
           </ul>

@@ -21,16 +21,16 @@ export default function CustomerDashboard() {
       {/* Greeting Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-black text-[#1E3A8A] tracking-tight">
             Xin chào, {user?.fullName || user?.username}!
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Tổng quan và quản lý tiến độ các công trình sơn nhà của bạn
+            Tổng quan và quản lý tiến độ các công trình sơn nhà của Precision Paint
           </p>
         </div>
         <Link
           to="/customer/booking"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-xs self-start sm:self-auto"
+          className="inline-flex items-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-xs rounded-2xl transition shadow-md shadow-amber-500/20 self-start sm:self-auto cursor-pointer"
         >
           <CalendarPlus className="w-4 h-4 text-white" />
           <span>Đặt lịch khảo sát mới</span>
@@ -39,11 +39,11 @@ export default function CustomerDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-indigo-50/60 via-white to-white rounded-2xl p-5 border border-indigo-100 shadow-xs hover:border-indigo-300 transition-colors">
-          <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-1">
+        <div className="bg-gradient-to-br from-blue-50/80 via-white to-white rounded-2xl p-5 border border-blue-100 shadow-xs hover:border-blue-300 transition-colors">
+          <p className="text-xs font-bold text-[#1E3A8A] uppercase tracking-wider mb-1">
             Tổng yêu cầu
           </p>
-          <p className="text-3xl font-black text-indigo-600">{stats.total}</p>
+          <p className="text-3xl font-black text-[#1E3A8A]">{stats.total}</p>
         </div>
         <div className="bg-gradient-to-br from-amber-50/60 via-white to-white rounded-2xl p-5 border border-amber-100 shadow-xs hover:border-amber-300 transition-colors">
           <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1">
@@ -99,15 +99,15 @@ function QuickLink({ to, title, desc, Icon }) {
   return (
     <Link
       to={to}
-      className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-emerald-300 hover:shadow-md transition-all duration-200 flex items-start gap-4 group"
+      className="bg-white border border-slate-200 rounded-3xl p-6 hover:border-[#1E3A8A] hover:shadow-md transition-all duration-200 flex items-start gap-4 group"
     >
-      <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+      <div className="w-11 h-11 rounded-2xl bg-blue-50 text-[#1E3A8A] flex items-center justify-center shrink-0 group-hover:bg-[#1E3A8A] group-hover:text-white transition-colors">
         <Icon className="w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-bold text-slate-900 text-sm group-hover:text-emerald-600 transition-colors">{title}</p>
-          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+          <p className="font-bold text-slate-900 text-sm group-hover:text-[#1E3A8A] transition-colors">{title}</p>
+          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#1E3A8A] group-hover:translate-x-0.5 transition-all" />
         </div>
         <p className="text-xs text-slate-500 mt-1 leading-relaxed">{desc}</p>
       </div>

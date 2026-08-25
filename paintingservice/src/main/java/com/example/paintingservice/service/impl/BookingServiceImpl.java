@@ -55,7 +55,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
     public BookingDto createBooking(BookingDto dto, String currentUsername) {
         User currentUser = userRepository.findByUsername(currentUsername).orElse(null);
         boolean isAdmin = currentUser != null && currentUser.getRole() != null &&
-                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName()) || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
+                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName())
+                        || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
 
         if (!isAdmin && currentUser != null && !currentUser.getId().equals(dto.getCustomerId())) {
             throw new RuntimeException("Bạn không có quyền tạo đơn hàng cho tài khoản khác");
@@ -76,7 +77,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(customer)
                     .title("Gửi yêu cầu thành công")
-                    .content(String.format("Yêu cầu #%d (%s) đã được gửi thành công và đang chờ xử lý.", saved.getId(), serviceName))
+                    .content(String.format("Yêu cầu #%d (%s) đã được gửi thành công và đang chờ xử lý.", saved.getId(),
+                            serviceName))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -86,7 +88,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(admin)
                     .title("Yêu cầu khảo sát mới")
-                    .content(String.format("Khách hàng %s vừa gửi yêu cầu #%d cho dịch vụ '%s'.", customerName, saved.getId(), serviceName))
+                    .content(String.format("Khách hàng %s vừa gửi yêu cầu #%d cho dịch vụ '%s'.", customerName,
+                            saved.getId(), serviceName))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -119,13 +122,15 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
 
         String serviceName = (old.getService() != null) ? old.getService().getName()
                 : serviceEntityRepository.findById(dto.getServiceId())
-                .map(ServiceEntity::getName).orElse("Dịch vụ");
+                        .map(ServiceEntity::getName).orElse("Dịch vụ");
 
         User actor = userRepository.findByUsername(currentUsername).orElse(null);
-        String actorDisplayName = (actor != null && actor.getUsername() != null) ? actor.getUsername() : currentUsername;
+        String actorDisplayName = (actor != null && actor.getUsername() != null) ? actor.getUsername()
+                : currentUsername;
 
         User customerEntity = old.getCustomer();
-        User techEntity = (dto.getTechnicianId() != null) ? userRepository.findById(dto.getTechnicianId()).orElse(null) : old.getTechnician();
+        User techEntity = (dto.getTechnicianId() != null) ? userRepository.findById(dto.getTechnicianId()).orElse(null)
+                : old.getTechnician();
 
         // 1. Thông báo cho khách hàng
         if (statusChanged && customerEntity != null) {
@@ -156,16 +161,36 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             String statusVN = mapBookingStatusToVietnamese(dto.getStatus());
             List<User> admins = userRepository.findAllByRole_Name("ROLE_ADMIN");
 
+            // Check if this is a negotiation request from customer
+            boolean isNegotiation = dto.getDescription() != null &&
+                    dto.getDescription().startsWith("[Đề xuất thương lượng giá");
+
+            final String finalStatusVN = statusVN;
             admins.forEach(admin -> {
                 if (!admin.getUsername().equals(currentUsername)) {
-                    notificationService.save(Notification.builder()
-                            .user(admin)
-                            .title("Cập nhật đơn hàng #" + id)
-                            .content(String.format("Tài khoản %s đã cập nhật trạng thái đơn '%s' thành: %s",
-                                    actorDisplayName, serviceName, statusVN))
-                            .createdAt(LocalDateTime.now())
-                            .isRead(false)
-                            .build());
+                    if (isNegotiation) {
+                        // Extract negotiation content after the prefix tag
+                        String negContent = dto.getDescription()
+                                .replaceAll("^\\[Đề xuất thương lượng giá[^\\]]*\\]\\s*", "");
+                        notificationService.save(Notification.builder()
+                                .user(admin)
+                                .title("🔔 Khách hàng yêu cầu thương lượng giá đơn #" + id)
+                                .content(String.format(
+                                        "Khách hàng %s chưa đồng ý báo giá dịch vụ '%s' và muốn thương lượng lại. Nội dung: \"%s\". Vui lòng liên hệ để thỏa thuận và cập nhật báo giá.",
+                                        actorDisplayName, serviceName, negContent))
+                                .createdAt(LocalDateTime.now())
+                                .isRead(false)
+                                .build());
+                    } else {
+                        notificationService.save(Notification.builder()
+                                .user(admin)
+                                .title("Cập nhật đơn hàng #" + id)
+                                .content(String.format("Tài khoản %s đã cập nhật trạng thái đơn '%s' thành: %s",
+                                        actorDisplayName, serviceName, finalStatusVN))
+                                .createdAt(LocalDateTime.now())
+                                .isRead(false)
+                                .build());
+                    }
                 }
             });
         }
@@ -180,11 +205,11 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
 
             String techContent = technicianChanged
                     ? (dto.getTechnicianId() == null
-                    ? String.format("Bạn không còn đảm nhận yêu cầu #%d (%s) nữa.", id, serviceName)
-                    : String.format("Bạn được phân công yêu cầu #%d (%s) cho khách hàng %s tại %s.",
-                    id, serviceName, customerName, dto.getAddress()))
+                            ? String.format("Bạn không còn đảm nhận yêu cầu #%d (%s) nữa.", id, serviceName)
+                            : String.format("Bạn được phân công yêu cầu #%d (%s) cho khách hàng %s tại %s.",
+                                    id, serviceName, customerName, dto.getAddress()))
                     : String.format("Hệ thống đã cập nhật yêu cầu #%d (%s). Trạng thái hiện tại: %s",
-                    id, serviceName, statusVN);
+                            id, serviceName, statusVN);
 
             notificationService.save(Notification.builder()
                     .user(techEntity)
@@ -205,14 +230,16 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + id));
 
         String serviceName = (booking.getService() != null && booking.getService().getId() != null)
-                ? serviceEntityRepository.findById(booking.getService().getId()).map(ServiceEntity::getName).orElse("Dịch vụ")
+                ? serviceEntityRepository.findById(booking.getService().getId()).map(ServiceEntity::getName)
+                        .orElse("Dịch vụ")
                 : "Dịch vụ";
 
         if (booking.getCustomer() != null) {
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
                     .title("Hủy yêu cầu")
-                    .content(String.format("Yêu cầu #%d (%s) đã bị xóa khỏi hệ thống bởi %s.", id, serviceName, currentUsername))
+                    .content(String.format("Yêu cầu #%d (%s) đã bị xóa khỏi hệ thống bởi %s.", id, serviceName,
+                            currentUsername))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -233,7 +260,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 notificationService.save(Notification.builder()
                         .user(admin)
                         .title("Đã xóa đơn #" + id)
-                        .content(String.format("Người dùng %s đã xóa đơn '%s' khỏi hệ thống.", currentUsername, serviceName))
+                        .content(String.format("Người dùng %s đã xóa đơn '%s' khỏi hệ thống.", currentUsername,
+                                serviceName))
                         .createdAt(LocalDateTime.now())
                         .isRead(false)
                         .build());
@@ -254,7 +282,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 || booking.getStatus() == BookingStatus.ACCEPTED;
 
         if (!canChangeSupervisor) {
-            throw new RuntimeException("Giám sát đã hoàn thành khảo sát và gửi báo cáo cho Admin. Không thể thay đổi giám sát viên nữa.");
+            throw new RuntimeException(
+                    "Giám sát đã hoàn thành khảo sát và gửi báo cáo cho Admin. Không thể thay đổi giám sát viên nữa.");
         }
 
         User supervisor = userRepository.findById(supervisorUserId)
@@ -267,7 +296,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         notificationService.save(Notification.builder()
                 .user(supervisor)
                 .title("Phân công khảo sát #" + bookingId)
-                .content(String.format("Bạn được phân công khảo sát đơn hàng #%d (Địa chỉ: %s). Thù lao giám sát: 10%% giá trị hợp đồng + hoàn tiền vật tư bổ sung khi hoàn tất.",
+                .content(String.format(
+                        "Bạn được phân công khảo sát đơn hàng #%d (Địa chỉ: %s). Thù lao giám sát: 10%% giá trị hợp đồng + hoàn tiền vật tư bổ sung khi hoàn tất.",
                         bookingId,
                         booking.getAddress() != null ? booking.getAddress() : "Theo đơn"))
                 .createdAt(LocalDateTime.now())
@@ -288,8 +318,11 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + id));
 
-        if (booking.getStatus() != BookingStatus.WAITING_ADMIN_QUOTE) {
-            throw new RuntimeException("Đơn hàng không ở trạng thái chờ báo giá");
+        boolean isFirstQuote = booking.getStatus() == BookingStatus.WAITING_ADMIN_QUOTE;
+        boolean isReQuote = booking.getStatus() == BookingStatus.WAITING_CUSTOMER_SIGNATURE;
+
+        if (!isFirstQuote && !isReQuote) {
+            throw new RuntimeException("Đơn hàng không ở trạng thái có thể gửi/cập nhật báo giá");
         }
 
         if (payload.get("totalAmount") == null || payload.get("totalAmount").toString().isBlank()) {
@@ -304,7 +337,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             deposit = total.multiply(new BigDecimal("0.3")).setScale(0, RoundingMode.HALF_UP);
         }
 
-        if (total.compareTo(BigDecimal.ZERO) <= 0 || deposit.compareTo(BigDecimal.ZERO) < 0 || deposit.compareTo(total) > 0) {
+        if (total.compareTo(BigDecimal.ZERO) <= 0 || deposit.compareTo(BigDecimal.ZERO) < 0
+                || deposit.compareTo(total) > 0) {
             throw new RuntimeException("Số tiền báo giá không hợp lệ");
         }
 
@@ -312,13 +346,15 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         if (payload.get("estimatedDays") != null && !payload.get("estimatedDays").toString().isBlank()) {
             try {
                 estimatedDays = Integer.parseInt(payload.get("estimatedDays").toString());
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
         Integer warrantyYears = 2;
         if (payload.get("warrantyYears") != null && !payload.get("warrantyYears").toString().isBlank()) {
             try {
                 warrantyYears = Integer.parseInt(payload.get("warrantyYears").toString());
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         booking.setTotalAmount(total);
@@ -328,6 +364,49 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         booking.setWarrantyYears(warrantyYears);
         booking.setPaymentStatus(PaymentStatus.UNPAID);
         booking.setStatus(BookingStatus.WAITING_CUSTOMER_SIGNATURE);
+
+        // Archive active negotiation proposal to history when sending quote
+        if (booking.getDescription() != null &&
+                (booking.getDescription().contains("[Đề xuất thương lượng") ||
+                 booking.getDescription().contains("[Thương lượng giá") ||
+                 booking.getDescription().contains("Giá đề xuất:"))) {
+            String rawDesc = booking.getDescription();
+            NumberFormat nfTemp = NumberFormat.getInstance(new Locale("vi", "VN"));
+            String timeStr = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(java.time.LocalDateTime.now());
+
+            // 1. Extract negotiation proposal details
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                    "(?s)\\[(?:Đề xuất thương lượng[^\\]]*|Thương lượng giá[^\\]]*)\\]\\s*(.*?)(?=(\\[Lịch sử|\\[Mô tả|$))"
+            );
+            java.util.regex.Matcher m = pattern.matcher(rawDesc);
+            String historyEntry = "";
+            if (m.find()) {
+                String fullMatch = m.group(0);
+                String meta = fullMatch.contains("(") && fullMatch.contains(")")
+                        ? fullMatch.substring(fullMatch.indexOf("(") + 1, fullMatch.lastIndexOf(")")).replace("(", "").replace(")", "").trim()
+                        : "Đã gửi đề xuất";
+                String msg = m.group(1).trim();
+                historyEntry = String.format("• Lần thương lượng (%s): %s. Ghi chú: \"%s\" → Admin đã cập nhật lại báo giá: %sđ",
+                        timeStr, meta.isEmpty() ? "Đã gửi đề xuất" : meta, msg.isEmpty() ? "Không có ghi chú" : msg, nfTemp.format(total));
+            } else {
+                historyEntry = String.format("• Lần thương lượng (%s) → Admin đã cập nhật lại báo giá: %sđ", timeStr, nfTemp.format(total));
+            }
+
+            // 2. Remove active negotiation block completely
+            String withoutActive = pattern.matcher(rawDesc).replaceAll("").trim();
+            withoutActive = withoutActive.replaceAll("(?s)\\[(?:Đề xuất thương lượng|Thương lượng giá)[^\\]]*\\]\\s*", "").trim();
+
+            // 3. Append to negotiation history block
+            if (!historyEntry.isEmpty()) {
+                if (withoutActive.contains("[Lịch sử thương lượng:")) {
+                    withoutActive = withoutActive.replace("[Lịch sử thương lượng:", "[Lịch sử thương lượng:\n" + historyEntry);
+                } else {
+                    withoutActive = "[Lịch sử thương lượng:\n" + historyEntry + "\n]\n\n" + withoutActive;
+                }
+            }
+            booking.setDescription(withoutActive.trim().isBlank() ? null : withoutActive.trim());
+        }
+
         bookingRepository.save(booking);
 
         List<BookingDetail> details = bookingDetailRepository.findByBookingIdOrderByCreatedAtAsc(id);
@@ -341,15 +420,19 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         sb.append("Độc lập - Tự do - Hạnh phúc\n\n");
         sb.append("HỢP ĐỒNG THI CÔNG SƠN SỬA & DỊCH VỤ DÂN DỤNG\n");
         sb.append("Mã đơn hàng: #").append(id).append("\n");
-        sb.append("Thời gian lập: ").append(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(LocalDateTime.now())).append("\n\n");
+        sb.append("Thời gian lập: ").append(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(LocalDateTime.now()))
+                .append("\n\n");
         sb.append("THÔNG TIN CÁC BÊN:\n");
         sb.append("Bên A (Khách hàng): ").append(customerName).append("\n");
         sb.append("Số điện thoại: ").append(customerPhone).append("\n");
-        sb.append("Địa điểm thi công: ").append(booking.getAddress() != null ? booking.getAddress() : "Theo thông tin đăng ký").append("\n\n");
+        sb.append("Địa điểm thi công: ")
+                .append(booking.getAddress() != null ? booking.getAddress() : "Theo thông tin đăng ký").append("\n\n");
         sb.append("Bên B (Đơn vị thi công): CÔNG TY DỊCH VỤ SƠN SỬA 24/7\n");
         sb.append("Hotline hỗ trợ: 1900 1234 - 0355.880.362\n\n");
         sb.append("I. HIỆN TRẠNG KHẢO SÁT & TIẾN ĐỘ THI CÔNG:\n");
-        sb.append("- Mô tả ban đầu: ").append(booking.getDescription() != null ? booking.getDescription() : "Khách hàng không ghi chú").append("\n");
+        sb.append("- Mô tả ban đầu: ")
+                .append(booking.getDescription() != null ? booking.getDescription() : "Khách hàng không ghi chú")
+                .append("\n");
         sb.append("- Thời gian thi công dự kiến: ").append(estimatedDays).append(" ngày làm việc.\n");
         if (booking.getExpectedStartDate() != null) {
             sb.append("- Ngày bắt đầu thi công cam kết: ").append(booking.getExpectedStartDate()).append("\n");
@@ -366,7 +449,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         sb.append("\nII. GIÁ TRỊ HỢP ĐỒNG & PHƯƠNG THỨC THANH TOÁN:\n");
         sb.append("- Tổng chi phí thi công: ").append(nf.format(total)).append(" VNĐ\n");
         sb.append("- Số tiền đặt cọc (xác nhận đơn): ").append(nf.format(deposit)).append(" VNĐ\n");
-        sb.append("- Số tiền còn lại (thanh toán sau nghiệm thu): ").append(nf.format(booking.getRemainingAmount())).append(" VNĐ\n");
+        sb.append("- Số tiền còn lại (thanh toán sau nghiệm thu): ").append(nf.format(booking.getRemainingAmount()))
+                .append(" VNĐ\n");
         sb.append("- Phương thức thanh toán: Chuyển khoản VNPay / VietQR.\n\n");
         sb.append("III. QUY TRÌNH THI CÔNG & TIÊU CHUẨN KỸ THUẬT:\n");
         sb.append("1. Che chắn cẩn thận sàn nhà, nội thất và tài sản xung quanh khu vực thi công.\n");
@@ -376,11 +460,13 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         sb.append("5. Vệ sinh công nghiệp khu vực thi công và bàn giao mặt bằng sạch đẹp.\n\n");
         sb.append("IV. CHẾ ĐỘ BẢO HÀNH & CAM KẾT CHẤT LƯỢNG:\n");
         sb.append("- Cam kết 100% sử dụng vật tư sơn chính hãng, đúng chủng loại thỏa thuận.\n");
-        sb.append("- Thời hạn bảo hành công trình: ").append(warrantyYears).append(" năm kể từ ngày ký biên bản nghiệm thu.\n");
+        sb.append("- Thời hạn bảo hành công trình: ").append(warrantyYears)
+                .append(" năm kể từ ngày ký biên bản nghiệm thu.\n");
         sb.append("- Điều kiện bảo hành: Khắc phục miễn phí các lỗi bong tróc, bay màu do kỹ thuật thi công.\n\n");
         sb.append("V. ĐIỀU KHOẢN KÝ KẾT:\n");
         sb.append("- Hợp đồng có hiệu lực kể từ khi Bên A thực hiện ký điện tử và đặt cọc thành công.\n");
-        sb.append("- Bên B cam kết triển khai đúng tiến độ và phân công nhân sự chuyên nghiệp sau khi xác nhận tiền cọc.");
+        sb.append(
+                "- Bên B cam kết triển khai đúng tiến độ và phân công nhân sự chuyên nghiệp sau khi xác nhận tiền cọc.");
 
         Contract contract = contractRepository.findByBookingId(id).orElseGet(() -> Contract.builder()
                 .booking(booking)
@@ -391,21 +477,37 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 .adminSigned(false)
                 .build());
 
+        // Reset customer signature if re-quoting after negotiation
+        if (isReQuote) {
+            contract.setCustomerSigned(false);
+            contract.setCustomerSignedAt(null);
+            contract.setCustomerSignatureImg(null);
+        }
+
         contract.setContent(sb.toString());
         contractRepository.save(contract);
 
         if (booking.getCustomer() != null) {
+            String notifTitle = isReQuote
+                    ? "Báo giá đã được cập nhật - Đơn #" + id
+                    : "Hợp đồng & Báo giá sẵn sàng ký #" + id;
+            String notifContent = isReQuote
+                    ? "Admin đã cập nhật lại báo giá cho đơn #" + id + " sau thương lượng. Tổng mới: "
+                            + nf.format(total) + " VNĐ. Vui lòng vào ứng dụng xem và phản hồi."
+                    : "Admin đã lập hợp đồng chi tiết và báo giá cho đơn hàng #" + id
+                            + ". Vui lòng vào ứng dụng xem nội dung và ký điện tử.";
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
-                    .title("Hợp đồng & Báo giá sẵn sàng ký #" + id)
-                    .content("Admin đã lập hợp đồng chi tiết và báo giá cho đơn hàng #" + id
-                            + ". Vui lòng vào ứng dụng xem nội dung và ký điện tử.")
+                    .title(notifTitle)
+                    .content(notifContent)
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
         }
 
-        return Map.of("message", "Đã gửi báo giá và tạo hợp đồng cho khách ký");
+        String msg = isReQuote ? "Đã cập nhật báo giá mới và thông báo cho khách hàng"
+                : "Đã gửi báo giá và tạo hợp đồng cho khách ký";
+        return Map.of("message", msg);
     }
 
     @Override
@@ -421,7 +523,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 .customerSigned(true)
                 .build());
 
-        String signature = payload.get("adminSignatureImg") != null ? payload.get("adminSignatureImg") : payload.get("adminSignature");
+        String signature = payload.get("adminSignatureImg") != null ? payload.get("adminSignatureImg")
+                : payload.get("adminSignature");
         contract.setAdminSigned(true);
         contract.setAdminSignedAt(LocalDateTime.now());
         if (signature != null && !signature.isBlank()) {
@@ -445,9 +548,12 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         }
 
         if (!hasDepositPayment) {
-            BigDecimal depositAmount = booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                    ? booking.getDepositAmount()
-                    : (booking.getTotalAmount() != null ? booking.getTotalAmount().multiply(new BigDecimal("0.3")) : BigDecimal.ZERO);
+            BigDecimal depositAmount = booking.getDepositAmount() != null
+                    && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
+                            ? booking.getDepositAmount()
+                            : (booking.getTotalAmount() != null
+                                    ? booking.getTotalAmount().multiply(new BigDecimal("0.3"))
+                                    : BigDecimal.ZERO);
             Payment newPayment = Payment.builder()
                     .booking(booking)
                     .amount(depositAmount)
@@ -464,7 +570,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
                     .title("Hợp đồng đã ký duyệt & Xác nhận cọc #" + booking.getId())
-                    .content("Admin đã ký duyệt hợp đồng và xác nhận tiền cọc thành công. Hệ thống tiến hành bàn giao đội thợ thi công.")
+                    .content(
+                            "Admin đã ký duyệt hợp đồng và xác nhận tiền cọc thành công. Hệ thống tiến hành bàn giao đội thợ thi công.")
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -473,8 +580,7 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         return Map.of(
                 "message", "Đã xác nhận tiền cọc và Admin đã ký duyệt hợp đồng thành công!",
                 "bookingStatus", booking.getStatus(),
-                "adminSigned", true
-        );
+                "adminSigned", true);
     }
 
     @Override
@@ -488,12 +594,14 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT ||
                 booking.getStatus() == BookingStatus.COMPLETED ||
                 booking.getStatus() == BookingStatus.PAID_TO_STAFF) {
-            throw new RuntimeException("Công trình đã bắt đầu thi công hoặc đã hoàn thành, không thể thay đổi đội thợ!");
+            throw new RuntimeException(
+                    "Công trình đã bắt đầu thi công hoặc đã hoàn thành, không thể thay đổi đội thợ!");
         }
 
         Contract contract = contractRepository.findByBookingId(id).orElse(null);
         if (contract == null || !Boolean.TRUE.equals(contract.getAdminSigned())) {
-            throw new RuntimeException("Admin chưa ký hợp đồng! Vui lòng ký duyệt hợp đồng và xác nhận cọc trước khi phân công đội thợ thi công.");
+            throw new RuntimeException(
+                    "Admin chưa ký hợp đồng! Vui lòng ký duyệt hợp đồng và xác nhận cọc trước khi phân công đội thợ thi công.");
         }
 
         if (!Boolean.TRUE.equals(contract.getCustomerSigned())) {
@@ -513,7 +621,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         notificationService.save(Notification.builder()
                 .user(technician)
                 .title("Phân công thi công #" + id)
-                .content(String.format("Bạn đã được phân công thi công đơn hàng #%d (Địa chỉ: %s). Thù lao thi công của bạn: %s đ (60%% giá trị công trình). Quyết toán sau khi hoàn tất.",
+                .content(String.format(
+                        "Bạn đã được phân công thi công đơn hàng #%d (Địa chỉ: %s). Thù lao thi công của bạn: %s đ (60%% giá trị công trình). Quyết toán sau khi hoàn tất.",
                         id,
                         booking.getAddress() != null ? booking.getAddress() : "Theo đơn",
                         String.format("%,d", workerFee.longValue())))
@@ -579,7 +688,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
                     .title("Đội thợ đã tiếp nhận công trình #" + bookingId)
-                    .content(String.format("Đội thợ %s đã tiếp nhận đơn hàng #%d của bạn và chuẩn bị thi công đúng kế hoạch.",
+                    .content(String.format(
+                            "Đội thợ %s đã tiếp nhận đơn hàng #%d của bạn và chuẩn bị thi công đúng kế hoạch.",
                             username, bookingId))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
@@ -617,8 +727,10 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(admin)
                     .title("Thợ từ chối nhận việc #" + bookingId)
-                    .content(String.format("Đội thợ %s đã từ chối nhận thi công đơn #%d. Lý do: %s. Vui lòng phân công đội thợ khác.",
-                            username, bookingId, (reason != null && !reason.isBlank()) ? reason.trim() : "Không ghi rõ lý do"))
+                    .content(String.format(
+                            "Đội thợ %s đã từ chối nhận thi công đơn #%d. Lý do: %s. Vui lòng phân công đội thợ khác.",
+                            username, bookingId,
+                            (reason != null && !reason.isBlank()) ? reason.trim() : "Không ghi rõ lý do"))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -659,7 +771,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(savedBooking.getCustomer())
                     .title("Công trình đang thi công #" + id)
-                    .content(String.format("Đội thợ %s đã chính thức bắt đầu thi công công trình #%d của bạn.", username, id))
+                    .content(String.format("Đội thợ %s đã chính thức bắt đầu thi công công trình #%d của bạn.",
+                            username, id))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -690,7 +803,9 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(admin)
                     .title("Thợ báo hoàn thành thi công #" + id)
-                    .content(String.format("Đội thợ %s đã báo hoàn thành thi công công trình #%d. Đang chờ Giám sát và Khách hàng nghiệm thu.", username, id))
+                    .content(String.format(
+                            "Đội thợ %s đã báo hoàn thành thi công công trình #%d. Đang chờ Giám sát và Khách hàng nghiệm thu.",
+                            username, id))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -700,7 +815,9 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(savedBooking.getSurveyor())
                     .title("Thợ báo hoàn thành #" + id)
-                    .content(String.format("Đội thợ %s đã hoàn thành thi công đơn #%d. Vui lòng kiểm tra hiện trường và nghiệm thu công trình.", username, id))
+                    .content(String.format(
+                            "Đội thợ %s đã hoàn thành thi công đơn #%d. Vui lòng kiểm tra hiện trường và nghiệm thu công trình.",
+                            username, id))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -710,7 +827,9 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(savedBooking.getCustomer())
                     .title("Công trình hoàn thành thi công #" + id)
-                    .content(String.format("Đội thợ %s đã hoàn tất thi công công trình #%d. Kính mời quý khách kiểm tra và xác nhận nghiệm thu.", username, id))
+                    .content(String.format(
+                            "Đội thợ %s đã hoàn tất thi công công trình #%d. Kính mời quý khách kiểm tra và xác nhận nghiệm thu.",
+                            username, id))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -737,7 +856,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         }
 
         if (booking.getStatus() != BookingStatus.SURVEY_ASSIGNED) {
-            throw new RuntimeException("Đơn không ở trạng thái có thể từ chối nhận khảo sát (hiện tại: " + booking.getStatus() + ")");
+            throw new RuntimeException(
+                    "Đơn không ở trạng thái có thể từ chối nhận khảo sát (hiện tại: " + booking.getStatus() + ")");
         }
 
         String rejectNote = String.format(
@@ -776,7 +896,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
         boolean isAdmin = currentUser.getRole() != null &&
-                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName()) || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
+                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName())
+                        || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
         boolean isCustomer = booking.getCustomer() != null && booking.getCustomer().getId().equals(currentUser.getId());
 
         if (!isAdmin && !isCustomer) {
@@ -788,11 +909,13 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 && booking.getStatus() != BookingStatus.WAITING_CUSTOMER_QUOTE_APPROVAL
                 && booking.getStatus() != BookingStatus.CUSTOMER_ACCEPTED_QUOTE
                 && booking.getStatus() != BookingStatus.WAITING_DEPOSIT) {
-            throw new RuntimeException("Đơn không ở trạng thái có thể từ chối báo giá (Trạng thái hiện tại: " + booking.getStatus() + ")");
+            throw new RuntimeException(
+                    "Đơn không ở trạng thái có thể từ chối báo giá (Trạng thái hiện tại: " + booking.getStatus() + ")");
         }
 
         String customerName = booking.getCustomer() != null ? booking.getCustomer().getUsername() : "Khách hàng";
-        String finalReason = (reason != null && !reason.isBlank()) ? reason.trim() : "Khách hàng không đồng ý với phương án/báo giá";
+        String finalReason = (reason != null && !reason.isBlank()) ? reason.trim()
+                : "Khách hàng không đồng ý với phương án/báo giá";
 
         String rejectNote = String.format(
                 "\n[Khách hàng từ chối báo giá - %s bởi %s]: %s",
@@ -832,7 +955,9 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             notificationService.save(Notification.builder()
                     .user(saved.getCustomer())
                     .title("Đã từ chối báo giá #" + bookingId)
-                    .content(String.format("Bạn đã từ chối báo giá cho đơn hàng #%d thành công. Đơn hàng đã được chuyển sang trạng thái Đã hủy.", bookingId))
+                    .content(String.format(
+                            "Bạn đã từ chối báo giá cho đơn hàng #%d thành công. Đơn hàng đã được chuyển sang trạng thái Đã hủy.",
+                            bookingId))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -842,7 +967,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
     }
 
     private String mapBookingStatusToVietnamese(BookingStatus status) {
-        if (status == null) return "";
+        if (status == null)
+            return "";
         return switch (status) {
             case PENDING -> "Đang chờ xử lý";
             case SURVEY_ASSIGNED -> "Đã phân công khảo sát";

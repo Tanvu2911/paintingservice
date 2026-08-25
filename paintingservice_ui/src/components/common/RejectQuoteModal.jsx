@@ -82,11 +82,10 @@ export default function RejectQuoteModal({
             {REJECT_REASONS.map((reason) => (
               <label
                 key={reason}
-                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                  selectedReason === reason
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${selectedReason === reason
                     ? "bg-rose-50/60 border-rose-300 text-rose-950 font-semibold ring-1 ring-rose-400/30"
                     : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 <input
                   type="radio"

@@ -165,6 +165,12 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + bookingId));
 
+        if (booking.getPaymentStatus() != PaymentStatus.FULLY_PAID
+                && booking.getStatus() != BookingStatus.COMPLETED
+                && booking.getStatus() != BookingStatus.PAID_TO_STAFF) {
+            throw new RuntimeException("Chỉ có thể quyết toán thù lao cho nhân viên khi khách hàng đã hoàn tất mọi thanh toán!");
+        }
+
         User staff = userRepository.findById(staffId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên #" + staffId));
 

@@ -8,7 +8,7 @@ export default function ConfirmDialog({
   message = "Bạn có chắc chắn muốn thực hiện thao tác này?",
   confirmText = "Xác nhận",
   cancelText = "Hủy",
-  confirmColor = "bg-blue-600 hover:bg-blue-700",
+  confirmColor = "bg-[#1E3A8A] hover:bg-[#1e40af]",
   submitting = false,
 }) {
   if (!isOpen) return null;

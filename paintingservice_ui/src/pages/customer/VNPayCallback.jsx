@@ -69,11 +69,11 @@ export default function VNPayCallback() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-lg border border-slate-100 max-w-md w-full text-center space-y-5">
           <div className="relative w-16 h-16 mx-auto">
-            <div className="w-16 h-16 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin" />
-            <ShieldCheck className="w-7 h-7 text-emerald-600 absolute inset-0 m-auto animate-pulse" />
+            <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-[#1E3A8A] animate-spin" />
+            <ShieldCheck className="w-7 h-7 text-[#1E3A8A] absolute inset-0 m-auto animate-pulse" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-base font-black text-slate-800 tracking-tight">
+            <h2 className="text-base font-black text-[#1E3A8A] tracking-tight">
               Đang đối soát giao dịch VNPay...
             </h2>
             <p className="text-xs text-slate-500 leading-relaxed">
@@ -90,18 +90,18 @@ export default function VNPayCallback() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
-      {/* Decorative emerald gradient glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Decorative navy gradient glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-100 max-w-lg w-full text-center space-y-6 relative z-10">
         {/* Status Icon Badge */}
         <div className="flex justify-center">
           {isSuccess ? (
             <div className="relative">
-              <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center border-2 border-emerald-200 shadow-md shadow-emerald-500/10 animate-in zoom-in-50 duration-300">
-                <Check className="w-10 h-10 text-emerald-600 stroke-[3]" />
+              <div className="w-20 h-20 bg-blue-50 text-[#1E3A8A] rounded-3xl flex items-center justify-center border-2 border-blue-200 shadow-md shadow-blue-500/10 animate-in zoom-in-50 duration-300">
+                <Check className="w-10 h-10 text-[#1E3A8A] stroke-[3]" />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-600 text-white rounded-full flex items-center justify-center border-2 border-white shadow-xs">
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#1E3A8A] text-white rounded-full flex items-center justify-center border-2 border-white shadow-xs">
                 <ShieldCheck className="w-4 h-4 text-white" />
               </div>
             </div>
@@ -114,7 +114,7 @@ export default function VNPayCallback() {
 
         {/* Title and Message */}
         <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#1E3A8A] border border-blue-200">
             {isSuccess ? (isDeposit ? "Đặt cọc thành công" : "Tất toán thành công") : "Thanh toán thất bại"}
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -138,7 +138,7 @@ export default function VNPayCallback() {
             {result.paymentType && (
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Hạng mục thanh toán:</span>
-                <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                <span className="font-bold text-[#1E3A8A] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
                   {isDeposit ? "Tiền cọc công trình (30%)" : "Tất toán hợp đồng (70%)"}
                 </span>
               </div>
@@ -147,7 +147,7 @@ export default function VNPayCallback() {
             {result.amount && (
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Số tiền giao dịch:</span>
-                <span className="font-black text-emerald-700 text-base font-mono">
+                <span className="font-black text-[#1E3A8A] text-base font-mono">
                   {formatMoney(result.amount)}
                 </span>
               </div>
@@ -168,12 +168,12 @@ export default function VNPayCallback() {
         )}
 
         {/* 5s Auto-redirect Countdown Indicator */}
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 text-emerald-800 font-medium">
-            <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-[#1E3A8A] font-medium">
+            <Clock className="w-4 h-4 text-[#1E3A8A] shrink-0" />
             <span>Tự động chuyển tiếp sau <strong>{countdown}s</strong>...</span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
+          <div className="w-8 h-8 rounded-full bg-[#1E3A8A] text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
             {countdown}
           </div>
         </div>
@@ -184,7 +184,7 @@ export default function VNPayCallback() {
             <button
               type="button"
               onClick={() => navigate(`/customer/bookings/${result.bookingId}`)}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-emerald-600/20 cursor-pointer flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-amber-500/20 cursor-pointer flex items-center justify-center gap-2"
             >
               <ClipboardList className="w-4 h-4" />
               <span>Xem tiến độ đơn #{result.bookingId}</span>
@@ -193,7 +193,7 @@ export default function VNPayCallback() {
           ) : (
             <Link
               to="/customer/ongoing"
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-emerald-600/20 text-center flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-amber-500/20 text-center flex items-center justify-center gap-2"
             >
               <ClipboardList className="w-4 h-4" />
               <span>Về Quản lý yêu cầu</span>

@@ -23,34 +23,34 @@ export default function HomeNavbar({
           onClick={() => navigate("/home")}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow-xs group-hover:bg-emerald-700 transition-colors">
-            <Paintbrush className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-[#1E3A8A] text-white rounded-xl flex items-center justify-center shadow-xs group-hover:bg-[#1e40af] transition-colors">
+            <Paintbrush className="w-5 h-5 text-amber-400" />
           </div>
           <div>
             <h1 className="text-lg font-black tracking-tight text-slate-900 leading-none">
-              PAINTING<span className="text-emerald-600">247</span>
+              PAINTING<span className="text-[#1E3A8A]">247</span>
             </h1>
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
-              Dịch vụ sơn nhà chuyên nghiệp
+              Precision Paint — Dịch vụ sơn nhà chuyên nghiệp
             </p>
           </div>
         </div>
 
         {/* Menu giữa */}
         <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-600 uppercase tracking-wider">
-          <a href="#services" className="hover:text-emerald-600 transition">
+          <a href="#services" className="hover:text-[#1E3A8A] transition">
             Dịch vụ
           </a>
-          <a href="#workflow" className="hover:text-emerald-600 transition flex items-center gap-1.5">
+          <a href="#workflow" className="hover:text-[#1E3A8A] transition flex items-center gap-1.5">
             <span>Quy trình 24h</span>
           </a>
-          <a href="#commitments" className="hover:text-emerald-600 transition">
+          <a href="#commitments" className="hover:text-[#1E3A8A] transition">
             Cam kết
           </a>
-          <a href="#testimonials" className="hover:text-emerald-600 transition">
+          <a href="#testimonials" className="hover:text-[#1E3A8A] transition">
             Đánh giá
           </a>
-          <a href="#partners" className="hover:text-emerald-600 transition">
+          <a href="#partners" className="hover:text-[#1E3A8A] transition">
             Hãng sơn
           </a>
         </nav>
@@ -63,7 +63,7 @@ export default function HomeNavbar({
                 <button
                   type="button"
                   onClick={onBookingCTA}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition cursor-pointer shadow-xs"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-4.5 py-2.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition cursor-pointer shadow-md shadow-amber-500/20 active:scale-95"
                 >
                   <CalendarPlus className="w-4 h-4 text-white" />
                   <span>Đặt lịch khảo sát</span>
@@ -89,7 +89,7 @@ export default function HomeNavbar({
                     ? "technician"
                     : "customer"
                 }
-                color="emerald"
+                color="blue"
                 onLogout={onLogout}
                 menuItems={
                   isCustomer(user)
@@ -109,14 +109,14 @@ export default function HomeNavbar({
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-[#1E3A8A] hover:bg-blue-50 rounded-xl transition cursor-pointer"
               >
                 Đăng nhập
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/register")}
-                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition cursor-pointer"
+                className="px-4 py-2.5 text-xs font-bold text-white bg-[#1E3A8A] hover:bg-[#1e40af] rounded-xl shadow-xs transition cursor-pointer"
               >
                 Đăng ký
               </button>

@@ -312,7 +312,7 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover shadow-md border-2 border-slate-200 shrink-0"
               />
             ) : (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl sm:text-3xl font-black shadow-md shadow-blue-600/20 shrink-0">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-[#1E3A8A] text-white rounded-2xl flex items-center justify-center text-2xl sm:text-3xl font-black shadow-md shadow-blue-900/20 shrink-0">
                 {(user?.fullName || user?.username || "U").charAt(0).toUpperCase()}
               </div>
             )}
@@ -337,13 +337,13 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 truncate">
                 {user?.fullName || user?.username || "Tài khoản cá nhân"}
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
-              <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
+              <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#1E3A8A] border border-blue-200/60">
                 {roleLabel}
               </span>
               <span className="text-xs text-slate-400 font-medium">Mã tài khoản: #{user?.id}</span>
@@ -356,7 +356,7 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-blue-600/20 active:scale-98 flex items-center gap-2 cursor-pointer"
+            className="px-6 py-3 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-amber-500/20 active:scale-98 flex items-center gap-2 cursor-pointer"
           >
             {saving ? (
               <>
@@ -365,7 +365,7 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
               </>
             ) : (
               <>
-                <Save className="w-4 h-4" />
+                <Save className="w-4 h-4 text-white" />
                 <span>Lưu thay đổi</span>
               </>
             )}
@@ -827,12 +827,12 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
             {/* Bottom Save Button Bar */}
             <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
               <p className="text-xs text-slate-500">
-                Hãy kiểm tra kỹ thông tin liên hệ và số tài khoản ngân hàng trước khi lưu.
+                Hãy kiểm tra kỹ thông tin liên hệ và địa chỉ của bạn trước khi bấm lưu.
               </p>
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-blue-600/20 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-8 py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-amber-500/20 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {saving ? (
                   <>
@@ -841,7 +841,7 @@ export default function ProfileForm({ user, showToast, roleLabel = "Người dù
                   </>
                 ) : (
                   <>
-                    <Save className="w-4 h-4" />
+                    <Save className="w-4 h-4 text-white" />
                     <span>Lưu thay đổi hồ sơ</span>
                   </>
                 )}

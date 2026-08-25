@@ -31,19 +31,19 @@ export default function CustomerWallet() {
     { key: "id", label: "Mã đơn", render: (r) => `#${r.id}` },
     {
       key: "deposit",
-      label: "Phí cọc",
+      label: "Phí cọc (30%)",
       render: (r) => (
-        <span className={r.depositPaid ? "text-emerald-600" : "text-amber-600"}>
-          {formatMoney(r.depositAmount)} {r.depositPaid ? "✓" : "—"}
+        <span className={r.depositPaid ? "text-[#1E3A8A] font-bold" : "text-amber-600 font-semibold"}>
+          {formatMoney(r.depositAmount)} {r.depositPaid ? "✓ Đã cọc" : "— Chưa cọc"}
         </span>
       ),
     },
     {
       key: "remaining",
-      label: "Còn lại",
+      label: "Còn lại (70%)",
       render: (r) => (
-        <span className={r.finalPaid ? "text-emerald-600" : "text-amber-600"}>
-          {formatMoney(r.remainingAmount)} {r.finalPaid ? "✓" : "—"}
+        <span className={r.finalPaid ? "text-[#1E3A8A] font-bold" : "text-amber-600 font-semibold"}>
+          {formatMoney(r.remainingAmount)} {r.finalPaid ? "✓ Đã tất toán" : "— Chưa tất toán"}
         </span>
       ),
     },
@@ -58,9 +58,9 @@ export default function CustomerWallet() {
       render: (r) => (
         <Link
           to={`/customer/bookings/${r.id}`}
-          className="text-blue-600 text-xs font-semibold hover:underline"
+          className="inline-flex items-center px-3 py-1.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
         >
-          Thanh toán
+          Chi tiết / Thanh toán
         </Link>
       ),
     },
@@ -69,8 +69,14 @@ export default function CustomerWallet() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">Ví thanh toán</h1>
+    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+        <h1 className="text-2xl font-black text-[#1E3A8A]">Ví &amp; Lịch Sử Thanh Toán</h1>
+        <p className="text-xs text-slate-500 mt-1">
+          Quản lý tổng quan các khoản cọc 30% và tất toán 70% các công trình thi công sơn nhà của Precision Paint
+        </p>
+      </div>
+
       <WalletCard
         balance={totalPending}
         title="Số tiền cần thanh toán"
@@ -80,7 +86,7 @@ export default function CustomerWallet() {
       <DataTable
         columns={columns}
         data={bookings}
-        emptyMessage="Chưa có giao dịch thanh toán."
+        emptyMessage="Chưa có giao dịch thanh toán nào."
       />
     </div>
   );

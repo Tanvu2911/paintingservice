@@ -1,6 +1,6 @@
 import React from "react";
 import { formatMoney } from "../../util/formatters";
-import { formatDate } from "../../util/orderFlowUtils";
+import { formatDate, parseNegotiationInfo } from "../../util/orderFlowUtils";
 import {
   FileSignature,
   CreditCard,
@@ -22,6 +22,7 @@ import {
   Wallet,
   Sparkles,
   Star,
+  MessageSquare,
 } from "lucide-react";
 
 
@@ -184,40 +185,153 @@ export default function OrderActionBanner({
     }
 
     if (["WAITING_CUSTOMER_SIGNATURE", "CUSTOMER_ACCEPTED_QUOTE"].includes(s) && canAcceptQuote) {
-      return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ring-2 ring-amber-500/40">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
-              <FileSignature className="w-6 h-6 text-amber-400" />
+      const negInfo = parseNegotiationInfo(booking?.description);
+      const hasNegotiation = negInfo.hasNegotiation;
+
+      if (hasNegotiation) {
+        return (
+          <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md space-y-4 ring-2 ring-amber-500/50">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-400/30">
+                  <MessageSquare className="w-6 h-6 text-amber-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/30">
+                      ⏳ Đang Chờ Admin Phản Hồi
+                    </span>
+                    {negInfo.proposedPrice && (
+                      <span className="text-xs text-emerald-300 font-bold bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                        Đề xuất: {negInfo.proposedPrice}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black mt-1 text-white">
+                    Bạn Đã Gửi Đề Xuất Thương Lượng Giá
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
+                    Yêu cầu thương lượng lại mức giá của bạn đã được gửi tới Quản trị viên. Bạn có thể bấm nút bên dưới để xem lại, chỉnh sửa hoặc hủy đề xuất.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onAction?.("respond_quote")}
+                className="w-full sm:w-auto px-5 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:scale-105 duration-150"
+              >
+                <MessageSquare className="w-4 h-4 text-slate-950" />
+                <span>Xem / Sửa / Hủy Đề Xuất</span>
+              </button>
             </div>
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                Hành động cần làm ngay
-              </span>
-              <h3 className="text-base font-bold mt-1 text-amber-100">
-                Báo giá &amp; Hợp đồng điện tử đã sẵn sàng ký kết!
-              </h3>
-              <p className="text-xs text-amber-200/80 mt-1 leading-relaxed max-w-2xl">
-                Tổng dự toán: <strong className="text-white font-black text-sm">{formatMoney(total)}</strong>. Vui lòng chọn ngày thi công mong muốn và ký hợp đồng điện tử để tiến hành bước đặt cọc.
-              </p>
+
+            {/* Bảng thông số Dự Toán Thi Công gộp trực tiếp vào ô báo giá */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-800 text-xs">
+              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                <span className="text-slate-400 font-bold block text-[10px] uppercase">Báo giá gốc từ Admin</span>
+                <span className="text-base font-black text-amber-300 block leading-tight mt-0.5">
+                  {formatMoney(total)}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Đang thương lượng</span>
+              </div>
+
+              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                <span className="text-emerald-400 font-bold block text-[10px] uppercase">Giá bạn đề xuất</span>
+                <span className="text-base font-black text-emerald-300 block leading-tight mt-0.5">
+                  {negInfo.proposedPrice || "Chưa ghi số tiền"}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Chờ Admin phản hồi</span>
+              </div>
+
+              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                <span className="text-slate-400 font-bold block text-[10px] uppercase">Tiền cọc (30%)</span>
+                <span className="text-base font-black text-slate-200 block leading-tight mt-0.5">
+                  {formatMoney(deposit)}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Sau khi chốt HĐ</span>
+              </div>
+
+              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                <span className="text-slate-400 font-bold block text-[10px] uppercase">Thời gian thi công</span>
+                <span className="text-base font-black text-slate-200 block leading-tight mt-0.5 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{booking.estimatedDays || 3} ngày</span>
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Dự kiến</span>
+              </div>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0 w-full sm:w-auto">
+        );
+      }
+
+      return (
+        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md space-y-4 ring-2 ring-amber-500/50">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-400/30">
+                <FileSignature className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/30">
+                    Hành động cần làm ngay
+                  </span>
+                  <span className="text-xs text-amber-300 font-bold">
+                    {booking.warrantyYears || 2} năm bảo hành chính hãng
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black mt-1 text-white">
+                  Báo Giá Dịch Vụ &amp; Dự Toán Thi Công Đã Sẵn Sàng Ký Kết!
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
+                  Admin đã gửi bảng dự toán. Quý khách vui lòng kiểm tra các hạng mục bên dưới và bấm nút <strong className="text-amber-300 font-bold">"Phản Hồi Báo Giá"</strong> để chọn phương án (Ký HĐ / Thương lượng / Từ chối).
+                </p>
+              </div>
+            </div>
             <button
               type="button"
-              onClick={() => onAction?.("reject_quote")}
-              className="w-full sm:w-auto px-4 py-3 bg-white/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 border border-rose-400/30 font-bold rounded-2xl text-xs transition cursor-pointer text-center"
-            >
-              ✕ Từ chối báo giá
-            </button>
-            <button
-              type="button"
-              onClick={() => onAction?.("open_contract")}
-              className="w-full sm:w-auto px-5 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              onClick={() => onAction?.("respond_quote")}
+              className="w-full sm:w-auto px-5 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:scale-105 duration-150"
             >
               <FileSignature className="w-4 h-4 text-slate-950" />
-              <span>Xem &amp; Ký Hợp Đồng Ngay</span>
+              <span>Phản Hồi Báo Giá</span>
             </button>
+          </div>
+
+          {/* Bảng thông số Dự Toán Thi Công gộp trực tiếp vào ô báo giá */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-800 text-xs">
+            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+              <span className="text-slate-400 font-bold block text-[10px] uppercase">Tổng chi phí dự toán</span>
+              <span className="text-base font-black text-amber-300 block leading-tight mt-0.5">
+                {formatMoney(total)}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Trọn gói thi công</span>
+            </div>
+
+            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+              <span className="text-emerald-400 font-bold block text-[10px] uppercase">Tiền cọc (30%)</span>
+              <span className="text-base font-black text-emerald-300 block leading-tight mt-0.5">
+                {formatMoney(deposit)}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Sau khi ký HĐ</span>
+            </div>
+
+            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+              <span className="text-slate-400 font-bold block text-[10px] uppercase">Còn lại (70%)</span>
+              <span className="text-base font-black text-slate-200 block leading-tight mt-0.5">
+                {formatMoney(remaining)}
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Sau nghiệm thu</span>
+            </div>
+
+            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+              <span className="text-slate-400 font-bold block text-[10px] uppercase">Thời gian thi công</span>
+              <span className="text-base font-black text-slate-200 block leading-tight mt-0.5 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>{booking.estimatedDays || 3} ngày</span>
+              </span>
+              <span className="text-[10px] text-slate-400 block mt-0.5">Dự kiến hoàn thành</span>
+            </div>
           </div>
         </div>
       );
@@ -570,6 +684,85 @@ export default function OrderActionBanner({
     }
 
     if (["WAITING_CUSTOMER_SIGNATURE", "CUSTOMER_ACCEPTED_QUOTE"].includes(s)) {
+      const negInfo = parseNegotiationInfo(booking?.description);
+      const hasNegotiation = negInfo.hasNegotiation;
+
+      if (hasNegotiation) {
+        return (
+          <div className="space-y-3">
+            {/* Negotiation Alert - Hiển thị giá khách mong muốn nổi bật */}
+            <div className="bg-amber-50 border-2 border-amber-400 rounded-3xl p-5 sm:p-6 shadow-md">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-4 flex-1 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center shrink-0 animate-bounce shadow-sm">
+                    <AlertTriangle className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white px-2.5 py-0.5 rounded-full">
+                        ⚠️ Khách Hàng Yêu Cầu Thương Lượng Giá
+                      </span>
+                      {negInfo.proposedPrice && (
+                        <span className="text-xs font-black text-emerald-900 bg-emerald-100 border border-emerald-300 px-3 py-0.5 rounded-full">
+                          Khách muốn giá: <strong className="text-emerald-700 font-black">{negInfo.proposedPrice}</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="bg-white p-2.5 rounded-xl border border-amber-200">
+                        <span className="text-[10px] text-slate-500 font-bold block uppercase">Báo giá gốc hiện tại</span>
+                        <span className="font-black text-slate-900 text-sm block mt-0.5">{formatMoney(total)}</span>
+                      </div>
+                      <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                        <span className="text-[10px] text-emerald-800 font-bold block uppercase">Mức giá khách đề xuất</span>
+                        <span className="font-black text-emerald-700 text-sm block mt-0.5">{negInfo.proposedPrice || "Không nêu mức giá cụ thể"}</span>
+                      </div>
+                    </div>
+
+                    {negInfo.message && (
+                      <p className="text-xs text-amber-950 font-medium leading-relaxed bg-white/90 p-2.5 rounded-xl border border-amber-300 italic">
+                        💬 Lý do từ khách: "{negInfo.message}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onAction?.("quote")}
+                  className="w-full sm:w-auto px-5 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl text-xs transition shrink-0 shadow-md flex items-center justify-center gap-2 cursor-pointer hover:scale-105 duration-150"
+                >
+                  <Send className="w-4 h-4 text-slate-950" />
+                  <span>Cập Nhật Báo Giá</span>
+                </button>
+              </div>
+            </div>
+            {/* Normal waiting state */}
+            <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-800 opacity-60">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+                  <Clock className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/30">
+                    Bước 2: Chờ phản hồi
+                  </span>
+                  <p className="text-xs text-slate-400 mt-1">Khách đang yêu cầu thương lượng lại mức giá.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onAction?.("open_contract")}
+                className="px-4 py-2.5 bg-white/10 text-white font-bold rounded-xl text-xs border border-white/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Xem HĐ</span>
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-800">
           <div className="flex items-start gap-4">
@@ -581,10 +774,10 @@ export default function OrderActionBanner({
                 Bước 2: Chờ khách ký HĐ
               </span>
               <h3 className="text-base font-bold mt-1 text-white">
-                Đã gửi báo giá ({formatMoney(total)}) - Đang chờ khách ký hợp đồng
+                Đã gửi báo giá ({formatMoney(total)}) - Đang chờ khách phản hồi
               </h3>
               <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
-                Khách hàng đang xem bảng dự toán và thực hiện ký hợp đồng điện tử từ ứng dụng khách hàng.
+                Khách hàng đang xem bảng dự toán. Họ sẽ chấp nhận, thương lượng hoặc từ chối.
               </p>
             </div>
           </div>
@@ -836,3 +1029,4 @@ export default function OrderActionBanner({
 
   return null;
 }
+

@@ -52,8 +52,8 @@ export default function WorkflowSection({ onBookingCTA }) {
     <section id="workflow" className="bg-gradient-to-b from-slate-50 via-sky-50/20 to-slate-100 text-slate-900 py-20 px-4 sm:px-6 lg:px-8 border-t border-slate-200">
       <div className="max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-16">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3.5 py-1 rounded-full border border-emerald-200 shadow-xs">
-            Quy Trình 4 Bước Chuẩn
+          <span className="text-xs font-bold uppercase tracking-wider text-[#1E3A8A] bg-blue-50 px-3.5 py-1 rounded-full border border-blue-200 shadow-xs">
+            Quy Trình 4 Bước Chuẩn Precision Paint
           </span>
           <h3 className="text-3xl sm:text-4xl font-black tracking-tight mt-3 text-slate-900">
             Minh Bạch Từ Khảo Sát Đến Bàn Giao
@@ -88,10 +88,10 @@ export default function WorkflowSection({ onBookingCTA }) {
         </div>
 
         {/* Banner lưu ý */}
-        <div className="mt-12 bg-white border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+        <div className="mt-12 bg-white border border-blue-200 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-              <Clock className="w-5 h-5 text-emerald-600" />
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-[#1E3A8A]" />
             </div>
             <div>
               <h5 className="font-bold text-slate-900 text-sm">
@@ -105,9 +105,9 @@ export default function WorkflowSection({ onBookingCTA }) {
           <button
             type="button"
             onClick={onBookingCTA}
-            className="whitespace-nowrap px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-xs"
+            className="whitespace-nowrap px-6 py-3 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-md shadow-amber-500/20 active:scale-95"
           >
-            Đặt lịch ngay
+            Đặt Lịch Ngay
           </button>
         </div>
       </div>

@@ -136,6 +136,11 @@ export default function PaymentToStaff() {
     allStaff.find((s) => Number(s.userId || s.id) === Number(id) || s.username === username);
 
   const openPayoutQR = (order, staffId, staffName, role, amount) => {
+    const fin = calculateFinancials(order);
+    if (!fin.isFinalPaid) {
+      showToast?.("Chỉ có thể quyết toán thù lao khi khách hàng đã hoàn tất mọi thanh toán!", "warning");
+      return;
+    }
     const sp = getStaffProfile(staffId, staffName);
     setPayoutModal({
       orderId: order.id, staffId, staffName, role, amount,
@@ -442,7 +447,7 @@ export default function PaymentToStaff() {
             const fin = calculateFinancials(o);
             const supS = getSalary(o.id, o.supervisorId, "SURVEYOR", fin.total * 0.1);
             const worS = getSalary(o.id, o.technicianId, "TECHNICIAN", fin.total * 0.6);
-            return (fin.isDepositPaid || fin.isFinalPaid) && (
+            return fin.isFinalPaid && (
               (o.supervisorId && !supS.isPaid) ||
               (o.technicianId && !worS.isPaid)
             );
@@ -745,24 +750,36 @@ export default function PaymentToStaff() {
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 {hasSupervisor && !supS.isPaid && (
-                                  <button
-                                    type="button"
-                                    onClick={() => openPayoutQR(o, o.supervisorId, o.supervisorName || "Giám sát", "SURVEYOR", supS.amount)}
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                                    title="Quét VietQR chi trả Giám sát"
-                                  >
-                                    <QrCode className="w-3 h-3" /> Trả GS
-                                  </button>
+                                  fin.isFinalPaid ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openPayoutQR(o, o.supervisorId, o.supervisorName || "Giám sát", "SURVEYOR", supS.amount)}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                      title="Quét VietQR chi trả Giám sát"
+                                    >
+                                      <QrCode className="w-3 h-3" /> Trả GS
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                                      Chờ khách tất toán
+                                    </span>
+                                  )
                                 )}
                                 {hasTechnician && !worS.isPaid && (
-                                  <button
-                                    type="button"
-                                    onClick={() => openPayoutQR(o, o.technicianId, o.technicianName || "Kỹ thuật viên", "TECHNICIAN", worS.amount)}
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                                    title="Quét VietQR chi trả Đội thợ"
-                                  >
-                                    <QrCode className="w-3 h-3" /> Trả Thợ
-                                  </button>
+                                  fin.isFinalPaid ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openPayoutQR(o, o.technicianId, o.technicianName || "Kỹ thuật viên", "TECHNICIAN", worS.amount)}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
+                                      title="Quét VietQR chi trả Đội thợ"
+                                    >
+                                      <QrCode className="w-3 h-3" /> Trả Thợ
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                                      Chờ khách tất toán
+                                    </span>
+                                  )
                                 )}
                               </div>
                             </td>

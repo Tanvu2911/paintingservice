@@ -1,1 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
+
+:root {
+  --color-primary-navy: #1E3A8A;
+  --color-navy-dark: #0f172a;
+  --color-navy-light: #1e40af;
+  --color-navy-bg: #eff6ff;
+  
+  --color-accent-amber: #F59E0B;
+  --color-accent-amber-hover: #D97706;
+  
+  --color-surface-bg: #F7F9FB;
+  --color-surface-white: #FFFFFF;
+}
+
+@layer base {
+  * {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  body {
+    background-color: #F7F9FB;
+    color: #0f172a;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Custom Theme Utility Classes */
+.bg-navy-primary {
+  background-color: #1E3A8A !important;
+}
+
+.text-navy-primary {
+  color: #1E3A8A !important;
+}
+
+.border-navy-primary {
+  border-color: #1E3A8A !important;
+}
+
+.bg-amber-cta {
+  background-color: #F59E0B !important;
+  color: #ffffff !important;
+}
+
+.bg-amber-cta:hover {
+  background-color: #D97706 !important;
+}
+
+.text-amber-cta {
+  color: #D97706 !important;
+}
+
+.bg-surface-light {
+  background-color: #F7F9FB !important;
+}
+
+/* ==========================================================================
+   UNIVERSAL THEME OVERRIDES (ALL PAGES, ALL BUTTONS, ALL MODALS & BADGES)
+   ========================================================================== */
+
+/* 1. Primary Action Buttons across all pages (Submit, Confirm, Main Action CTAs) */
+button[type="submit"],
+.btn-primary,
+.cta-btn {
+  background-color: #F59E0B !important;
+  color: #ffffff !important;
+}
+
+button[type="submit"]:hover,
+.btn-primary:hover,
+.cta-btn:hover {
+  background-color: #D97706 !important;
+}
+
+/* 2. Primary Navigation & Header Elements (Navy #1E3A8A) */
+button.bg-emerald-600,
+button.bg-emerald-700,
+a.bg-emerald-600,
+a.bg-emerald-700,
+div.bg-emerald-600,
+span.bg-emerald-600 {
+  background-color: #1E3A8A !important;
+}
+
+button.bg-emerald-600:hover,
+button.bg-emerald-700:hover,
+a.bg-emerald-600:hover,
+a.bg-emerald-700:hover {
+  background-color: #1e40af !important;
+}
+
+/* 3. Text Color Accents */
+.text-emerald-600,
+.text-emerald-700,
+.text-emerald-800,
+.text-emerald-900 {
+  color: #1E3A8A !important;
+}
+
+/* 4. Border Color Accents */
+.border-emerald-500,
+.border-emerald-600 {
+  border-color: #1E3A8A !important;
+}
+
+/* 5. Light Background Badges & Container Boxes */
+.bg-emerald-50,
+.bg-emerald-50\/40,
+.bg-emerald-50\/50,
+.bg-emerald-50\/60,
+.bg-emerald-50\/70,
+.bg-emerald-50\/80 {
+  background-color: #eff6ff !important;
+}
+
+.border-emerald-100,
+.border-emerald-200,
+.border-emerald-300 {
+  border-color: #bfdbfe !important;
+}
+
+/* 6. Form Input Focus Rings */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #1E3A8A !important;
+  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.15) !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

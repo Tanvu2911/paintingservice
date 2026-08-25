@@ -98,14 +98,14 @@ export default function NotificationPopover({
                     key={n.id}
                     onClick={() => handleItemClick(n)}
                     className={`group relative p-3.5 flex items-start justify-between gap-3 hover:bg-slate-50/90 transition cursor-pointer ${
-                      !n.isRead ? "bg-emerald-50/30 font-medium" : "bg-white"
+                      !n.isRead ? "bg-blue-50/40 font-medium" : "bg-white"
                     }`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.isRead ? "bg-emerald-600" : "bg-transparent"}`} />
+                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.isRead ? "bg-[#1E3A8A]" : "bg-transparent"}`} />
                       <div className="min-w-0 flex-1">
                         {titleText && (
-                          <p className="text-xs font-bold text-slate-900 leading-snug truncate group-hover:text-emerald-700 transition">
+                          <p className="text-xs font-bold text-slate-900 leading-snug truncate group-hover:text-[#1E3A8A] transition">
                             {titleText}
                           </p>
                         )}
@@ -119,7 +119,7 @@ export default function NotificationPopover({
                             {n.createdAt ? new Date(n.createdAt).toLocaleString("vi-VN") : ""}
                           </span>
                           {destination && (
-                            <span className="text-[10px] font-bold text-emerald-700 group-hover:underline flex items-center gap-0.5">
+                            <span className="text-[10px] font-bold text-[#1E3A8A] group-hover:underline flex items-center gap-0.5">
                               <span>Xem chi tiết</span>
                               <ChevronRight className="w-3 h-3" />
                             </span>

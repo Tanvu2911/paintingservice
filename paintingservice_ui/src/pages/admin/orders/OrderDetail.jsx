@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { exportContractPDF } from "../../../util/contractPdfExport";
 import { formatMoney } from "../../../util/formatters";
-import { getVietQRBankCode } from "../../../util/orderFlowUtils";
+import { getVietQRBankCode, parseNegotiationInfo } from "../../../util/orderFlowUtils";
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -473,7 +473,12 @@ export default function OrderDetail() {
 
   const status = order?.status;
   const isDepositPaid = order?.paymentStatus === "DEPOSIT_PAID" || order?.depositPaid;
-  const isFullyPaid = order?.paymentStatus === "FULLY_PAID";
+  const isFullyPaid = Boolean(
+    order?.paymentStatus === "FULLY_PAID" ||
+    order?.finalPaid ||
+    order?.status === "PAID_TO_STAFF" ||
+    order?.status === "COMPLETED"
+  );
   const isContractSignedByBoth = Boolean(contract?.adminSigned && contract?.customerSigned);
 
   // Chỉ cho phép gán/đổi Giám sát khi đơn chưa khảo sát xong & chưa nộp báo cáo
@@ -630,6 +635,11 @@ export default function OrderDetail() {
   const isWorkerPaid = workerSalary?.paymentStatus === "PAID";
 
   const handleOpenStaffPayout = (staffId, staffName, role, defaultAmount) => {
+    if (!isFullyPaid) {
+      showToast?.("Chỉ có thể quyết toán thù lao cho nhân viên khi khách hàng đã hoàn tất mọi thanh toán!", "warning");
+      return;
+    }
+
     let staffProfile = null;
     if (role === "SURVEYOR") {
       staffProfile = supervisors.find(
@@ -801,16 +811,82 @@ export default function OrderDetail() {
               </div>
             </div>
 
-            {/* Mô tả hiện trạng ban đầu */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                <FileText className="w-4 h-4 text-emerald-600" />
-                <span>Hạng mục &amp; Yêu cầu ban đầu từ khách</span>
-              </div>
-              <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                {order.description || "Không có ghi chú mô tả"}
-              </p>
-            </div>
+            {/* Mô tả hiện trạng ban đầu & Thương lượng từ khách */}
+            {(() => {
+              const negInfo = parseNegotiationInfo(order?.description);
+              const displayDesc = negInfo.initialDesc || (!negInfo.hasNegotiation ? order?.description : "") || "Không có ghi chú mô tả ban đầu.";
+
+              return (
+                <div className="space-y-3">
+                  {/* Ô mô tả ban đầu */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                      <FileText className="w-4 h-4 text-emerald-600" />
+                      <span>Hạng mục &amp; Yêu cầu ban đầu từ khách</span>
+                    </div>
+                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                      {displayDesc}
+                    </p>
+                  </div>
+
+                  {/* Khi khách đang yêu cầu thương lượng giá */}
+                  {negInfo.hasNegotiation && (
+                    <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
+                            <AlertCircle className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-full">
+                            ⚠️ Đang Yêu Cầu Thương Lượng Giá
+                          </span>
+                        </div>
+                        {negInfo.proposedPrice && (
+                          <span className="text-xs font-black text-emerald-900 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                            Đề xuất: {negInfo.proposedPrice}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="bg-white p-2.5 rounded-xl border border-amber-200">
+                          <span className="text-[10px] text-slate-500 font-bold block uppercase">Báo giá gốc</span>
+                          <span className="font-black text-slate-900 text-sm block mt-0.5">{order.totalAmount ? formatMoney(order.totalAmount) : "—"}</span>
+                        </div>
+                        <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                          <span className="text-[10px] text-emerald-800 font-bold block uppercase">Mức giá khách mong muốn</span>
+                          <span className="font-black text-emerald-700 text-sm block mt-0.5">{negInfo.proposedPrice || "Không nêu mức giá cụ thể"}</span>
+                        </div>
+                      </div>
+
+                      {negInfo.message && (
+                        <div className="bg-white rounded-xl border border-amber-200 p-2.5 text-xs text-amber-900 italic font-medium">
+                          💬 Lý do từ khách: "{negInfo.message}"
+                        </div>
+                      )}
+
+                      <p className="text-[10px] text-amber-700 leading-relaxed">
+                        → Hãy liên hệ khách hàng để thỏa thuận và cập nhật lại báo giá bằng nút "Cập Nhật Báo Giá" trong banner bên trên.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Lịch sử thương lượng cũ nếu có */}
+                  {negInfo.history.filter((h) => !h.isCurrent).length > 0 && (
+                    <div className="p-3 rounded-2xl bg-white border border-slate-200 space-y-1.5">
+                      <span className="text-[11px] font-bold text-slate-600 block uppercase">
+                        📜 Lịch sử các lần thương lượng trước ({negInfo.history.filter((h) => !h.isCurrent).length} lần):
+                      </span>
+                      {negInfo.history.filter((h) => !h.isCurrent).map((item, idx) => (
+                        <p key={idx} className="text-xs text-slate-600 font-medium">
+                          • {item.rawText}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* BÁO CÁO KHẢO SÁT HIỆN TRẠNG TỪ GIÁM SÁT VIÊN */}
             {surveyDetail ? (
@@ -1140,8 +1216,8 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {/* Card Quyết toán Thù Lao Nhân Sự */}
-          {(order.supervisorId || order.technicianId) && (
+          {/* Card Quyết toán Thù Lao Nhân Sự (Chỉ hiển thị khi khách hàng đã hoàn tất mọi thanh toán) */}
+          {isFullyPaid && (order.supervisorId || order.technicianId) && (
             <div id="staff-payout-section" className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
@@ -1361,8 +1437,8 @@ export default function OrderDetail() {
                   type="button"
                   onClick={() => setSupervisorModalTab("all")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "all"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   Tất cả ({eligibleSupervisors.length})
@@ -1371,8 +1447,8 @@ export default function OrderDetail() {
                   type="button"
                   onClick={() => setSupervisorModalTab("district")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "district"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   ★ Cùng khu vực ({districtSupervisors.length})
@@ -1381,8 +1457,8 @@ export default function OrderDetail() {
                   type="button"
                   onClick={() => setSupervisorModalTab("idle")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "idle"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   ⚡ Đang rảnh ({idleSupervisors.length})
@@ -1404,8 +1480,8 @@ export default function OrderDetail() {
                   type="button"
                   onClick={() => setWorkerModalTab("all")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "all"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   Tất cả ({eligibleWorkers.length})
@@ -1414,8 +1490,8 @@ export default function OrderDetail() {
                   type="button"
                   onClick={() => setWorkerModalTab("district")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "district"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   ★ Cùng khu vực ({districtWorkers.length})
@@ -1424,8 +1500,8 @@ export default function OrderDetail() {
                   type="button"
                   onClick={() => setWorkerModalTab("idle")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "idle"
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                 >
                   ⚡ Đang rảnh ({idleWorkers.length})
@@ -1472,8 +1548,8 @@ export default function OrderDetail() {
                       ) : (
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${assignModal === "supervisor"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-emerald-100 text-emerald-800"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-emerald-100 text-emerald-800"
                             }`}
                         >
                           {(s.username || "S").charAt(0).toUpperCase()}
@@ -1542,15 +1618,75 @@ export default function OrderDetail() {
         </div>
       </Modal>
 
-      {/* Modal Gửi Báo Giá */}
+      {/* Modal Gửi / Cập Nhật Báo Giá */}
       <Modal
         isOpen={quoteModalOpen}
         onClose={() => setQuoteModalOpen(false)}
-        title="Gửi báo giá &amp; Thời gian thi công cho khách"
+        title={order?.status === "WAITING_CUSTOMER_SIGNATURE" ? "Điều chỉnh báo giá & Dự toán thi công" : "Lập báo giá & Dự toán thi công"}
       >
         <div className="space-y-4">
+          {(() => {
+            const negInfo = parseNegotiationInfo(order?.description);
+            const proposedRawNumber = negInfo.proposedPrice ? negInfo.proposedPrice.replace(/[^\d]/g, "") : null;
+
+            if (!negInfo.hasNegotiation) return null;
+
+            return (
+              <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-300 rounded-2xl text-xs space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                  <span className="font-black text-amber-950 flex items-center gap-1.5 text-xs uppercase tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    Đề xuất điều chỉnh từ Khách hàng
+                  </span>
+                  {negInfo.proposedPrice && (
+                    <span className="font-black text-emerald-900 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full text-xs">
+                      {negInfo.proposedPrice}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white/90 p-2.5 rounded-xl border border-amber-200">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Báo giá hiện tại</span>
+                    <span className="font-black text-slate-900 text-sm block mt-0.5">
+                      {order.totalAmount ? formatMoney(order.totalAmount) : "—"}
+                    </span>
+                  </div>
+                  <div className="bg-emerald-50/90 p-2.5 rounded-xl border border-emerald-300">
+                    <span className="text-[10px] text-emerald-800 font-bold block uppercase">Mức giá đề xuất</span>
+                    <span className="font-black text-emerald-700 text-sm block mt-0.5">
+                      {negInfo.proposedPrice || "Chưa ghi số tiền"}
+                    </span>
+                  </div>
+                </div>
+
+                {negInfo.message && (
+                  <div className="text-slate-800 text-xs bg-white/90 p-2.5 rounded-xl border border-amber-200 font-medium leading-relaxed">
+                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Ghi chú từ khách hàng:</span>
+                    "{negInfo.message}"
+                  </div>
+                )}
+
+                {proposedRawNumber && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuoteTotal(proposedRawNumber);
+                      setQuoteDeposit(String(Math.round(Number(proposedRawNumber) * 0.3)));
+                      showToast?.(`Đã áp dụng mức dự toán đề xuất: ${Number(proposedRawNumber).toLocaleString("vi-VN")}đ`, "success");
+                    }}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-1.5 hover:shadow-md active:scale-98"
+                  >
+                    <span>✨</span>
+                    <span>Áp dụng mức giá đề xuất ({negInfo.proposedPrice})</span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
           <p className="text-xs text-slate-600 leading-relaxed">
-            Dựa trên báo cáo khảo sát từ Giám sát viên, Admin nhập tổng giá trị dự toán, số ngày thi công và thời hạn bảo hành. Khi gửi, hệ thống sẽ tự động tạo Hợp đồng điện tử để khách duyệt &amp; ký.
+            Dựa trên khảo sát thực tế và thỏa thuận với khách hàng, Admin cập nhật lại tổng dự toán, số ngày thi công và thời hạn bảo hành. Hợp đồng điện tử sẽ tự động đồng bộ theo mức giá mới.
           </p>
 
           <div className="space-y-3">

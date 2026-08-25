@@ -12,25 +12,25 @@ export default function Sidebar({
 }) {
   const accentMap = {
     blue: {
-      logoBg: "bg-emerald-600",
-      active: "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold",
-      hover: "hover:bg-emerald-50 hover:text-emerald-800",
-      dot: "bg-emerald-600",
+      logoBg: "bg-[#1E3A8A]",
+      active: "bg-[#1E3A8A] text-white shadow-md shadow-[#1E3A8A]/20 font-bold",
+      hover: "hover:bg-blue-50 hover:text-[#1E3A8A]",
+      dot: "bg-amber-500",
     },
     amber: {
-      logoBg: "bg-emerald-600",
-      active: "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold",
-      hover: "hover:bg-emerald-50 hover:text-emerald-800",
-      dot: "bg-emerald-600",
+      logoBg: "bg-[#1E3A8A]",
+      active: "bg-[#1E3A8A] text-white shadow-md shadow-[#1E3A8A]/20 font-bold",
+      hover: "hover:bg-blue-50 hover:text-[#1E3A8A]",
+      dot: "bg-amber-500",
     },
     emerald: {
-      logoBg: "bg-emerald-600",
-      active: "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold",
-      hover: "hover:bg-emerald-50 hover:text-emerald-800",
-      dot: "bg-emerald-600",
+      logoBg: "bg-[#1E3A8A]",
+      active: "bg-[#1E3A8A] text-white shadow-md shadow-[#1E3A8A]/20 font-bold",
+      hover: "hover:bg-blue-50 hover:text-[#1E3A8A]",
+      dot: "bg-amber-500",
     },
   };
-  const accent = accentMap[color] || accentMap.emerald;
+  const accent = accentMap[color] || accentMap.blue;
 
   return (
     <aside className="w-64 flex flex-col min-h-screen sticky top-0 bg-white border-r border-slate-200 shadow-xs z-20">

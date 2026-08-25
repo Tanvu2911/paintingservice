@@ -14,7 +14,7 @@ export default function OrderStepper({
     <div className={`bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3 ${className}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
             {title}
           </h3>
@@ -36,9 +36,9 @@ export default function OrderStepper({
               key={stg.id}
               className={`p-3 rounded-2xl border transition relative flex flex-col justify-between ${
                 isCurrent
-                  ? "bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-emerald-500/30"
+                  ? "bg-[#1E3A8A] text-white border-[#1E3A8A] shadow-md ring-2 ring-amber-400/50"
                   : isPassed
-                  ? "bg-slate-50 text-slate-900 border-slate-200"
+                  ? "bg-blue-50/50 text-slate-900 border-blue-100"
                   : "bg-slate-50/50 text-slate-400 border-slate-100"
               }`}
             >
@@ -47,9 +47,9 @@ export default function OrderStepper({
                   <span
                     className={`text-[10px] font-bold uppercase ${
                       isCurrent
-                        ? "text-emerald-400"
+                        ? "text-amber-400"
                         : isPassed
-                        ? "text-slate-600"
+                        ? "text-[#1E3A8A]"
                         : "text-slate-400"
                     }`}
                   >
@@ -57,7 +57,7 @@ export default function OrderStepper({
                   </span>
                   <span className="text-xs font-bold">
                     {isPassed ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                      <Check className="w-3.5 h-3.5 text-[#1E3A8A] stroke-[3]" />
                     ) : isCurrent ? (
                       "●"
                     ) : (

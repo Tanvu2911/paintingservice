@@ -88,15 +88,15 @@ function Register({ showToast }) {
           {/* Top Brand Header */}
           <div className="relative z-10">
             <Link to="/home" className="inline-flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:bg-emerald-500 transition-colors">
-                <Paintbrush className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 bg-[#1E3A8A] text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:bg-[#1e40af] transition-colors">
+                <Paintbrush className="w-5 h-5 text-amber-400" />
               </div>
               <div>
                 <span className="text-lg font-black tracking-tight text-white leading-none block">
-                  PAINTING<span className="text-emerald-400">247</span>
+                  PAINTING<span className="text-amber-400">247</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-0.5">
-                  Dịch vụ sơn sửa chuyên nghiệp
+                  Precision Paint — Dịch vụ sơn sửa chuyên nghiệp
                 </span>
               </div>
             </Link>
@@ -104,7 +104,7 @@ function Register({ showToast }) {
             <div className="mt-12 space-y-3">
               <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">
                 Trải nghiệm dịch vụ <br />
-                <span className="text-emerald-400">sơn sửa chuẩn 5 sao</span>.
+                <span className="text-amber-400">sơn sửa chuẩn 5 sao</span>.
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Tạo tài khoản để đặt lịch khảo sát miễn phí, theo dõi tiến độ thi công công trình và quản lý hợp đồng bảo hành trực tuyến.
@@ -151,11 +151,11 @@ function Register({ showToast }) {
           <div>
             {/* Header */}
             <div className="space-y-1.5">
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+              <h3 className="text-2xl font-black text-[#1E3A8A] tracking-tight">
                 Đăng ký tài khoản
               </h3>
               <p className="text-xs text-slate-500">
-                Tạo tài khoản khách hàng mới để sử dụng dịch vụ Painting247
+                Tạo tài khoản khách hàng mới để sử dụng dịch vụ Precision Paint
               </p>
             </div>
 
@@ -176,7 +176,7 @@ function Register({ showToast }) {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Nhập tên đăng nhập..."
                     disabled={loading}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition disabled:bg-slate-50"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition disabled:bg-slate-50"
                   />
                 </div>
               </div>
@@ -196,7 +196,7 @@ function Register({ showToast }) {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@example.com"
                     disabled={loading}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition disabled:bg-slate-50"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition disabled:bg-slate-50"
                   />
                 </div>
               </div>
@@ -216,7 +216,7 @@ function Register({ showToast }) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Tối thiểu 6 ký tự..."
                     disabled={loading}
-                    className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition disabled:bg-slate-50"
+                    className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition disabled:bg-slate-50"
                   />
                   <button
                     type="button"
@@ -248,7 +248,7 @@ function Register({ showToast }) {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Nhập lại mật khẩu..."
                     disabled={loading}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition disabled:bg-slate-50"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition disabled:bg-slate-50"
                   />
                 </div>
               </div>
@@ -260,7 +260,7 @@ function Register({ showToast }) {
                 className={`w-full mt-2 py-3.5 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
                   loading
                     ? "bg-slate-400 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] shadow-emerald-600/20"
+                    : "bg-amber-500 hover:bg-amber-600 active:bg-amber-700 shadow-amber-500/20 active:scale-[0.99]"
                 }`}
               >
                 {loading ? (

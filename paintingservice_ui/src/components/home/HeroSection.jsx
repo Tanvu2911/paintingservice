@@ -11,25 +11,25 @@ export default function HeroSection({ onBookingCTA }) {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-emerald-50/70 via-sky-50/40 to-amber-50/30 text-slate-900 pt-16 pb-20 px-4 sm:px-6 lg:px-8 border-b border-slate-200/80">
+    <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/80 via-[#F7F9FB] to-[#F7F9FB] text-slate-900 pt-16 pb-20 px-4 sm:px-6 lg:px-8 border-b border-slate-200/80">
       {/* Decorative ambient color blur circles */}
-      <div className="absolute -top-24 -left-20 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/3 -right-20 w-96 h-96 bg-sky-300/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-amber-300/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-24 -left-20 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/3 -right-20 w-96 h-96 bg-amber-300/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 left-1/3 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative max-w-5xl mx-auto text-center space-y-7">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-white/90 border border-emerald-200 text-emerald-900 shadow-xs backdrop-blur-xs">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-white border border-blue-200 text-[#1E3A8A] shadow-xs backdrop-blur-xs">
+          <ShieldCheck className="w-4 h-4 text-[#1E3A8A]" />
           <span>Cam kết sơn chính hãng 100% • Khảo sát &amp; Báo giá tận nơi miễn phí</span>
           <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
           </span>
         </div>
 
         <h2 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight text-slate-900">
           Nâng Tầm Không Gian Sống <br className="hidden sm:inline" />
-          Bằng <span className="bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 bg-clip-text text-transparent underline decoration-emerald-300 underline-offset-8">Lớp Sơn Hoàn Hảo</span>
+          Bằng <span className="bg-gradient-to-r from-[#1E3A8A] via-blue-800 to-amber-500 bg-clip-text text-transparent underline decoration-amber-400 underline-offset-8">Lớp Sơn Precision Paint</span>
         </h2>
 
         <p className="text-base sm:text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
@@ -42,15 +42,15 @@ export default function HeroSection({ onBookingCTA }) {
           <button
             type="button"
             onClick={onBookingCTA}
-            className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            className="px-8 py-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
           >
-            <CalendarPlus className="w-4 h-4 text-white" />
-            <span>Đặt Lịch Khảo Sát Miễn Phí</span>
+            <CalendarPlus className="w-5 h-5 text-white" />
+            <span>Đặt Lịch Khảo Sát &amp; Nhận Báo Giá Miễn Phí</span>
             <ArrowRight className="w-4 h-4 ml-1" />
           </button>
           <a
             href="#services"
-            className="px-7 py-4 bg-white/90 hover:bg-white text-slate-800 font-bold text-sm rounded-2xl border border-slate-200 shadow-xs transition-all flex items-center gap-2 backdrop-blur-xs"
+            className="px-7 py-4 bg-white hover:bg-blue-50/50 text-[#1E3A8A] font-bold text-sm rounded-2xl border border-blue-200 shadow-xs transition-all flex items-center gap-2 backdrop-blur-xs"
           >
             <Sparkles className="w-4 h-4 text-amber-500" />
             <span>Xem Bảng Giá Dịch Vụ</span>

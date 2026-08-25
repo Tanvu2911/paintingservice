@@ -189,3 +189,133 @@ export function getVietQRBankCode(bankNameOrCode) {
   }
   return clean.length <= 6 ? clean : "MB";
 }
+
+/**
+ * Trích xuất thông tin & lịch sử thương lượng giá từ description của đơn hàng
+ */
+export function parseNegotiationInfo(description) {
+  if (!description) {
+    return {
+      hasNegotiation: false,
+      hasAnyHistory: false,
+      proposedPrice: null,
+      originalQuotePrice: null,
+      negotiateTime: null,
+      message: "",
+      history: [],
+      initialDesc: "",
+    };
+  }
+
+  const raw = String(description);
+
+  // 1. Trích xuất tag [Mô tả ban đầu: ...] nếu có
+  let initialDesc = "";
+  const initialMatch = raw.match(/\[Mô tả ban đầu:([\s\S]*?)\]/i);
+  if (initialMatch && initialMatch[1]) {
+    initialDesc = initialMatch[1].trim();
+  }
+
+  // 2. Trích xuất tag [Lịch sử thương lượng: ...]
+  const historyMatch = raw.match(/\[Lịch sử thương lượng:([\s\S]*?)\]/i);
+  const history = [];
+  if (historyMatch && historyMatch[1]) {
+    const lines = historyMatch[1]
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && l !== "[" && l !== "]");
+
+    lines.forEach((line, idx) => {
+      history.push({
+        id: idx + 1,
+        rawText: line.replace(/^[•\-*]\s*/, ""),
+      });
+    });
+  }
+
+  // 3. Chuỗi sau khi loại bỏ [Lịch sử...] và [Mô tả ban đầu...]
+  let cleaned = raw
+    .replace(/\[Lịch sử thương lượng:[\s\S]*?\]/i, "")
+    .replace(/\[Mô tả ban đầu:[\s\S]*?\]/i, "")
+    .trim();
+
+  // 4. Kiểm tra đề xuất đang mở
+  const activeMatch = cleaned.match(/\[(?:Đề xuất thương lượng|Thương lượng giá)[^\]]*\]/i);
+  const hasActive = Boolean(activeMatch);
+
+  let proposedPrice = null;
+  let originalQuotePrice = null;
+  let negotiateTime = null;
+  let activeMessage = "";
+
+  if (hasActive) {
+    const fullActiveTag = activeMatch[0];
+
+    const priceMatch =
+      fullActiveTag.match(/Giá đề xuất:\s*([^)]+)/i) ||
+      cleaned.match(/Giá đề xuất:\s*([^)\s]+)/i);
+
+    if (priceMatch && priceMatch[1]) {
+      let cleanVal = priceMatch[1].replace(/^Giá đề xuất:\s*/i, "").replace(/đ$/i, "").trim();
+      const rawNumber = cleanVal.replace(/[.,]/g, "");
+      if (!isNaN(rawNumber) && rawNumber.length > 0 && /^\d+$/.test(rawNumber)) {
+        proposedPrice = Number(rawNumber).toLocaleString("vi-VN") + "đ";
+      } else {
+        proposedPrice = cleanVal.endsWith("đ") ? cleanVal : cleanVal + "đ";
+      }
+    }
+
+    const quoteMatch = fullActiveTag.match(/Báo giá gốc:\s*([^)]+)/i);
+    if (quoteMatch && quoteMatch[1]) {
+      originalQuotePrice = quoteMatch[1].trim();
+    }
+
+    const timeMatch = fullActiveTag.match(/Thời gian:\s*([^)]+)/i);
+    if (timeMatch && timeMatch[1]) {
+      negotiateTime = timeMatch[1].trim();
+    }
+
+    // Message là phần text sau tag [Đề xuất...]
+    const rawRest = cleaned
+      .replace(/\[(?:Đề xuất thương lượng|Thương lượng giá)[^\]]*\]\s*/i, "")
+      .trim();
+
+    if (!initialDesc && rawRest.includes("\n\n")) {
+      const parts = rawRest.split("\n\n");
+      activeMessage = parts[0].trim();
+      initialDesc = parts.slice(1).join("\n\n").trim();
+    } else {
+      activeMessage = rawRest;
+    }
+  } else {
+    // Nếu không có đề xuất active và chưa có initialDesc từ tag [Mô tả ban đầu:]
+    // thì chính chuỗi cleaned này là mô tả ban đầu của khách hàng!
+    if (!initialDesc) {
+      initialDesc = cleaned;
+    }
+  }
+
+  // Nếu đang có đề xuất hiện tại, đưa vào đầu danh sách lịch sử
+  if (hasActive) {
+    history.unshift({
+      id: "current",
+      isCurrent: true,
+      time: negotiateTime || "Mới nhất",
+      proposedPrice: proposedPrice,
+      originalQuotePrice: originalQuotePrice,
+      message: activeMessage,
+      status: "Đang chờ Admin phản hồi",
+    });
+  }
+
+  return {
+    hasNegotiation: hasActive,
+    hasAnyHistory: history.length > 0 || hasActive,
+    proposedPrice,
+    originalQuotePrice,
+    negotiateTime,
+    message: activeMessage,
+    history,
+    initialDesc: initialDesc.trim(),
+  };
+}

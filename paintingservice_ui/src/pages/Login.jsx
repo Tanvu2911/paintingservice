@@ -100,15 +100,15 @@ function Login({ onLogin, showToast }) {
           {/* Top Brand Header */}
           <div className="relative z-10">
             <Link to="/home" className="inline-flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:bg-emerald-500 transition-colors">
-                <Paintbrush className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 bg-[#1E3A8A] text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:bg-[#1e40af] transition-colors">
+                <Paintbrush className="w-5 h-5 text-amber-400" />
               </div>
               <div>
                 <span className="text-lg font-black tracking-tight text-white leading-none block">
-                  PAINTING<span className="text-emerald-400">247</span>
+                  PAINTING<span className="text-amber-400">247</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-0.5">
-                  Dịch vụ sơn sửa chuyên nghiệp
+                  Precision Paint — Dịch vụ sơn sửa chuyên nghiệp
                 </span>
               </div>
             </Link>
@@ -116,7 +116,7 @@ function Login({ onLogin, showToast }) {
             <div className="mt-12 space-y-3">
               <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight">
                 Không gian mới, <br />
-                <span className="text-emerald-400">giá trị bền vững</span>.
+                <span className="text-amber-400">giá trị bền vững</span>.
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Hệ thống quản lý dịch vụ sơn nhà toàn diện: khảo sát chuẩn xác, hợp đồng điện tử minh bạch và bảo hành dài hạn.
@@ -163,11 +163,11 @@ function Login({ onLogin, showToast }) {
           <div>
             {/* Header */}
             <div className="space-y-1.5">
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+              <h3 className="text-2xl font-black text-[#1E3A8A] tracking-tight">
                 Đăng nhập tài khoản
               </h3>
               <p className="text-xs text-slate-500">
-                Nhập thông tin xác thực để truy cập hệ thống Painting247
+                Nhập thông tin xác thực để truy cập hệ thống Precision Paint
               </p>
             </div>
 
@@ -188,7 +188,7 @@ function Login({ onLogin, showToast }) {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Nhập tên đăng nhập..."
                     disabled={loading}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition disabled:bg-slate-50"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition disabled:bg-slate-50"
                   />
                 </div>
               </div>
@@ -210,7 +210,7 @@ function Login({ onLogin, showToast }) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     disabled={loading}
-                    className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition disabled:bg-slate-50"
+                    className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition disabled:bg-slate-50"
                   />
                   <button
                     type="button"
@@ -234,7 +234,7 @@ function Login({ onLogin, showToast }) {
                 className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
                   loading
                     ? "bg-slate-400 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] shadow-emerald-600/20"
+                    : "bg-amber-500 hover:bg-amber-600 active:bg-amber-700 shadow-amber-500/20 active:scale-[0.99]"
                 }`}
               >
                 {loading ? (

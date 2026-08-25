@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   XCircle,
   Star,
+  DollarSign,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -26,15 +27,15 @@ import OrderActionBanner from "../../components/common/OrderActionBanner";
 import SurveyReportCard from "../../components/common/SurveyReportCard";
 import ContractModal from "../../components/common/ContractModal";
 import ImageLightboxModal from "../../components/common/ImageLightboxModal";
-import PaymentSection from "../../components/payment/PaymentSection";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
 import RejectQuoteModal from "../../components/common/RejectQuoteModal";
 import ReviewModal from "../../components/review/ReviewModal";
 import ReviewCard from "../../components/review/ReviewCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import StaffDetailModal from "../../components/common/StaffDetailModal";
+import QuoteResponseModal from "../../components/common/QuoteResponseModal";
 import { formatMoney } from "../../util/formatters";
-import { formatDate, parseImageUrls } from "../../util/orderFlowUtils";
+import { formatDate, parseImageUrls, parseNegotiationInfo } from "../../util/orderFlowUtils";
 import { exportContractPDF } from "../../util/contractPdfExport";
 
 export default function BookingDetail(props) {
@@ -61,6 +62,7 @@ export default function BookingDetail(props) {
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedStaffProfile, setSelectedStaffProfile] = useState(null);
   const [loadingStaffProfile, setLoadingStaffProfile] = useState(false);
+  const [quoteResponseModalOpen, setQuoteResponseModalOpen] = useState(false);
 
   const fetchBooking = async () => {
     try {
@@ -225,6 +227,54 @@ export default function BookingDetail(props) {
     }
   };
 
+  // Thương lượng giá - gửi đề xuất cho Admin qua description field
+  const handleNegotiateQuote = async (proposedPrice, message) => {
+    try {
+      const rawDesc = booking?.description || "";
+      const negInfo = parseNegotiationInfo(rawDesc);
+      const initialDescription = negInfo.initialDesc || "";
+      const existingHistoryMatch = rawDesc.match(/\[Lịch sử thương lượng:([\s\S]*?)\]/i);
+      const historyBlock = existingHistoryMatch ? `\n${existingHistoryMatch[0]}` : "";
+
+      const priceNote = proposedPrice ? ` (Giá đề xuất: ${Number(proposedPrice).toLocaleString("vi-VN")}đ)` : "";
+      const negotiationPrefix = `[Đề xuất thương lượng giá${priceNote}]`;
+      const initialBlock = initialDescription ? `\n\n[Mô tả ban đầu:\n${initialDescription}\n]` : "";
+      const newDescription = `${negotiationPrefix} ${message}${historyBlock}${initialBlock}`;
+
+      await AxiosConfig.put(`/bookings/${id}`, {
+        ...booking,
+        description: newDescription,
+      });
+      showToast?.("Đề xuất thương lượng đã được gửi tới Admin! Họ sẽ liên hệ lại với bạn sớm.", "success");
+      await refreshData();
+    } catch (error) {
+      showToast?.(error.response?.data?.message || "Không thể gửi đề xuất thương lượng!", "error");
+    }
+  };
+
+  // Hủy đề xuất thương lượng giá
+  const handleCancelNegotiation = async () => {
+    try {
+      const rawDesc = booking?.description || "";
+      const negInfo = parseNegotiationInfo(rawDesc);
+      const initialDescription = negInfo.initialDesc || "";
+      const existingHistoryMatch = rawDesc.match(/\[Lịch sử thương lượng:([\s\S]*?)\]/i);
+      const historyBlock = existingHistoryMatch ? `${existingHistoryMatch[0]}\n\n` : "";
+      const initialBlock = initialDescription ? `[Mô tả ban đầu:\n${initialDescription}\n]` : "";
+      const newDescription = (historyBlock + initialBlock).trim();
+
+      await AxiosConfig.put(`/bookings/${id}`, {
+        ...booking,
+        description: newDescription || null,
+      });
+      showToast?.("Đã hủy đề xuất thương lượng giá thành công! Đơn hàng đã quay lại trạng thái phản hồi báo giá.", "success");
+      setQuoteResponseModalOpen(false);
+      await refreshData();
+    } catch (error) {
+      showToast?.(error.response?.data?.message || "Không thể hủy yêu cầu thương lượng!", "error");
+    }
+  };
+
   // Xóa đánh giá
   const handleDeleteReview = () => {
     if (!review) return;
@@ -247,7 +297,9 @@ export default function BookingDetail(props) {
 
   // Xử lý các hành động từ Banner
   const handleBannerAction = async (actionType) => {
-    if (actionType === "reject_quote") {
+    if (actionType === "respond_quote") {
+      setQuoteResponseModalOpen(true);
+    } else if (actionType === "reject_quote") {
       setRejectModalOpen(true);
     } else if (actionType === "open_contract") {
       setContractModal(true);
@@ -341,9 +393,20 @@ export default function BookingDetail(props) {
     );
   }
 
+  const total = Number(booking.totalAmount) || 0;
+  const deposit = booking.depositAmount ? Number(booking.depositAmount) : total * 0.3;
+  const remaining = Math.max(0, total - deposit);
+  const isDepositPaid = Boolean(
+    booking.depositPaid ||
+    booking.paymentStatus === "DEPOSIT_PAID" ||
+    booking.paymentStatus === "FULLY_PAID" ||
+    ["DEPOSIT_CONFIRMED", "ASSIGNED", "PROCESSING", "WORKER_COMPLETED", "WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(booking.status)
+  );
+  const isFinalPaid = Boolean(booking.finalPaid || booking.paymentStatus === "FULLY_PAID");
+
   const canAcceptQuote =
     ["WAITING_CUSTOMER_SIGNATURE", "WAITING_ADMIN_QUOTE", "CUSTOMER_ACCEPTED_QUOTE"].includes(booking.status) &&
-    Number(booking.totalAmount) > 0 &&
+    total > 0 &&
     (!contract || !contract.customerSigned);
   const surveyDetail = bookingDetails && bookingDetails.length > 0 ? bookingDetails[0] : null;
 
@@ -408,7 +471,6 @@ export default function BookingDetail(props) {
         onAction={handleBannerAction}
       />
 
-
       {/* Cảnh báo nếu đơn đã hủy */}
       {booking.status === "CANCELLED" && (
         <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 sm:p-6 shadow-xs flex items-start gap-4 text-rose-900">
@@ -428,7 +490,7 @@ export default function BookingDetail(props) {
 
       {/* Main Grid: 2 Cột chi tiết */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Cột trái 2 phần: Thông tin, Khảo sát, Báo giá, Nhật ký thi công */}
+        {/* Cột trái: Thông tin, Khảo sát, Dự toán, Thanh toán, Nhật ký thi công */}
         <div className="lg:col-span-2 space-y-6">
           {/* Card 1: Thông tin công trình & Khảo sát */}
           <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
@@ -453,12 +515,116 @@ export default function BookingDetail(props) {
               </div>
             </div>
 
-            {booking.description && (
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs">
-                <span className="text-slate-400 font-bold block mb-1">Yêu cầu &amp; Mô tả hiện trạng của bạn:</span>
-                <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{booking.description}</p>
-              </div>
-            )}
+            {/* Ô: Yêu cầu & Mô tả hiện trạng của bạn */}
+            {(() => {
+              const negInfo = parseNegotiationInfo(booking?.description);
+              const displayDesc = negInfo.initialDesc || (!negInfo.hasNegotiation ? booking?.description : "") || "Khách hàng không ghi chú mô tả khi tạo yêu cầu.";
+              const pastHistory = negInfo.history.filter((h) => !h.isCurrent);
+
+              return (
+                <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 text-xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                    <span className="text-slate-700 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-slate-600" />
+                      Yêu cầu &amp; Mô tả hiện trạng của bạn:
+                    </span>
+                    {negInfo.hasNegotiation ? (
+                      <span className="text-[10.5px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        Đang thương lượng giá
+                      </span>
+                    ) : pastHistory.length > 0 ? (
+                      <span className="text-[10.5px] font-bold bg-blue-100 text-blue-900 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                        Đã có lịch sử thương lượng ({pastHistory.length} lần)
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Mô tả ban đầu */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 text-slate-800 leading-relaxed font-medium">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase mb-0.5">
+                      Mô tả / Yêu cầu ban đầu khi đặt lịch:
+                    </span>
+                    <p className="whitespace-pre-wrap">{displayDesc}</p>
+                  </div>
+
+                  {/* Đề xuất đang mở hiện tại */}
+                  {negInfo.hasNegotiation && (
+                    <div className="bg-amber-50/90 rounded-2xl border-2 border-amber-300 p-3.5 space-y-2.5 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                        <span className="font-bold text-amber-950 flex items-center gap-1.5 text-xs">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                          Đề xuất thương lượng hiện tại ({negInfo.negotiateTime || "Mới nhất"})
+                        </span>
+                        <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-full">
+                          ⏳ Chờ Admin phản hồi
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 bg-white rounded-xl border border-amber-200">
+                          <span className="text-[10px] text-slate-500 font-bold block uppercase">Báo giá gốc từ hệ thống</span>
+                          <span className="font-black text-slate-900 text-sm block mt-0.5">
+                            {negInfo.originalQuotePrice || formatMoney(total)}
+                          </span>
+                        </div>
+                        <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-300">
+                          <span className="text-[10px] text-emerald-800 font-bold block uppercase">Mức giá bạn đề xuất</span>
+                          <span className="font-black text-emerald-700 text-sm block mt-0.5">
+                            {negInfo.proposedPrice || "Không nêu mức giá cụ thể"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {negInfo.message && (
+                        <div className="text-slate-800 text-xs bg-white p-2.5 rounded-xl border border-amber-200 font-medium leading-relaxed">
+                          <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Lý do gửi Admin:</span>
+                          "{negInfo.message}"
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-amber-200/60">
+                        <button
+                          type="button"
+                          onClick={() => setQuoteResponseModalOpen(true)}
+                          className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-xl text-xs border border-amber-300 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                        >
+                          <span>✏️</span> Sửa đề xuất
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelNegotiation}
+                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs border border-rose-200 transition cursor-pointer flex items-center gap-1 shadow-2xs"
+                        >
+                          <span>🗑️</span> Hủy thương lượng
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lịch sử các lần thương lượng trước */}
+                  {pastHistory.length > 0 && (
+                    <div className="space-y-2 pt-1 border-t border-slate-200/80">
+                      <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5 uppercase tracking-wide">
+                        <span>📜</span> Lịch sử thương lượng giá ({pastHistory.length} lượt trước):
+                      </span>
+                      <div className="space-y-2">
+                        {pastHistory.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1 shadow-2xs"
+                          >
+                            <p className="leading-relaxed font-medium">
+                              • {item.rawText}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Báo cáo khảo sát thực tế từ Giám sát viên */}
             <SurveyReportCard
@@ -468,125 +634,48 @@ export default function BookingDetail(props) {
             />
           </div>
 
-          {/* Card 2: Báo giá, Dự toán & Chọn ngày thi công */}
-          {Number(booking.totalAmount) > 0 && (
+          {/* Card 2: Báo giá dịch vụ & Dự toán thi công (Hiển thị sau khi đã duyệt báo giá) */}
+          {total > 0 && !canAcceptQuote && (
             <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="w-4 h-4 text-emerald-600" />
-                  <span>Báo giá dịch vụ &amp; Dự toán thi công</span>
+                  <span>Báo Giá Dịch Vụ &amp; Dự Toán Thi Công</span>
                 </h3>
-                {canAcceptQuote ? (
-                  <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-                    Chờ bạn chọn ngày &amp; ký HĐ
-                  </span>
-                ) : (
-                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                    Đã duyệt báo giá
-                  </span>
-                )}
+                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  {booking.warrantyYears || 2} năm bảo hành
+                </span>
               </div>
 
-              <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <div className="text-slate-500 font-semibold">Tổng chi phí thi công</div>
-                    <div className="text-2xl font-black text-slate-900 mt-0.5">{formatMoney(booking.totalAmount)}</div>
-                    <div className="text-[11px] text-slate-500 mt-1">
-                      Đặt cọc 30%: <strong className="text-emerald-700">{formatMoney(booking.depositAmount || Number(booking.totalAmount) * 0.3)}</strong>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-slate-500 font-semibold">Thời gian thi công dự kiến</div>
-                    <div className="text-xl font-black text-slate-800 mt-0.5 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-emerald-600" />
-                      <span>{booking.estimatedDays || 3} ngày làm việc</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-1">
-                      Còn lại 70%: <strong className="text-slate-700">{formatMoney(booking.remainingAmount || Number(booking.totalAmount) * 0.7)}</strong>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-slate-500 font-semibold">Chế độ bảo hành</div>
-                    <div className="text-xl font-black text-emerald-700 mt-0.5 flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>{booking.warrantyYears || 2} năm bảo hành</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-1">Cam kết sơn chính hãng 100%</div>
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Tổng chi phí thi công</span>
+                  <span className="text-lg font-black text-slate-900 block leading-tight">{formatMoney(total)}</span>
+                  <span className="text-[10.5px] text-slate-500 block">Trọn gói vật tư &amp; nhân công</span>
                 </div>
 
-                {canAcceptQuote && (
-                  <div className="pt-4 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                    <div className="space-y-1.5 flex-1 max-w-sm">
-                      <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Chọn ngày bắt đầu thi công mong muốn <span className="text-rose-500">*</span></span>
-                      </label>
-                      <input
-                        type="date"
-                        min={new Date().toISOString().split("T")[0]}
-                        max={new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0]}
-                        value={selectedStartDate}
-                        onChange={(e) => setSelectedStartDate(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 shadow-xs"
-                      />
-                      <p className="text-[10.5px] text-slate-400">* Bạn có thể chọn ngày làm trong vòng 30 ngày tới.</p>
-                    </div>
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Thời gian thi công</span>
+                  <span className="text-base font-black text-slate-800 block flex items-center gap-1.5 leading-tight">
+                    <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{booking.estimatedDays || 3} ngày làm việc</span>
+                  </span>
+                  <span className="text-[10.5px] text-slate-500 block">Dự kiến hoàn thiện</span>
+                </div>
 
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setRejectModalOpen(true)}
-                        disabled={acceptingQuote || rejecting}
-                        className="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition border border-rose-200 cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <XCircle className="w-4 h-4 text-rose-600" />
-                        <span>✕ Từ chối báo giá</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleAcceptQuoteAndOpenContract}
-                        disabled={acceptingQuote || !selectedStartDate || rejecting}
-                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer shrink-0 flex items-center justify-center gap-2"
-                      >
-                        <FileSignature className="w-4 h-4 text-white" />
-                        <span>{acceptingQuote ? "Đang xử lý..." : "✓ Đồng ý Báo Giá & Ký Hợp Đồng"}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {!canAcceptQuote && booking.expectedStartDate && (
-                  <div className="pt-3 border-t border-slate-200/80 flex items-center gap-2 text-xs text-slate-700">
-                    <Calendar className="w-4 h-4 text-emerald-600" />
-                    <span>Ngày bắt đầu thi công đã cam kết: <strong className="text-slate-900">{formatDate(booking.expectedStartDate)}</strong></span>
-                  </div>
-                )}
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Ngày khởi công</span>
+                  <span className="text-base font-black text-slate-800 block flex items-center gap-1.5 leading-tight">
+                    <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="truncate">{booking.expectedStartDate ? formatDate(booking.expectedStartDate) : "Chờ chốt ngày"}</span>
+                  </span>
+                  <span className="text-[10.5px] text-slate-500 block">Lịch hẹn thi công</span>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Card 3: Thanh toán Cọc & Tất toán */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-slate-700" />
-              <span>Thanh toán tiền cọc &amp; Tất toán</span>
-            </h3>
-
-            <PaymentSection
-              booking={booking}
-              contract={contract}
-              onOpenContract={() => setContractModal(true)}
-              showToast={showToast}
-              onRefresh={refreshData}
-            />
-          </div>
-
-          {/* Card 4: Nhật ký thi công hàng ngày */}
+          {/* Card 2: Nhật ký thi công hàng ngày */}
           {(dailyReports.length > 0 || ["ASSIGNED", "PROCESSING", "WORKER_COMPLETED", "COMPLETED", "PAID_TO_STAFF"].includes(booking.status)) && (
             <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -707,11 +796,10 @@ export default function BookingDetail(props) {
               {/* Giám sát viên */}
               <div
                 onClick={() => (booking.supervisorName || booking.surveyorName) && handleOpenStaffModal("supervisor")}
-                className={`p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-start gap-3 transition ${
-                  booking.supervisorName || booking.surveyorName
-                    ? "hover:bg-blue-100/70 hover:border-blue-300 cursor-pointer group shadow-2xs"
-                    : "opacity-80"
-                }`}
+                className={`p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-start gap-3 transition ${booking.supervisorName || booking.surveyorName
+                  ? "hover:bg-blue-100/70 hover:border-blue-300 cursor-pointer group shadow-2xs"
+                  : "opacity-80"
+                  }`}
               >
                 {booking.supervisorAvatar || booking.surveyorAvatar ? (
                   <img
@@ -754,11 +842,10 @@ export default function BookingDetail(props) {
               {/* Đội thợ sơn */}
               <div
                 onClick={() => booking.technicianName && handleOpenStaffModal("technician")}
-                className={`p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-start gap-3 transition ${
-                  booking.technicianName
-                    ? "hover:bg-emerald-100/70 hover:border-emerald-300 cursor-pointer group shadow-2xs"
-                    : "opacity-80"
-                }`}
+                className={`p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-start gap-3 transition ${booking.technicianName
+                  ? "hover:bg-emerald-100/70 hover:border-emerald-300 cursor-pointer group shadow-2xs"
+                  : "opacity-80"
+                  }`}
               >
                 {booking.technicianAvatar ? (
                   <img
@@ -878,6 +965,29 @@ export default function BookingDetail(props) {
         booking={booking}
         onConfirmReject={handleRejectQuote}
         loading={rejecting}
+      />
+
+      <QuoteResponseModal
+        isOpen={quoteResponseModalOpen}
+        onClose={() => setQuoteResponseModalOpen(false)}
+        booking={booking}
+        onAccept={(startDate) => {
+          setSelectedStartDate(startDate);
+          setQuoteResponseModalOpen(false);
+          // Save date then open contract modal
+          AxiosConfig.put(`/bookings/${id}`, {
+            ...booking,
+            expectedStartDate: startDate,
+          }).then(() => {
+            setContractModal(true);
+            refreshData();
+          }).catch((e) => {
+            showToast?.(e.response?.data?.message || "Lỗi cập nhật ngày thi công!", "error");
+          });
+        }}
+        onNegotiate={handleNegotiateQuote}
+        onCancelNegotiation={handleCancelNegotiation}
+        onReject={handleRejectQuote}
       />
 
       <ImageLightboxModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />

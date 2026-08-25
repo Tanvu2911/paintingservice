@@ -15,11 +15,11 @@ export default function ServicesSection({ services, loadingServices, onSelectSer
   return (
     <section id="services" className="max-w-6xl mx-auto py-20 px-4 sm:px-6 lg:px-8">
       <div className="text-center max-w-2xl mx-auto mb-14">
-        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3.5 py-1 rounded-full border border-emerald-200 shadow-xs">
+        <span className="text-xs font-bold uppercase tracking-wider text-[#1E3A8A] bg-blue-50 px-3.5 py-1 rounded-full border border-blue-200 shadow-xs">
           Hạng Mục Dịch Vụ Của Chúng Tôi
         </span>
         <h3 className="text-3xl font-black text-slate-900 tracking-tight mt-3">
-          Gói Dịch Vụ Sơn Nhà Trọn Gói Chuẩn Quốc Tế
+          Gói Dịch Vụ Sơn Nhà Trọn Gói Precision Paint
         </h3>
         <p className="text-sm text-slate-500 mt-2">
           Chọn gói dịch vụ bên dưới để chuyển thẳng sang phần đặt lịch khảo sát đã chọn sẵn.
@@ -30,11 +30,11 @@ export default function ServicesSection({ services, loadingServices, onSelectSer
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <div key={i} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs animate-pulse space-y-4">
-              <div className="w-12 h-12 bg-emerald-50 rounded-2xl" />
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl" />
               <div className="h-5 bg-slate-200 rounded w-2/3" />
               <div className="h-4 bg-slate-100 rounded w-full" />
               <div className="h-4 bg-slate-100 rounded w-4/5" />
-              <div className="h-10 bg-emerald-100 rounded-xl mt-6" />
+              <div className="h-10 bg-amber-100 rounded-xl mt-6" />
             </div>
           ))}
         </div>
@@ -51,19 +51,19 @@ export default function ServicesSection({ services, loadingServices, onSelectSer
             return (
               <div
                 key={srv.id}
-                className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs hover:shadow-xl hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group"
+                className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs hover:shadow-xl hover:border-blue-300 transition-all duration-300 flex flex-col justify-between group"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-5">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#1E3A8A] flex items-center justify-center group-hover:bg-[#1E3A8A] group-hover:text-white transition-all duration-300 shadow-xs">
                       <ServiceIcon className="w-6 h-6" />
                     </div>
-                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-blue-50 text-[#1E3A8A] border border-blue-200">
                       Chính Hãng 100%
                     </span>
                   </div>
 
-                  <h4 className="font-bold text-slate-900 text-base mb-2 group-hover:text-emerald-700 transition-colors">
+                  <h4 className="font-bold text-slate-900 text-base mb-2 group-hover:text-[#1E3A8A] transition-colors">
                     {srv.name}
                   </h4>
                   <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-3">
@@ -72,15 +72,15 @@ export default function ServicesSection({ services, loadingServices, onSelectSer
 
                   <div className="space-y-1.5 mb-6">
                     <div className="flex items-center gap-2 text-xs text-slate-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                       <span>Vật tư sơn chính hãng 100%</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                       <span>Che chắn nội thất sạch sẽ</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                       <span>Bảo hành chất lượng công trình</span>
                     </div>
                   </div>
@@ -90,13 +90,13 @@ export default function ServicesSection({ services, loadingServices, onSelectSer
                   <div className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
                     Đơn giá cơ sở
                   </div>
-                  <div className="text-lg font-black text-emerald-700 mb-3 font-mono">
+                  <div className="text-lg font-black text-[#1E3A8A] mb-3 font-mono">
                     {srv.basePrice ? `${formatMoney(srv.basePrice)} / m²` : "Khảo sát báo giá"}
                   </div>
                   <button
                     type="button"
                     onClick={() => onSelectService(srv)}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                    className="w-full py-3 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
                   >
                     <span>Chọn dịch vụ này</span>
                     <ArrowRight className="w-3.5 h-3.5" />
