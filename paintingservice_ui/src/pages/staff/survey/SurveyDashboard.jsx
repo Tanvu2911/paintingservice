@@ -87,18 +87,18 @@ export default function SurveyDashboard() {
   return (
     <div className="space-y-6 max-w-7xl">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 p-6 md:p-8 rounded-3xl text-white shadow-xl shadow-emerald-950/20 relative overflow-hidden border border-emerald-800/50">
-        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="bg-gradient-to-r from-[#090D1A] via-[#1E3A8A] to-[#0B132B] p-6 md:p-8 rounded-3xl text-white shadow-xl shadow-blue-950/20 relative overflow-hidden border border-blue-800/40">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/15">
-              <Search className="w-3.5 h-3.5 text-emerald-300" />
+              <Search className="w-3.5 h-3.5 text-blue-300" />
               <span>Bảng điều khiển Khảo sát &amp; Giám sát</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
               Xin chào, {user?.fullName || user?.username || "Giám sát viên"}!
             </h1>
-            <p className="text-emerald-100/70 text-xs mt-1 max-w-xl">
+            <p className="text-blue-100/70 text-xs mt-1 max-w-xl">
               Theo dõi lịch khảo sát công trình, lập báo cáo hiện trạng kỹ thuật và nghiệm thu đơn hàng.
             </p>
           </div>
@@ -107,7 +107,7 @@ export default function SurveyDashboard() {
             {/* Nút Gạt Trạng Thái Hoạt Động (Toggle Switch) */}
             <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/15">
               <div className="text-left">
-                <p className="text-[10px] text-emerald-200/80 font-bold uppercase tracking-wider">Trạng thái</p>
+                <p className="text-[10px] text-blue-200/80 font-bold uppercase tracking-wider">Trạng thái</p>
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${available ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
                   <span>{available ? "Sẵn sàng nhận việc" : "Tạm nghỉ nhận việc"}</span>
@@ -137,12 +137,12 @@ export default function SurveyDashboard() {
             {/* Nút Lịch khảo sát */}
             <Link
               to="/staff/survey/jobs"
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-xs transition flex items-center gap-2 border border-emerald-400/30 shadow-md cursor-pointer"
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-xs transition flex items-center gap-2 border border-blue-400/30 shadow-md cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-white" />
               <span>Lịch khảo sát</span>
               {Number(stats.pendingJobs) > 0 && (
-                <span className="px-1.5 py-0.5 bg-white text-emerald-900 rounded-full text-[10px] font-black">
+                <span className="px-1.5 py-0.5 bg-white text-blue-900 rounded-full text-[10px] font-black">
                   {stats.pendingJobs}
                 </span>
               )}

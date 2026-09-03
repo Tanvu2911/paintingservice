@@ -2,6 +2,7 @@ package com.example.paintingservice.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 import java.time.LocalDateTime;
 
 @Entity
@@ -10,8 +11,8 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class BookingDetail {
+@SuperBuilder
+public class BookingDetail extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,23 +41,10 @@ public class BookingDetail {
     @Builder.Default
     private Boolean customerAccepted = false;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
 
     @PrePersist
     void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        createdAt = createdAt == null ? now : createdAt;
-        updatedAt = now;
         supervisorAccepted = Boolean.TRUE.equals(supervisorAccepted);
         customerAccepted = Boolean.TRUE.equals(customerAccepted);
-    }
-
-    @PreUpdate
-    void onUpdate() {
-        updatedAt = LocalDateTime.now();
     }
 }

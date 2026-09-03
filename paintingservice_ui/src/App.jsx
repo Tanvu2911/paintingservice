@@ -1,22 +1,27 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Home from "./pages/Home";
-
-import AdminRoutes from "./routes/AdminRoutes";
-import SurveyRoutes from "./routes/SurveyRoutes";
-import TechnicianRoutes from "./routes/TechnicianRoutes";
-import CustomerRoutes from "./routes/CustomerRoutes";
+import PageLoadingFallback from "./components/common/PageLoadingFallback";
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider, useToast } from "./context/ToastContext";
+
+// Lazy-loaded routes và pages chính
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Home = lazy(() => import("./pages/Home"));
+
+const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
+const SurveyRoutes = lazy(() => import("./routes/SurveyRoutes"));
+const TechnicianRoutes = lazy(() => import("./routes/TechnicianRoutes"));
+const CustomerRoutes = lazy(() => import("./routes/CustomerRoutes"));
 
 function AppRoutes() {
   const { user, login, logout, getRedirectPath, isAdmin, isSurveyStaff, isTechnicianStaff, isCustomer } = useAuth();
   const { showToast } = useToast();
 
   return (
-    <Routes>
+    <Suspense fallback={<PageLoadingFallback />}>
+      <Routes>
       <Route
         path="/login"
         element={
@@ -122,6 +127,7 @@ function AppRoutes() {
 
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 

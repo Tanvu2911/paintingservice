@@ -4,13 +4,15 @@ import com.example.paintingservice.dto.PaymentDto;
 import com.example.paintingservice.mapper.PaymentMapper;
 import com.example.paintingservice.service.PaymentService;
 import com.example.paintingservice.service.VNPayService;
-import jakarta.validation.Valid;
+import com.example.paintingservice.service.WarrantyClaimService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,6 +24,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final VNPayService vnPayService;
+    private final WarrantyClaimService warrantyClaimService;
 
     // ===== VNPAY SANDBOX =====
 
@@ -30,9 +33,10 @@ public class PaymentController {
     public ResponseEntity<?> createVNPayOrder(
             @RequestParam Long bookingId,
             @RequestParam(defaultValue = "DEPOSIT") String paymentType,
+            @RequestParam(required = false) Long claimId,
             jakarta.servlet.http.HttpServletRequest request) {
         try {
-            return ResponseEntity.ok(vnPayService.createVNPayPaymentUrl(bookingId, paymentType, request));
+            return ResponseEntity.ok(vnPayService.createVNPayPaymentUrl(bookingId, paymentType, claimId, request));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
@@ -64,16 +68,22 @@ public class PaymentController {
         }
     }
 
-    // ===== PAYMENTS LIST & DETAIL =====
-
-    @GetMapping("/pending")
+    @PostMapping("/warranty-staff-payout")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> getPendingPayments() {
-        List<PaymentDto> dtos = paymentService.getPendingPayments().stream()
-                .map(PaymentMapper::toDto)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
+    public ResponseEntity<?> payWarrantyStaffPayout(
+            @RequestParam Long claimId,
+            @RequestParam(required = false) Long staffId,
+            @RequestParam(required = false, defaultValue = "TECHNICIAN") String role,
+            @RequestParam(required = false) BigDecimal amount,
+            Principal principal) {
+        try {
+            return ResponseEntity.ok(warrantyClaimService.payStaff(claimId, staffId, role, amount, principal.getName()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
+
+    // ===== PAYMENTS LIST & DETAIL =====
 
     @GetMapping("/booking/{bookingId}")
     public ResponseEntity<?> getPaymentsByBooking(@PathVariable Long bookingId) {
@@ -83,73 +93,10 @@ public class PaymentController {
         return ResponseEntity.ok(dtos);
     }
 
-    @PostMapping("/{id}/confirm")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> confirmPayment(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(paymentService.confirmPayment(id));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> rejectPayment(
-            @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body) {
-        try {
-            String reason = body != null ? body.get("reason") : null;
-            return ResponseEntity.ok(paymentService.rejectPayment(id, reason));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
-    }
-
-    // ===== CRUD =====
-
     @GetMapping
     public List<PaymentDto> getAll() {
         return paymentService.findAll().stream()
                 .map(PaymentMapper::toDto)
                 .collect(Collectors.toList());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<PaymentDto> getById(@PathVariable Long id) {
-        return paymentService.findById(id)
-                .map(PaymentMapper::toDto)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PaymentDto> create(@Valid @RequestBody PaymentDto dto) {
-        PaymentDto result = PaymentMapper.toDto(paymentService.save(PaymentMapper.toEntity(dto)));
-        return ResponseEntity.status(HttpStatus.CREATED).body(result);
-    }
-
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PaymentDto> update(
-            @PathVariable Long id,
-            @Valid @RequestBody PaymentDto dto) {
-        if (!paymentService.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        dto.setId(id);
-        PaymentDto result = PaymentMapper.toDto(paymentService.save(PaymentMapper.toEntity(dto)));
-        return ResponseEntity.ok(result);
-    }
-
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!paymentService.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        paymentService.deleteById(id);
-        return ResponseEntity.noContent().build();
     }
 }

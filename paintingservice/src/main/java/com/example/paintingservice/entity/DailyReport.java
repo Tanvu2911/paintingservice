@@ -2,17 +2,20 @@ package com.example.paintingservice.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "daily_reports")
+@Table(name = "daily_reports", indexes = {
+        @Index(name = "idx_daily_report_booking_created", columnList = "booking_id, created_at")
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class DailyReport {
+@SuperBuilder
+public class DailyReport extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -64,17 +67,4 @@ public class DailyReport {
     @Column(name = "material_cost", precision = 15, scale = 2)
     @Builder.Default
     private java.math.BigDecimal materialCost = java.math.BigDecimal.ZERO;
-
-    /**
-     * Thời gian tạo báo cáo.
-     */
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-    }
 }

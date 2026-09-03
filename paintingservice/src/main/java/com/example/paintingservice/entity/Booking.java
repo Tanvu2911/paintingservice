@@ -3,6 +3,7 @@ package com.example.paintingservice.entity;
 import com.example.paintingservice.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,8 +21,8 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Booking {
+@SuperBuilder
+public class Booking extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -88,15 +89,9 @@ public class Booking {
     @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Contract contract;
 
-    @Column(name = "created_at", updatable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "preferred_technician_id")
     private User preferredTechnician; // Đội thợ mà khách hàng chọn khi tạo đơn
-
-    private LocalDateTime depositDeadline;
 
     @Column(name = "estimated_days")
     private Integer estimatedDays;
@@ -112,4 +107,7 @@ public class Booking {
 
     @Column(name = "final_paid_at")
     private LocalDateTime finalPaidAt;
+
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 }

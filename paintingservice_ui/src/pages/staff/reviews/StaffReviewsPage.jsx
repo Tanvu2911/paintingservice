@@ -269,7 +269,7 @@ export default function StaffReviewsPage() {
             onClick={() => handleScopeChange("MY_REVIEWS")}
             className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               viewScope === "MY_REVIEWS"
-                ? "bg-slate-900 text-white shadow-xs"
+                ? "bg-emerald-600 text-white shadow-xs"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-600"
             }`}
           >
@@ -281,7 +281,7 @@ export default function StaffReviewsPage() {
             onClick={() => handleScopeChange("ALL_REVIEWS")}
             className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
               viewScope === "ALL_REVIEWS"
-                ? "bg-slate-900 text-white shadow-xs"
+                ? "bg-emerald-600 text-white shadow-xs"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-600"
             }`}
           >
@@ -297,7 +297,7 @@ export default function StaffReviewsPage() {
             onClick={() => setStarFilter("ALL")}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               starFilter === "ALL"
-                ? "bg-slate-900 text-white shadow-xs"
+                ? "bg-emerald-600 text-white shadow-xs"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-700"
             }`}
           >

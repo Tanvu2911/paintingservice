@@ -19,6 +19,8 @@ import {
   XCircle,
   Star,
   DollarSign,
+  ShieldAlert,
+  Wrench,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import StatusBadge from "../../components/common/StatusBadge";
@@ -34,6 +36,8 @@ import ReviewCard from "../../components/review/ReviewCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import StaffDetailModal from "../../components/common/StaffDetailModal";
 import QuoteResponseModal from "../../components/common/QuoteResponseModal";
+import WarrantyClaimModal from "../../components/common/WarrantyClaimModal";
+import WarrantyClaimList from "../../components/common/WarrantyClaimList";
 import { formatMoney } from "../../util/formatters";
 import { formatDate, parseImageUrls, parseNegotiationInfo } from "../../util/orderFlowUtils";
 import { exportContractPDF } from "../../util/contractPdfExport";
@@ -63,6 +67,8 @@ export default function BookingDetail(props) {
   const [selectedStaffProfile, setSelectedStaffProfile] = useState(null);
   const [loadingStaffProfile, setLoadingStaffProfile] = useState(false);
   const [quoteResponseModalOpen, setQuoteResponseModalOpen] = useState(false);
+  const [warrantyClaims, setWarrantyClaims] = useState([]);
+  const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
 
   const fetchBooking = async () => {
     try {
@@ -77,6 +83,15 @@ export default function BookingDetail(props) {
     } catch (error) {
       console.error("Load booking detail error:", error);
       showToast?.("Không tải được thông tin đơn hàng!", "error");
+    }
+  };
+
+  const fetchWarrantyClaims = async () => {
+    try {
+      const response = await AxiosConfig.get(`/warranty-claims/booking/${id}`);
+      setWarrantyClaims(Array.isArray(response.data) ? response.data : []);
+    } catch (e) {
+      setWarrantyClaims([]);
     }
   };
 
@@ -126,6 +141,7 @@ export default function BookingDetail(props) {
       fetchDailyReports(),
       fetchBookingDetails(),
       fetchReview(),
+      fetchWarrantyClaims(),
     ]);
   };
 
@@ -781,6 +797,54 @@ export default function BookingDetail(props) {
               )}
             </div>
           )}
+
+          {/* Card 4: Quyền Lợi Bảo Hành & Gửi Yêu Cầu Bảo Hành (Hiển thị khi công trình hoàn tất) */}
+          {["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) && (
+            <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                    Quyền Lợi Bảo Hành &amp; Hỗ Trợ Kỹ Thuật
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWarrantyModalOpen(true)}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>Gửi Yêu Cầu Bảo Hành</span>
+                </button>
+              </div>
+
+              {warrantyClaims.length === 0 ? (
+                <div className="p-5 bg-emerald-50/50 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="space-y-0.5 text-emerald-950">
+                    <p className="font-bold">
+                      🛡️ Công trình đang trong thời hạn bảo hành chính hãng ({booking.warrantyYears || 2} năm).
+                    </p>
+                    <p className="text-emerald-800 text-[11.5px]">
+                      Nếu có hiện tượng nứt chân chim, bong tróc, thấm mốc hay phai màu, bạn có thể gửi yêu cầu bảo hành bất kỳ lúc nào để được hỗ trợ miễn phí.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWarrantyModalOpen(true)}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition whitespace-nowrap cursor-pointer shrink-0"
+                  >
+                    Tạo Phiếu Bảo Hành
+                  </button>
+                </div>
+              ) : (
+                <WarrantyClaimList
+                  claims={warrantyClaims}
+                  onPreviewImage={setPreviewImage}
+                  onClaimUpdated={fetchWarrantyClaims}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Cột phải 1 phần: Nhân sự phụ trách & Thẻ Hợp đồng */}
@@ -991,6 +1055,14 @@ export default function BookingDetail(props) {
       />
 
       <ImageLightboxModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+
+      <WarrantyClaimModal
+        isOpen={warrantyModalOpen}
+        onClose={() => setWarrantyModalOpen(false)}
+        booking={booking}
+        showToast={showToast}
+        onSuccess={fetchWarrantyClaims}
+      />
 
       <StaffDetailModal
         isOpen={Boolean(selectedStaffProfile)}

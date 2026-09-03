@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.paintingservice.repository.UserRepository;
 
@@ -21,6 +22,7 @@ public class AppUserDetailsService implements UserDetailsService {
     UserRepository userRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(@NonNull String username) throws UsernameNotFoundException {
         com.example.paintingservice.entity.User user = userRepository.findByUsername(username).orElseThrow(() ->
                 new UsernameNotFoundException("Không tìm thấy người dùng: " + username));

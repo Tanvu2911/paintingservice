@@ -3,17 +3,21 @@ package com.example.paintingservice.entity;
 import com.example.paintingservice.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "payments", indexes = {
+        @Index(name = "idx_payment_booking", columnList = "booking_id"),
+        @Index(name = "idx_payment_transaction_code", columnList = "transaction_code")
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Payment {
+@SuperBuilder
+public class Payment extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,25 +30,21 @@ public class Payment {
     private BigDecimal amount;
 
     @Column(name = "payment_method", nullable = false, length = 50)
-    private String paymentMethod; // CASH, VNPAY, MOMO, WALLET
+    private String paymentMethod; // VNPAY, MANUAL_ADMIN
 
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", length = 30)
+    @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
 
     @Column(name = "transaction_code", length = 100)
     private String transactionCode;
-
-    // ... các trường cũ ...
 
     @Column(name = "payment_type", length = 20)
     private String paymentType; // DEPOSIT hoặc FINAL
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
-
-    @Column(name = "proof_image", length = 255)
-    private String proofImage;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;

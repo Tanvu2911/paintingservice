@@ -1,5 +1,6 @@
 package com.example.paintingservice.service.impl;
 
+import com.example.paintingservice.constant.AppConstants;
 import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.Payment;
@@ -9,7 +10,7 @@ import com.example.paintingservice.enums.BookingStatus;
 import com.example.paintingservice.enums.PaymentStatus;
 import com.example.paintingservice.enums.SalaryStatus;
 import com.example.paintingservice.repository.BookingRepository;
-import com.example.paintingservice.repository.ContractRepository;
+import com.example.paintingservice.repository.DailyReportRepository;
 import com.example.paintingservice.repository.PaymentRepository;
 import com.example.paintingservice.repository.SalaryHistoryRepository;
 import com.example.paintingservice.repository.UserRepository;
@@ -31,127 +32,25 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
-    private final ContractRepository contractRepository;
     private final SalaryHistoryRepository salaryHistoryRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
-    private final com.example.paintingservice.repository.DailyReportRepository dailyReportRepository;
+    private final DailyReportRepository dailyReportRepository;
 
     public PaymentServiceImpl(
             PaymentRepository paymentRepository,
             BookingRepository bookingRepository,
-            ContractRepository contractRepository,
             SalaryHistoryRepository salaryHistoryRepository,
             UserRepository userRepository,
             NotificationService notificationService,
-            com.example.paintingservice.repository.DailyReportRepository dailyReportRepository) {
+            DailyReportRepository dailyReportRepository) {
         super(paymentRepository);
         this.paymentRepository = paymentRepository;
         this.bookingRepository = bookingRepository;
-        this.contractRepository = contractRepository;
         this.salaryHistoryRepository = salaryHistoryRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.dailyReportRepository = dailyReportRepository;
-    }
-
-    @Override
-    @Transactional
-    public Map<String, Object> confirmPayment(Long paymentId) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch thanh toán #" + paymentId));
-
-        Booking booking = payment.getBooking();
-        if (booking == null) {
-            throw new RuntimeException("Giao dịch không gắn với đơn hàng nào");
-        }
-
-        String type = payment.getPaymentType() != null
-                ? payment.getPaymentType().toUpperCase()
-                : "DEPOSIT";
-
-        if ("DEPOSIT".equals(type)) {
-            payment.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
-            booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
-            booking.setDepositPaidAt(LocalDateTime.now());
-
-            if (booking.getStatus() == BookingStatus.WAITING_CUSTOMER_SIGNATURE
-                    || booking.getStatus() == BookingStatus.PENDING) {
-                booking.setStatus(BookingStatus.WAITING_DEPOSIT);
-            }
-        } else {
-            payment.setPaymentStatus(PaymentStatus.FULLY_PAID);
-            booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
-            booking.setRemainingAmount(BigDecimal.ZERO);
-            booking.setFinalPaidAt(LocalDateTime.now());
-            if (booking.getStatus() == BookingStatus.WORKER_COMPLETED
-                    || booking.getStatus() == BookingStatus.PROCESSING) {
-                booking.setStatus(BookingStatus.COMPLETED);
-            }
-            createSalaryHistoriesForBooking(booking);
-        }
-
-        payment.setPaidAt(LocalDateTime.now());
-        paymentRepository.save(payment);
-        bookingRepository.save(booking);
-
-        if (booking.getCustomer() != null) {
-            String typeVN = "DEPOSIT".equals(type) ? "tiền cọc" : "tất toán hoàn thành";
-            notificationService.save(Notification.builder()
-                    .user(booking.getCustomer())
-                    .title("Thanh toán thành công đơn #" + booking.getId())
-                    .content(String.format(
-                            "Admin đã xác nhận nhận đủ %s cho đơn hàng #%d.",
-                            typeVN, booking.getId()))
-                    .createdAt(LocalDateTime.now())
-                    .isRead(false)
-                    .build());
-        }
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("message", "Đã xác nhận thanh toán thành công");
-        res.put("paymentId", payment.getId());
-        res.put("bookingId", booking.getId());
-        res.put("paymentStatus", booking.getPaymentStatus());
-        res.put("bookingStatus", booking.getStatus());
-        return res;
-    }
-
-    @Override
-    @Transactional
-    public Map<String, Object> rejectPayment(Long paymentId, String reason) {
-        Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch #" + paymentId));
-
-        payment.setPaymentStatus(PaymentStatus.UNPAID);
-        paymentRepository.save(payment);
-
-        Booking booking = payment.getBooking();
-        if (booking != null) {
-            if (booking.getPaymentStatus() == PaymentStatus.PENDING_CONFIRMATION) {
-                booking.setPaymentStatus(PaymentStatus.UNPAID);
-                bookingRepository.save(booking);
-            }
-
-            if (booking.getCustomer() != null) {
-                notificationService.save(Notification.builder()
-                        .user(booking.getCustomer())
-                        .title("Thanh toán chưa được ghi nhận #" + booking.getId())
-                        .content("Admin chưa nhận được khoản chuyển khoản của bạn cho đơn #" + booking.getId()
-                                + (reason != null && !reason.isBlank() ? ". Lý do: " + reason
-                                        : ". Vui lòng kiểm tra lại."))
-                        .createdAt(LocalDateTime.now())
-                        .isRead(false)
-                        .build());
-            }
-        }
-
-        return Map.of("message", "Đã từ chối giao dịch thanh toán", "paymentId", paymentId);
-    }
-
-    @Override
-    public List<Payment> getPendingPayments() {
-        return paymentRepository.findAllByPaymentStatusOrderByIdDesc(PaymentStatus.PENDING_CONFIRMATION);
     }
 
     @Override
@@ -168,7 +67,8 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
         if (booking.getPaymentStatus() != PaymentStatus.FULLY_PAID
                 && booking.getStatus() != BookingStatus.COMPLETED
                 && booking.getStatus() != BookingStatus.PAID_TO_STAFF) {
-            throw new RuntimeException("Chỉ có thể quyết toán thù lao cho nhân viên khi khách hàng đã hoàn tất mọi thanh toán!");
+            throw new RuntimeException(
+                    "Chỉ có thể quyết toán thù lao cho nhân viên khi khách hàng đã hoàn tất mọi thanh toán!");
         }
 
         User staff = userRepository.findById(staffId)
@@ -187,23 +87,19 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
         SalaryHistory sh;
         if (opt.isPresent()) {
             sh = opt.get();
-            // Nếu là Giám sát, cập nhật lại số tiền gồm 10% + chi phí vật tư phát sinh nếu
-            // chưa chốt
             if ("SURVEYOR".equalsIgnoreCase(roleInBooking)) {
-                BigDecimal baseSurveyor = total.multiply(new BigDecimal("0.10"));
+                BigDecimal baseSurveyor = total.multiply(AppConstants.SUPERVISOR_COMMISSION_RATE);
                 sh.setAmountEarned(baseSurveyor.add(materialCostTotal));
             } else if ("TECHNICIAN".equalsIgnoreCase(roleInBooking)) {
-                sh.setAmountEarned(total.multiply(new BigDecimal("0.60")));
+                sh.setAmountEarned(total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE));
             }
         } else {
             BigDecimal amount;
             if ("SURVEYOR".equalsIgnoreCase(roleInBooking)) {
-                // Giám sát nhận: 10% giá trị hợp đồng + hoàn tiền vật liệu phát sinh
-                BigDecimal baseSurveyor = total.multiply(new BigDecimal("0.10"));
+                BigDecimal baseSurveyor = total.multiply(AppConstants.SUPERVISOR_COMMISSION_RATE);
                 amount = baseSurveyor.add(materialCostTotal);
             } else {
-                // Đội thợ nhận: 60% giá trị hợp đồng
-                amount = total.multiply(new BigDecimal("0.60"));
+                amount = total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE);
             }
             sh = SalaryHistory.builder()
                     .booking(booking)
@@ -259,73 +155,5 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
         result.put("materialReimbursement", materialCostTotal);
         result.put("bookingStatus", booking.getStatus());
         return result;
-    }
-
-    private void createSalaryHistoriesForBooking(Booking booking) {
-        if (booking == null)
-            return;
-
-        BigDecimal total = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
-
-        // Tổng tiền vật tư phát sinh từ tất cả báo cáo ngày
-        BigDecimal materialCostTotal = dailyReportRepository.findAllByBooking_Id(booking.getId()).stream()
-                .map(r -> r.getMaterialCost() != null ? r.getMaterialCost() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // 1. Quyết toán cho Giám sát viên: 10% Hợp đồng + Hoàn tiền vật tư phát sinh
-        if (booking.getSurveyor() != null) {
-            Optional<SalaryHistory> exist = salaryHistoryRepository.findByBooking_IdAndWorker_IdAndRoleInBooking(
-                    booking.getId(), booking.getSurveyor().getId(), "SURVEYOR");
-
-            BigDecimal surveyorShare = total.multiply(new BigDecimal("0.10")).add(materialCostTotal);
-            if (surveyorShare.compareTo(BigDecimal.ZERO) == 0 && booking.getSurveyFee() != null) {
-                surveyorShare = booking.getSurveyFee().add(materialCostTotal);
-            }
-
-            if (exist.isEmpty()) {
-                salaryHistoryRepository.save(SalaryHistory.builder()
-                        .booking(booking)
-                        .worker(booking.getSurveyor())
-                        .roleInBooking("SURVEYOR")
-                        .amountEarned(surveyorShare)
-                        .paymentStatus(SalaryStatus.UNPAID)
-                        .calculatedAt(LocalDateTime.now())
-                        .build());
-            } else {
-                SalaryHistory sh = exist.get();
-                if (sh.getPaymentStatus() != SalaryStatus.PAID) {
-                    sh.setAmountEarned(surveyorShare);
-                    salaryHistoryRepository.save(sh);
-                }
-            }
-        }
-
-        // 2. Quyết toán cho Đội thợ thi công: 60% Hợp đồng
-        User tech = booking.getTechnician() != null
-                ? booking.getTechnician()
-                : booking.getPreferredTechnician();
-        if (tech != null) {
-            Optional<SalaryHistory> exist = salaryHistoryRepository.findByBooking_IdAndWorker_IdAndRoleInBooking(
-                    booking.getId(), tech.getId(), "TECHNICIAN");
-
-            BigDecimal workerShare = total.multiply(new BigDecimal("0.60"));
-
-            if (exist.isEmpty()) {
-                salaryHistoryRepository.save(SalaryHistory.builder()
-                        .booking(booking)
-                        .worker(tech)
-                        .roleInBooking("TECHNICIAN")
-                        .amountEarned(workerShare)
-                        .paymentStatus(SalaryStatus.UNPAID)
-                        .calculatedAt(LocalDateTime.now())
-                        .build());
-            } else {
-                SalaryHistory sh = exist.get();
-                if (sh.getPaymentStatus() != SalaryStatus.PAID) {
-                    sh.setAmountEarned(workerShare);
-                    salaryHistoryRepository.save(sh);
-                }
-            }
-        }
     }
 }

@@ -1,15 +1,20 @@
 package com.example.paintingservice.service.impl;
 
 import com.example.paintingservice.config.VNPayConfig;
+import com.example.paintingservice.constant.AppConstants;
 import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.Payment;
+import com.example.paintingservice.entity.WarrantyClaim;
+import com.example.paintingservice.entity.WarrantyReport;
 import com.example.paintingservice.enums.BookingStatus;
 import com.example.paintingservice.enums.PaymentStatus;
+import com.example.paintingservice.enums.WarrantyStatus;
 import com.example.paintingservice.repository.BookingRepository;
 import com.example.paintingservice.repository.ContractRepository;
 import com.example.paintingservice.repository.PaymentRepository;
 import com.example.paintingservice.repository.UserRepository;
+import com.example.paintingservice.repository.WarrantyClaimRepository;
 import com.example.paintingservice.service.NotificationService;
 import com.example.paintingservice.service.VNPayService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,72 +40,114 @@ public class VNPayServiceImpl implements VNPayService {
     private final PaymentRepository paymentRepository;
     private final ContractRepository contractRepository;
     private final UserRepository userRepository;
+    private final WarrantyClaimRepository warrantyClaimRepository;
     private final NotificationService notificationService;
 
     @Override
     @Transactional
     public Map<String, Object> createVNPayPaymentUrl(Long bookingId, String paymentType, HttpServletRequest request)
             throws Exception {
+        return createVNPayPaymentUrl(bookingId, paymentType, null, request);
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> createVNPayPaymentUrl(Long bookingId, String paymentType, Long claimId,
+            HttpServletRequest request) throws Exception {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + bookingId));
 
         String type = paymentType != null ? paymentType.toUpperCase() : "DEPOSIT";
-        if (!type.equals("DEPOSIT") && !type.equals("FINAL")) {
-            throw new RuntimeException("Loại thanh toán phải là DEPOSIT (cọc) hoặc FINAL (tất toán)");
+        boolean isWarranty = "WARRANTY_SUPPORT".equals(type) || "WARRANTY".equals(type);
+
+        if (!type.equals("DEPOSIT") && !type.equals("FINAL") && !isWarranty) {
+            throw new RuntimeException(
+                    "Loại thanh toán phải là DEPOSIT (cọc), FINAL (tất toán), hoặc WARRANTY_SUPPORT (phí hỗ trợ bảo hành)");
         }
 
-        PaymentStatus current = booking.getPaymentStatus();
-        if (type.equals("DEPOSIT") && (current == PaymentStatus.DEPOSIT_PAID || current == PaymentStatus.FULLY_PAID)) {
-            throw new RuntimeException("Đơn hàng đã được thanh toán cọc hoặc hoàn tất!");
-        }
-        if (type.equals("FINAL")) {
-            if (current == PaymentStatus.FULLY_PAID) {
-                throw new RuntimeException("Đơn hàng đã được tất toán hoàn tất!");
-            }
-            boolean hasPaidDeposit = current == PaymentStatus.DEPOSIT_PAID
-                    || current == PaymentStatus.PENDING_CONFIRMATION
-                    || booking.getStatus() == BookingStatus.DEPOSIT_CONFIRMED
-                    || booking.getStatus() == BookingStatus.ASSIGNED
-                    || booking.getStatus() == BookingStatus.PROCESSING
-                    || booking.getStatus() == BookingStatus.WORKER_COMPLETED
-                    || booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT
-                    || booking.getStatus() == BookingStatus.COMPLETED;
-            if (!hasPaidDeposit) {
-                throw new RuntimeException("Cần thanh toán tiền cọc trước khi thanh toán phần còn lại!");
-            }
-            if (booking.getStatus() != BookingStatus.WAITING_FINAL_PAYMENT
-                    && booking.getStatus() != BookingStatus.COMPLETED
-                    && booking.getStatus() != BookingStatus.WORKER_COMPLETED) {
-                throw new RuntimeException(
-                        "Công trình chưa thi công xong hoặc chưa được nghiệm thu để thanh toán tất toán!");
-            }
-        }
+        BigDecimal amount = BigDecimal.ZERO;
+        String vnp_TxnRef;
+        String orderInfo;
 
-        BigDecimal amount = type.equals("DEPOSIT")
-                ? (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                        ? booking.getDepositAmount()
-                        : (booking.getTotalAmount() != null ? booking.getTotalAmount().multiply(new BigDecimal("0.3"))
-                                : BigDecimal.ZERO))
-                : (booking.getRemainingAmount() != null && booking.getRemainingAmount().compareTo(BigDecimal.ZERO) > 0
-                        ? booking.getRemainingAmount()
-                        : (booking.getTotalAmount() != null
-                                ? (booking.getDepositAmount() != null
-                                        && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                                                ? booking.getTotalAmount().subtract(booking.getDepositAmount())
-                                                : booking.getTotalAmount().multiply(new BigDecimal("0.7")))
-                                : BigDecimal.ZERO));
+        if (isWarranty) {
+            WarrantyClaim claim = null;
+            if (claimId != null) {
+                claim = warrantyClaimRepository.findById(claimId).orElse(null);
+            }
+            if (claim == null) {
+                List<WarrantyClaim> claims = warrantyClaimRepository.findByBookingIdOrderByCreatedAtDesc(bookingId);
+                claim = claims.stream()
+                        .filter(c -> c.getReport() != null && c.getReport().getFinalSupportPrice() != null
+                                && c.getReport().getFinalSupportPrice().compareTo(BigDecimal.ZERO) > 0)
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            if (claim == null || claim.getReport() == null || claim.getReport().getFinalSupportPrice() == null
+                    || claim.getReport().getFinalSupportPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Không tìm thấy thông tin chi phí hỗ trợ sửa chữa bảo hành cho đơn này!");
+            }
+
+            amount = claim.getReport().getFinalSupportPrice();
+            vnp_TxnRef = "VNP_BH_" + claim.getId() + "_" + bookingId + "_" + System.currentTimeMillis();
+            orderInfo = "Thanh toan phi ho tro sua chua bao hanh #" + claim.getId() + " don hang #" + bookingId;
+        } else {
+            PaymentStatus current = booking.getPaymentStatus();
+            if (type.equals("DEPOSIT") && (current == PaymentStatus.DEPOSIT_PAID || current == PaymentStatus.FULLY_PAID)) {
+                throw new RuntimeException("Đơn hàng đã được thanh toán cọc hoặc hoàn tất!");
+            }
+            if (type.equals("FINAL")) {
+                if (current == PaymentStatus.FULLY_PAID) {
+                    throw new RuntimeException("Đơn hàng đã được tất toán hoàn tất!");
+                }
+                boolean hasPaidDeposit = current == PaymentStatus.DEPOSIT_PAID
+                        || current == PaymentStatus.PENDING_CONFIRMATION
+                        || booking.getStatus() == BookingStatus.DEPOSIT_CONFIRMED
+                        || booking.getStatus() == BookingStatus.ASSIGNED
+                        || booking.getStatus() == BookingStatus.PROCESSING
+                        || booking.getStatus() == BookingStatus.WORKER_COMPLETED
+                        || booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT
+                        || booking.getStatus() == BookingStatus.COMPLETED;
+                if (!hasPaidDeposit) {
+                    throw new RuntimeException("Cần thanh toán tiền cọc trước khi thanh toán phần còn lại!");
+                }
+                if (booking.getStatus() != BookingStatus.WAITING_FINAL_PAYMENT
+                        && booking.getStatus() != BookingStatus.COMPLETED
+                        && booking.getStatus() != BookingStatus.WORKER_COMPLETED) {
+                    throw new RuntimeException(
+                            "Công trình chưa thi công xong hoặc chưa được nghiệm thu để thanh toán tất toán!");
+                }
+            }
+
+            amount = type.equals("DEPOSIT")
+                    ? (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
+                            ? booking.getDepositAmount()
+                            : (booking.getTotalAmount() != null
+                                    ? booking.getTotalAmount().multiply(AppConstants.DEPOSIT_RATE)
+                                    : BigDecimal.ZERO))
+                    : (booking.getRemainingAmount() != null
+                            && booking.getRemainingAmount().compareTo(BigDecimal.ZERO) > 0
+                                    ? booking.getRemainingAmount()
+                                    : (booking.getTotalAmount() != null
+                                            ? (booking.getDepositAmount() != null
+                                                    && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
+                                                            ? booking.getTotalAmount()
+                                                                    .subtract(booking.getDepositAmount())
+                                                            : booking.getTotalAmount()
+                                                                    .multiply(AppConstants.REMAINING_RATE))
+                                            : BigDecimal.ZERO));
+
+            vnp_TxnRef = (type.equals("DEPOSIT") ? "VNP_COC_" : "VNP_TT_") + bookingId + "_"
+                    + System.currentTimeMillis();
+            orderInfo = "Thanh toan " + (type.equals("DEPOSIT") ? "coc 30%" : "tat toan") + " don hang #"
+                    + bookingId;
+        }
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Số tiền thanh toán không hợp lệ.");
         }
 
-        // Tạo mã giao dịch duy nhất
-        String vnp_TxnRef = (type.equals("DEPOSIT") ? "VNP_COC_" : "VNP_TT_") + bookingId + "_"
-                + System.currentTimeMillis();
         long amountInVND = amount.longValue() * 100; // VNPay nhân 100
-
-        String orderInfo = "Thanh toan " + (type.equals("DEPOSIT") ? "coc 30%" : "tat toan") + " don hang #"
-                + bookingId;
 
         Map<String, String> vnp_Params = new HashMap<>();
         vnp_Params.put("vnp_Version", VNPayConfig.vnp_Version);
@@ -138,11 +185,9 @@ public class VNPayServiceImpl implements VNPayService {
                 hashData.append(fieldName);
                 hashData.append('=');
                 hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-
                 query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
                 query.append('=');
                 query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-
                 if (itr.hasNext()) {
                     query.append('&');
                     hashData.append('&');
@@ -219,56 +264,154 @@ public class VNPayServiceImpl implements VNPayService {
         if ("00".equals(vnp_ResponseCode)) {
             // Thanh toán thành công
             String type = payment.getPaymentType() != null ? payment.getPaymentType().toUpperCase() : "DEPOSIT";
+            boolean isWarranty = "WARRANTY_SUPPORT".equals(type) || "WARRANTY".equals(type)
+                    || (vnp_TxnRef != null && vnp_TxnRef.startsWith("VNP_BH_"));
 
-            if ("DEPOSIT".equals(type)) {
+            if (isWarranty) {
+                Long claimId = null;
+                if (vnp_TxnRef != null && vnp_TxnRef.startsWith("VNP_BH_")) {
+                    try {
+                        String[] parts = vnp_TxnRef.split("_");
+                        if (parts.length >= 3) {
+                            claimId = Long.parseLong(parts[2]);
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                WarrantyClaim claim = null;
+                if (claimId != null) {
+                    claim = warrantyClaimRepository.findById(claimId).orElse(null);
+                }
+                if (claim == null && booking != null) {
+                    List<WarrantyClaim> claims = warrantyClaimRepository
+                            .findByBookingIdOrderByCreatedAtDesc(booking.getId());
+                    claim = claims.stream().findFirst().orElse(null);
+                }
+
+                if (claim != null) {
+                    WarrantyReport report = claim.getReport();
+                    if (report != null) {
+                        report.setCustomerAccepted(true);
+                        if (report.getResolvedAt() == null) {
+                            report.setResolvedAt(LocalDateTime.now());
+                        }
+                    }
+                    if (claim.getStatus() == WarrantyStatus.WORKER_COMPLETED
+                            || (report != null && Boolean.TRUE.equals(report.getSupervisorAccepted()))) {
+                        claim.setStatus(WarrantyStatus.COMPLETED);
+                    }
+                    warrantyClaimRepository.save(claim);
+
+                    // Báo Admin
+                    final WarrantyClaim finalClaim = claim;
+                    userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {
+                        notificationService.save(Notification.builder()
+                                .user(admin)
+                                .title(String.format("Khách thanh toán VNPay phí bảo hành #%d",
+                                        finalClaim.getBooking().getId()))
+                                .content(String.format(
+                                        "Khách hàng đã thanh toán %,.0f VNĐ qua cổng VNPay Sandbox cho phiếu bảo hành #%d.",
+                                        payment.getAmount(), finalClaim.getBooking().getId()))
+                                .createdAt(LocalDateTime.now())
+                                .isRead(false)
+                                .build());
+                    });
+
+                    // Báo Thợ
+                    if (claim.getTechnician() != null) {
+                        notificationService.save(Notification.builder()
+                                .user(claim.getTechnician())
+                                .title(String.format("Khách đã thanh toán phí bảo hành #%d",
+                                        finalClaim.getBooking().getId()))
+                                .content(String.format(
+                                        "Khách hàng đã thanh toán phí bảo hành %,.0f VNĐ qua VNPay Sandbox cho đơn #%d. Admin sẽ tiến hành quyết toán thù lao cho bạn.",
+                                        payment.getAmount(), finalClaim.getBooking().getId()))
+                                .createdAt(LocalDateTime.now())
+                                .isRead(false)
+                                .build());
+                    }
+                }
+
+                payment.setPaymentStatus(PaymentStatus.FULLY_PAID);
+                payment.setPaidAt(LocalDateTime.now());
+                payment.setNote(String.format("VNPay GD: %s, Ngân hàng: %s (Phí hỗ trợ BH #%s)", vnp_TransactionNo,
+                        vnp_BankCode, claim != null ? claim.getId() : ""));
+                paymentRepository.save(payment);
+
+                if (booking != null && booking.getCustomer() != null) {
+                    notificationService.save(Notification.builder()
+                            .user(booking.getCustomer())
+                            .title("Thanh toán phí hỗ trợ bảo hành thành công #" + booking.getId())
+                            .content(String.format(
+                                    "Bạn đã hoàn tất thanh toán %,.0f VNĐ chi phí hỗ trợ bảo hành qua cổng VNPay Sandbox.",
+                                    payment.getAmount()))
+                            .createdAt(LocalDateTime.now())
+                            .isRead(false)
+                            .build());
+                }
+            } else if ("DEPOSIT".equals(type)) {
                 payment.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
                 booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
                 booking.setDepositPaidAt(LocalDateTime.now());
 
-                // Khách hàng đã chuyển cọc xong -> Chờ Admin ký duyệt hợp đồng điện tử
-                // KHÔNG tự động ký adminSigned, Admin phải vào ký trên giao diện OrderDetail
                 if (booking.getStatus() == BookingStatus.WAITING_CUSTOMER_SIGNATURE
                         || booking.getStatus() == BookingStatus.PENDING) {
                     booking.setStatus(BookingStatus.WAITING_DEPOSIT);
+                }
+
+                payment.setPaidAt(LocalDateTime.now());
+                payment.setNote(String.format("VNPay GD: %s, Ngân hàng: %s", vnp_TransactionNo, vnp_BankCode));
+                paymentRepository.save(payment);
+                bookingRepository.save(booking);
+
+                if (booking.getCustomer() != null) {
+                    notificationService.save(Notification.builder()
+                            .user(booking.getCustomer())
+                            .title("Thanh toán VNPay thành công #" + booking.getId())
+                            .content(String.format(
+                                    "Giao dịch đặt cọc 30%% cho đơn hàng #%d qua VNPay đã thành công. Đang chờ Admin ký duyệt hợp đồng điện tử.",
+                                    booking.getId()))
+                            .createdAt(LocalDateTime.now())
+                            .isRead(false)
+                            .build());
                 }
             } else {
                 payment.setPaymentStatus(PaymentStatus.FULLY_PAID);
                 booking.setPaymentStatus(PaymentStatus.FULLY_PAID);
                 booking.setRemainingAmount(BigDecimal.ZERO);
                 booking.setFinalPaidAt(LocalDateTime.now());
+                if (booking.getCompletedAt() == null) {
+                    booking.setCompletedAt(LocalDateTime.now());
+                }
                 if (booking.getStatus() == BookingStatus.WORKER_COMPLETED
                         || booking.getStatus() == BookingStatus.PROCESSING
                         || booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT) {
                     booking.setStatus(BookingStatus.COMPLETED);
                 }
-            }
 
-            payment.setPaidAt(LocalDateTime.now());
-            payment.setNote(String.format("VNPay GD: %s, Ngân hàng: %s", vnp_TransactionNo, vnp_BankCode));
-            paymentRepository.save(payment);
-            bookingRepository.save(booking);
+                payment.setPaidAt(LocalDateTime.now());
+                payment.setNote(String.format("VNPay GD: %s, Ngân hàng: %s", vnp_TransactionNo, vnp_BankCode));
+                paymentRepository.save(payment);
+                bookingRepository.save(booking);
 
-            // Gửi thông báo cho khách hàng & admin
-            if (booking.getCustomer() != null) {
-                String notiContent = "DEPOSIT".equals(type)
-                        ? String.format(
-                                "Giao dịch đặt cọc 30%% cho đơn hàng #%d qua VNPay đã thành công. Đang chờ Admin ký duyệt hợp đồng điện tử.",
-                                booking.getId())
-                        : String.format("Giao dịch thanh toán tất toán cho đơn hàng #%d qua VNPay đã thành công.",
-                                booking.getId());
-                notificationService.save(Notification.builder()
-                        .user(booking.getCustomer())
-                        .title("Thanh toán VNPay thành công #" + booking.getId())
-                        .content(notiContent)
-                        .createdAt(LocalDateTime.now())
-                        .isRead(false)
-                        .build());
+                if (booking.getCustomer() != null) {
+                    notificationService.save(Notification.builder()
+                            .user(booking.getCustomer())
+                            .title("Thanh toán VNPay thành công #" + booking.getId())
+                            .content(String.format(
+                                    "Giao dịch thanh toán tất toán cho đơn hàng #%d qua VNPay đã thành công.",
+                                    booking.getId()))
+                            .createdAt(LocalDateTime.now())
+                            .isRead(false)
+                            .build());
+                }
             }
 
             response.put("status", "SUCCESS");
             response.put("message", "Thanh toán VNPay thành công");
             response.put("success", true);
-            response.put("bookingId", booking.getId());
+            response.put("bookingId", booking != null ? booking.getId() : null);
             response.put("paymentType", type);
             response.put("amount", payment.getAmount());
             response.put("transactionNo", vnp_TransactionNo);

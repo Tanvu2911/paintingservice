@@ -10,6 +10,7 @@ import {
   Paintbrush,
   ShieldCheck,
   Star,
+  ShieldAlert,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import Sidebar from "../../components/layout/Sidebar";
@@ -31,6 +32,7 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     if (path.includes("/bookings") || path.includes("/orders")) return "bookings";
     if (path.includes("/contracts")) return "contracts";
     if (path.includes("/payments") || path.includes("/wallet") || path.includes("/revenue")) return "payments";
+    if (path.includes("/warranties")) return "warranties";
     if (path.includes("/services") || path.includes("/painting")) return "services";
     if (path.includes("/reviews")) return "reviews";
     if (path.includes("/notifications")) return "notifications";
@@ -104,6 +106,7 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     { label: "Quản Lý Yêu Cầu", icon: <ClipboardList className="w-4 h-4" />, value: "bookings" },
     { label: "Hợp Đồng", icon: <FileText className="w-4 h-4" />, value: "contracts" },
     { label: "Quản Lý Thanh Toán", icon: <CreditCard className="w-4 h-4" />, value: "payments" },
+    { label: "Quản Lý Bảo Hành", icon: <ShieldAlert className="w-4 h-4" />, value: "warranties" },
     { label: "Quản Lý Dịch Vụ", icon: <Paintbrush className="w-4 h-4" />, value: "services" },
     { label: "Quản Lý Đánh Giá", icon: <Star className="w-4 h-4" />, value: "reviews" },
   ];
@@ -150,7 +153,9 @@ export default function AdminLayout({ user, onLogout, showToast }) {
                 { label: "Quản lý nhân viên", to: "/admin/employees", icon: <Users /> },
                 { label: "Quản lý khách hàng", to: "/admin/customers", icon: <UserCheck /> },
                 { label: "Quản lý yêu cầu", to: "/admin/bookings", icon: <ClipboardList /> },
+                { label: "Hợp đồng", to: "/admin/contracts", icon: <FileText /> },
                 { label: "Thanh toán", to: "/admin/payments", icon: <CreditCard /> },
+                { label: "Quản lý bảo hành", to: "/admin/warranties", icon: <ShieldAlert /> },
                 { label: "Quản lý dịch vụ", to: "/admin/services", icon: <Paintbrush /> },
                 { label: "Quản lý đánh giá", to: "/admin/reviews", icon: <Star /> },
               ]}

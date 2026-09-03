@@ -16,7 +16,6 @@ public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long
     Optional<StaffProfile> findByUser(User user);
 
     List<StaffProfile> findByStaffTypeAndAvailableTrue(StaffType staffType);
-    List<StaffProfile> findByServiceAreaContaining(String area);
 
     boolean existsByUserId(Long userId);
 

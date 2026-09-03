@@ -3,6 +3,7 @@ package com.example.paintingservice.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -12,8 +13,8 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ServiceEntity {
+@SuperBuilder
+public class ServiceEntity extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,8 +26,6 @@ public class ServiceEntity {
     private String description;
 
     @Column(name = "base_price", precision = 10, scale = 2)
+    @Builder.Default
     private BigDecimal basePrice = BigDecimal.ZERO;
-
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
 }

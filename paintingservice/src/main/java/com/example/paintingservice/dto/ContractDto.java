@@ -23,19 +23,15 @@ public class ContractDto {
 
     private String content;
     private Boolean customerSigned;
-    private Boolean surveySigned;
+    private String customerSignatureImg;
+    private LocalDateTime customerSignedAt;
+    private String customerIp;
 
     private Boolean adminSigned;
-    private LocalDateTime adminSignedAt;
     private String adminSignatureImg;
+    private LocalDateTime adminSignedAt;
+    private String adminIp;
 
-    private String customerSignatureImg;
-    private String surveySignatureImg;
-    private LocalDateTime customerSignedAt;
-    private LocalDateTime surveySignedAt;
-    private String customerIp;
-    private String surveyIp;
     private String pdfUrl;
     private LocalDateTime createdAt;
-
 }

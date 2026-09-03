@@ -115,7 +115,13 @@ export default function VNPayCallback() {
         {/* Title and Message */}
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#1E3A8A] border border-blue-200">
-            {isSuccess ? (isDeposit ? "Đặt cọc thành công" : "Tất toán thành công") : "Thanh toán thất bại"}
+            {isSuccess
+              ? isDeposit
+                ? "Đặt cọc thành công"
+                : result?.paymentType === "WARRANTY_SUPPORT" || result?.paymentType === "WARRANTY"
+                ? "Thanh toán bảo hành thành công"
+                : "Tất toán thành công"
+              : "Thanh toán thất bại"}
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             {isSuccess ? "Thanh Toán Thành Công!" : "Giao Dịch Chưa Hoàn Tất"}
@@ -139,7 +145,11 @@ export default function VNPayCallback() {
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Hạng mục thanh toán:</span>
                 <span className="font-bold text-[#1E3A8A] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                  {isDeposit ? "Tiền cọc công trình (30%)" : "Tất toán hợp đồng (70%)"}
+                  {isDeposit
+                    ? "Tiền cọc công trình (30%)"
+                    : result?.paymentType === "WARRANTY_SUPPORT" || result?.paymentType === "WARRANTY"
+                    ? "Phí hỗ trợ sửa chữa bảo hành"
+                    : "Tất toán hợp đồng (70%)"}
                 </span>
               </div>
             )}

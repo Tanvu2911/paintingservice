@@ -188,6 +188,9 @@ public class BookingDetailServiceImpl implements BookingDetailService {
         List<BookingDetail> details = bookingDetailRepository.findByBookingIdOrderByCreatedAtAsc(booking.getId());
         if (!details.isEmpty() && details.stream().allMatch(detail -> Boolean.TRUE.equals(detail.getSupervisorAccepted()) && Boolean.TRUE.equals(detail.getCustomerAccepted()))) {
             booking.setStatus(BookingStatus.COMPLETED);
+            if (booking.getCompletedAt() == null) {
+                booking.setCompletedAt(LocalDateTime.now());
+            }
             bookingRepository.save(booking);
         }
     }

@@ -1,10 +1,7 @@
 package com.example.paintingservice.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import com.example.paintingservice.enums.*;
 
 /**
@@ -12,8 +9,11 @@ import com.example.paintingservice.enums.*;
  * Chứa thông tin cá nhân và trạng thái làm việc của thợ.
  */
 @Entity
-@Table(name = "staff_profiles")
-@Data
+@Table(name = "staff_profiles", indexes = {
+        @Index(name = "idx_staff_type_available", columnList = "staff_type, available")
+})
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

@@ -12,4 +12,6 @@ public interface SalaryHistoryRepository extends JpaRepository<SalaryHistory, Lo
     List<SalaryHistory> findAllByBooking_Id(Long bookingId);
     List<SalaryHistory> findAllByWorker_Id(Long workerId);
     Optional<SalaryHistory> findByBooking_IdAndWorker_IdAndRoleInBooking(Long bookingId, Long workerId, String roleInBooking);
+    List<SalaryHistory> findByWarrantyClaimId(Long warrantyClaimId);
+    Optional<SalaryHistory> findByWarrantyClaimIdAndRoleInBooking(Long warrantyClaimId, String roleInBooking);
 }

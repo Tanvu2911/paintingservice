@@ -36,7 +36,4 @@ public class SalaryHistoryDto {
 
     private String workerName;
     private String workerPhone;
-    private String bankName;
-    private String bankAccountNumber;
-    private String bankAccountName;
 }

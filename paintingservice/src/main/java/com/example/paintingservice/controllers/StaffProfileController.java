@@ -75,14 +75,16 @@ public class StaffProfileController {
     // 2.2 UPDATE: Nhân viên tự cập nhật thông tin cá nhân
     @PutMapping("/me")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<StaffProfileDto> updateMyStaffProfile(@RequestBody StaffProfileDto dto, Authentication authentication) {
+    public ResponseEntity<StaffProfileDto> updateMyStaffProfile(@RequestBody StaffProfileDto dto,
+            Authentication authentication) {
         return ResponseEntity.ok(staffProfileService.updateMyProfile(authentication.getName(), dto));
     }
 
     // 2.3 UPLOAD AVATAR: Nhân viên tự tải avatar lên
     @PostMapping("/me/avatar")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<?> uploadMyAvatar(@RequestParam("file") org.springframework.web.multipart.MultipartFile file, Authentication authentication) {
+    public ResponseEntity<?> uploadMyAvatar(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            Authentication authentication) {
         String avatarUrl = staffProfileService.uploadMyAvatar(authentication.getName(), file);
         return ResponseEntity.ok(Map.of("avatar", avatarUrl, "message", "Tải ảnh đại diện thành công"));
     }
@@ -105,7 +107,8 @@ public class StaffProfileController {
     // 4.1 UPLOAD AVATAR: Admin tải avatar cho Staff
     @PostMapping("/{id}/avatar")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> uploadStaffAvatar(@PathVariable Long id, @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+    public ResponseEntity<?> uploadStaffAvatar(@PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         String avatarUrl = staffProfileService.uploadAvatar(id, file);
         return ResponseEntity.ok(Map.of("avatar", avatarUrl, "message", "Tải ảnh đại diện cho nhân viên thành công"));
     }
@@ -202,7 +205,8 @@ public class StaffProfileController {
                     .user(admin)
                     .title("Giám sát đã nhận đơn #" + id)
                     .content(String.format("Giám sát viên %s đã nhận việc khảo sát đơn hàng #%d (Địa chỉ: %s).",
-                            currentUser.getUsername(), id, booking.getAddress() != null ? booking.getAddress() : "Theo đơn"))
+                            currentUser.getUsername(), id,
+                            booking.getAddress() != null ? booking.getAddress() : "Theo đơn"))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
@@ -212,7 +216,8 @@ public class StaffProfileController {
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
                     .title("Giám sát viên đã tiếp nhận lịch khảo sát #" + id)
-                    .content(String.format("Giám sát viên %s đã tiếp nhận đơn #%d và chuẩn bị đến khảo sát công trình của bạn theo lịch hẹn.",
+                    .content(String.format(
+                            "Giám sát viên %s đã tiếp nhận đơn #%d và chuẩn bị đến khảo sát công trình của bạn theo lịch hẹn.",
                             currentUser.getUsername(), id))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
@@ -224,7 +229,8 @@ public class StaffProfileController {
 
     @PostMapping("/survey/jobs/{id}/report")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<?> submitSurveyReport(@PathVariable Long id, @RequestBody Map<String, Object> body, Authentication authentication) {
+    public ResponseEntity<?> submitSurveyReport(@PathVariable Long id, @RequestBody Map<String, Object> body,
+            Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
         Booking booking = bookingService.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
@@ -235,7 +241,8 @@ public class StaffProfileController {
 
         if (booking.getStatus() != BookingStatus.ACCEPTED) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "message", "Chỉ được gửi báo cáo khi đã nhận việc khảo sát (hiện tại: " + booking.getStatus() + ")"));
+                    "message",
+                    "Chỉ được gửi báo cáo khi đã nhận việc khảo sát (hiện tại: " + booking.getStatus() + ")"));
         }
 
         booking.setStatus(BookingStatus.WAITING_ADMIN_QUOTE);
@@ -245,19 +252,22 @@ public class StaffProfileController {
             notificationService.save(Notification.builder()
                     .user(admin)
                     .title("Báo cáo khảo sát đơn #" + id)
-                    .content(String.format("Giám sát viên %s đã nộp báo cáo khảo sát hiện trường đơn hàng #%d. Vui lòng kiểm tra số liệu và gửi báo giá cho khách.",
+                    .content(String.format(
+                            "Giám sát viên %s đã nộp báo cáo khảo sát hiện trường đơn hàng #%d. Vui lòng kiểm tra số liệu và gửi báo giá cho khách.",
                             currentUser.getUsername(), id))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());
         });
 
-        return ResponseEntity.ok(Map.of("message", "Đã gửi báo cáo / số liệu thành công. Chờ Admin duyệt và gửi báo giá.", "bookingId", id));
+        return ResponseEntity.ok(Map.of("message",
+                "Đã gửi báo cáo / số liệu thành công. Chờ Admin duyệt và gửi báo giá.", "bookingId", id));
     }
 
     @PostMapping("/survey/jobs/{id}/daily-report")
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
-    public ResponseEntity<?> submitDailyReport(@PathVariable Long id, @RequestBody Map<String, String> body, Authentication authentication) {
+    public ResponseEntity<?> submitDailyReport(@PathVariable Long id, @RequestBody Map<String, String> body,
+            Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
         Booking booking = bookingService.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
@@ -267,7 +277,8 @@ public class StaffProfileController {
         }
 
         if (booking.getStatus() != BookingStatus.PROCESSING && booking.getStatus() != BookingStatus.CONTRACT_APPROVED) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Chỉ được gửi báo cáo ngày khi đơn đang ở trạng thái thi công"));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Chỉ được gửi báo cáo ngày khi đơn đang ở trạng thái thi công"));
         }
 
         userRepository.findAllByRole_Name("ROLE_ADMIN").forEach(admin -> {

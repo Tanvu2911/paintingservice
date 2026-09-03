@@ -73,6 +73,7 @@ public class BookingDto {
     private Boolean finalPaid;
     private LocalDateTime depositPaidAt;
     private LocalDateTime finalPaidAt;
+    private LocalDateTime completedAt;
     // ================================
 
     private LocalDateTime createdAt;

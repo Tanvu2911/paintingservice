@@ -46,7 +46,9 @@ AxiosConfig.interceptors.response.use(
             const status = error.response.status;
 
             // 401: Token không hợp lệ / hết hạn / chưa đăng nhập
-            if (status === 401) {
+            // Hoặc 403 trên các endpoint cá nhân (/me) nghĩa là token không còn hợp lệ trên hệ thống
+            const isIdentityEndpoint = error.config?.url?.includes("/me");
+            if (status === 401 || (status === 403 && isIdentityEndpoint)) {
                 localStorage.removeItem("token");
                 localStorage.removeItem("user");
 
@@ -58,7 +60,7 @@ AxiosConfig.interceptors.response.use(
                     window.location.href = "/login";
                 }
             }
-            // 403: Không có quyền
+            // 403: Không có quyền truy cập tính năng cụ thể
             else if (status === 403) {
                 console.warn("403 Forbidden: Bạn không có quyền thực hiện thao tác này.");
             }

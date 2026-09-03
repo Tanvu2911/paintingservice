@@ -28,10 +28,12 @@ import {
   Check,
   Sparkles,
   ArrowLeft,
+  ArrowRight,
   Printer,
   Download,
   DollarSign,
   QrCode,
+  CreditCard,
 } from "lucide-react";
 import { exportContractPDF } from "../../../util/contractPdfExport";
 import { formatMoney } from "../../../util/formatters";
@@ -745,14 +747,7 @@ export default function OrderDetail() {
           else if (actionType === "assign_worker") setAssignModal("worker");
           else if (actionType === "view_reports") setReportsModalOpen(true);
           else if (actionType === "pay_staff") {
-            const el = document.getElementById("staff-payout-section");
-            if (el) {
-              el.scrollIntoView({ behavior: "smooth" });
-            } else if (order.supervisorId && !isSupervisorPaid) {
-              handleOpenStaffPayout(order.supervisorId, order.supervisorName || "Giám sát", "SURVEYOR", supervisorFee);
-            } else if (order.technicianId && !isWorkerPaid) {
-              handleOpenStaffPayout(order.technicianId, order.technicianName || "Đội thợ", "TECHNICIAN", workerFee);
-            }
+            navigate(`/admin/payments?tab=STAFF&search=${order.id}`, { state: { tab: "STAFF", search: String(order.id) } });
           }
           else if (actionType === "export_pdf") {
             if (contract) {
@@ -1216,79 +1211,73 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {/* Card Quyết toán Thù Lao Nhân Sự (Chỉ hiển thị khi khách hàng đã hoàn tất mọi thanh toán) */}
+          {/* Card Quyết toán Thù Lao Nhân Sự */}
           {isFullyPaid && (order.supervisorId || order.technicianId) && (
-            <div id="staff-payout-section" className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-emerald-600" />
-                  <span>Quyết Toán Thù Lao Nhân Sự</span>
-                </h4>
-                {status === "PAID_TO_STAFF" ? (
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    ✓ Đã quyết toán 100%
+            <div id="staff-payout-section" className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Hạch Toán Thù Lao Nhân Sự</span>
+                  </h4>
+                  <p className="text-[10.5px] text-slate-500 mt-0.5">
+                    Thực hiện quyết toán qua VietQR tập trung tại trang Quản lý thanh toán
+                  </p>
+                </div>
+                {status === "PAID_TO_STAFF" || (isSupervisorPaid && isWorkerPaid) ? (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    <span>Đã quyết toán 100%</span>
                   </span>
                 ) : (
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                    Chờ quyết toán
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-600" />
+                    <span>Chờ quyết toán</span>
                   </span>
                 )}
               </div>
 
-              <div className="space-y-3 text-xs">
-                {/* Admin giữ lại */}
-                <div className="p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider">Doanh thu Admin giữ lại (30%):</span>
-                    <p className="text-[11px] text-emerald-600 font-medium">Bao gồm lợi nhuận sàn &amp; quỹ dự phòng bảo hành 1-2 năm</p>
-                  </div>
-                  <span className="font-black text-emerald-700 text-sm">{formatMoney(adminFee)}</span>
-                </div>
-
+              <div className="space-y-2.5 text-xs">
                 {/* Giám sát viên */}
                 {order.supervisorId && (
-                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-50/40 rounded-lg border border-blue-100 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       {order.supervisorAvatar || order.surveyorAvatar ? (
                         <img
                           src={order.supervisorAvatar || order.surveyorAvatar}
                           alt="Supervisor"
-                          className="w-10 h-10 rounded-xl object-cover border border-blue-200 shrink-0 shadow-2xs"
+                          className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-black text-sm flex items-center justify-center shrink-0 border border-blue-200">
+                        <div className="w-7 h-7 rounded-md bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200">
                           {(order.supervisorName || order.supervisor?.username || "S").charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="space-y-0.5">
-                        <div className="text-[10.5px] font-bold text-blue-700 uppercase">
-                          Giám sát (10% + Hoàn tiền vật tư): @{order.supervisorName || order.supervisor?.username || "Giám sát"}
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold text-blue-900 truncate">
+                          Giám sát: @{order.supervisorName || order.supervisor?.username || "Giám sát"}
                         </div>
-                        <div className="text-slate-800 font-bold text-sm flex items-center gap-2">
-                          <span>Thù lao: <strong className="text-blue-700">{formatMoney(supervisorFee)}</strong></span>
+                        <div className="text-[10.5px] text-slate-500 font-mono">
+                          Thù lao: <strong className="text-slate-900">{formatMoney(supervisorFee)}</strong>
                           {materialReimbursement > 0 && (
-                            <span className="text-[10.5px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              (10%: {formatMoney(supervisorBaseFee)} + VT: {formatMoney(materialReimbursement)})
+                            <span className="text-[10px] text-emerald-700 ml-1.5 font-sans font-medium">
+                              (+VT: {formatMoney(materialReimbursement)})
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                       {isSupervisorPaid ? (
-                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Đã thanh toán</span>
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-emerald-200 leading-none">
+                          <Check className="w-3 h-3 shrink-0" />
+                          <span>Đã quyết toán</span>
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenStaffPayout(order.supervisorId, order.supervisorName || "Giám sát", "SURVEYOR", supervisorFee)}
-                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
-                        >
-                          <QrCode className="w-3.5 h-3.5" />
-                          <span>Thanh toán VietQR</span>
-                        </button>
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-amber-200 leading-none">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>Chưa quyết toán</span>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1296,46 +1285,55 @@ export default function OrderDetail() {
 
                 {/* Đội thợ thi công */}
                 {order.technicianId && (
-                  <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-50/40 rounded-lg border border-emerald-100 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       {order.technicianAvatar ? (
                         <img
                           src={order.technicianAvatar}
                           alt="Technician"
-                          className="w-10 h-10 rounded-xl object-cover border border-emerald-200 shrink-0 shadow-2xs"
+                          className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center shrink-0 border border-emerald-200">
+                        <div className="w-7 h-7 rounded-md bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200">
                           {(order.technicianName || order.technician?.username || "T").charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="space-y-0.5">
-                        <div className="text-[10.5px] font-bold text-emerald-700 uppercase">
-                          Đội thợ (60%): @{order.technicianName || order.technician?.username || "Đội thợ"}
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold text-emerald-900 truncate">
+                          Đội thợ: @{order.technicianName || order.technician?.username || "Đội thợ"}
                         </div>
-                        <div className="text-slate-800 font-bold text-sm">
-                          Thù lao thi công: <span className="text-emerald-700">{formatMoney(workerFee)}</span>
+                        <div className="text-[10.5px] text-slate-500 font-mono">
+                          Thù lao: <strong className="text-slate-900">{formatMoney(workerFee)}</strong>
                         </div>
                       </div>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                       {isWorkerPaid ? (
-                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Đã thanh toán</span>
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-emerald-200 leading-none">
+                          <Check className="w-3 h-3 shrink-0" />
+                          <span>Đã quyết toán</span>
                         </span>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenStaffPayout(order.technicianId, order.technicianName || "Đội thợ", "TECHNICIAN", workerFee)}
-                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5"
-                        >
-                          <QrCode className="w-3.5 h-3.5" />
-                          <span>Thanh toán VietQR</span>
-                        </button>
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-amber-200 leading-none">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>Chưa quyết toán</span>
+                        </span>
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* Nút điều hướng sang Quản lý thanh toán */}
+                {(!isSupervisorPaid || !isWorkerPaid) && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/admin/payments?tab=STAFF&search=${order.id}`, { state: { tab: "STAFF", search: String(order.id) } })}
+                    className="w-full mt-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2 text-center leading-normal"
+                  >
+                    <CreditCard className="w-4 h-4 shrink-0" />
+                    <span>Đi Đến Quản Lý Thanh Toán Để Quyết Toán VietQR</span>
+                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                  </button>
                 )}
               </div>
             </div>

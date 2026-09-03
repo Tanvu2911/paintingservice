@@ -2,7 +2,6 @@ package com.example.paintingservice.dto;
 
 import com.example.paintingservice.enums.PaymentStatus;
 
-import jakarta.persistence.Column;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -33,9 +32,6 @@ public class PaymentDto {
     private String transactionCode;
     private LocalDateTime paidAt;
 
-
-
     private String paymentType; // DEPOSIT hoặc FINAL
-    private String proofImage;
     private String note;
 }

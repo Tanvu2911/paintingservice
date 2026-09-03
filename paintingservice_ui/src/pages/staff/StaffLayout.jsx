@@ -11,6 +11,7 @@ import {
   Wrench,
   Search,
   Star,
+  ShieldAlert,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import Sidebar from "../../components/layout/Sidebar";
@@ -33,6 +34,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes("/jobs")) return "jobs";
+    if (path.includes("/warranties")) return "warranties";
     if (path.includes("/history")) return "history";
     if (path.includes("/wallet")) return "wallet";
     if (path.includes("/statistics")) return "statistics";
@@ -108,6 +110,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   const surveyMenuItems = [
     { label: "Tổng quan", icon: <LayoutDashboard className="w-4 h-4" />, value: "dashboard" },
     { label: "Lịch Khảo Sát", icon: <ClipboardList className="w-4 h-4" />, value: "jobs" },
+    { label: "Bảo Hành", icon: <ShieldAlert className="w-4 h-4" />, value: "warranties" },
     { label: "Lịch Sử Khảo Sát", icon: <History className="w-4 h-4" />, value: "history" },
     { label: "Ví Thu Nhập", icon: <Wallet className="w-4 h-4" />, value: "wallet" },
     { label: "Thống Kê", icon: <BarChart3 className="w-4 h-4" />, value: "statistics" },
@@ -118,6 +121,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
   const technicianMenuItems = [
     { label: "Tổng quan", icon: <LayoutDashboard className="w-4 h-4" />, value: "dashboard" },
     { label: "Công Việc Thi Công", icon: <Briefcase className="w-4 h-4" />, value: "jobs" },
+    { label: "Bảo Hành", icon: <ShieldAlert className="w-4 h-4" />, value: "warranties" },
     { label: "Lịch Sử Thi Công", icon: <History className="w-4 h-4" />, value: "history" },
     { label: "Ví Thu Nhập", icon: <Wallet className="w-4 h-4" />, value: "wallet" },
     { label: "Thống Kê", icon: <BarChart3 className="w-4 h-4" />, value: "statistics" },
@@ -178,6 +182,7 @@ export default function StaffLayout({ user, onLogout, showToast }) {
               menuItems={[
                 { label: "Tổng quan", to: `${basePath}/dashboard`, icon: <LayoutDashboard /> },
                 { label: isTechnician ? "Công việc thi công" : "Lịch khảo sát", to: `${basePath}/jobs`, icon: <Briefcase /> },
+                { label: "Bảo hành", to: `${basePath}/warranties`, icon: <ShieldAlert /> },
                 { label: "Lịch sử", to: `${basePath}/history`, icon: <History /> },
                 { label: "Ví thu nhập", to: `${basePath}/wallet`, icon: <Wallet /> },
                 { label: "Đánh giá của khách", to: `${basePath}/reviews`, icon: <Star /> },

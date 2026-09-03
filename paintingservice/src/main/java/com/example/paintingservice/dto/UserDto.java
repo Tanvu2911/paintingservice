@@ -10,7 +10,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -32,7 +31,6 @@ public class UserDto {
     private UserStatus status;
     private Integer roleId;
     private String role;
-    private String staffType;
     private String avatar;
     private LocalDateTime createdAt;
 }

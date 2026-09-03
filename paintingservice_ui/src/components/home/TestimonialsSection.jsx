@@ -112,16 +112,21 @@ export default function TestimonialsSection() {
   }, []);
 
   return (
-    <section id="testimonials" className="bg-white py-20 px-4 sm:px-6 lg:px-8 border-y border-slate-200">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+    <section id="testimonials" className="relative overflow-hidden bg-gradient-to-b from-white via-indigo-50/25 to-slate-50 py-24 px-4 sm:px-6 lg:px-8 border-b border-slate-200/80">
+      {/* Ambient background glows */}
+      <div className="absolute top-1/4 -right-20 w-[28rem] h-[28rem] bg-indigo-300/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 -left-20 w-[28rem] h-[28rem] bg-blue-300/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:32px_32px] opacity-10 pointer-events-none" />
+
+      <div className="relative max-w-6xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-16">
+          <span className="text-xs font-bold uppercase tracking-wider text-indigo-800 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-200 shadow-xs">
             Khách Hàng Nói Gì
           </span>
-          <h3 className="text-3xl font-black text-slate-900 tracking-tight mt-3">
+          <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mt-3.5">
             Đánh Giá &amp; Cảm Nhận Thực Tế
           </h3>
-          <p className="text-sm text-slate-500 mt-2">
+          <p className="text-sm text-slate-500 mt-2.5">
             Tổng hợp phản hồi chân thực từ những khách hàng đã nghiệm thu công trình sơn sửa nhà.
           </p>
         </div>
@@ -131,7 +136,7 @@ export default function TestimonialsSection() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="bg-slate-50 rounded-3xl p-6 border border-slate-200 animate-pulse space-y-4"
+                className="bg-white rounded-3xl p-7 border border-slate-200 animate-pulse space-y-4 shadow-xs"
               >
                 <div className="h-4 bg-amber-100 rounded w-1/3" />
                 <div className="h-4 bg-slate-200 rounded w-full" />
@@ -147,7 +152,7 @@ export default function TestimonialsSection() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
             {reviews.map((r) => {
               const customerName = r.customerUsername || "Khách hàng";
               const avatarGradient = getAvatarColor(customerName);
@@ -157,29 +162,29 @@ export default function TestimonialsSection() {
               return (
                 <div
                   key={r.id}
-                  className="bg-slate-50/90 rounded-3xl p-6 border border-slate-200 flex flex-col justify-between hover:shadow-md hover:border-emerald-300 transition-all duration-200 relative group"
+                  className="bg-white/95 backdrop-blur-xs rounded-3xl p-7 border border-slate-200/90 flex flex-col justify-between hover:shadow-xl hover:border-indigo-300 transition-all duration-300 relative group hover:-translate-y-1"
                 >
-                  <MessageSquareQuote className="w-8 h-8 text-emerald-100 absolute top-5 right-5 -z-0 pointer-events-none group-hover:text-emerald-200 transition-colors" />
+                  <MessageSquareQuote className="w-10 h-10 text-indigo-100 absolute top-5 right-5 -z-0 pointer-events-none group-hover:text-indigo-200 transition-colors" />
 
                   <div className="relative z-10">
                     {/* Stars */}
-                    <div className="flex items-center gap-1 text-amber-400 text-sm mb-3">
+                    <div className="flex items-center gap-1 text-amber-400 text-sm mb-4">
                       {[...Array(r.rating || 5)].map((_, idx) => (
                         <Star key={idx} className="w-4 h-4 fill-amber-400 text-amber-400" />
                       ))}
-                      <span className="text-xs font-bold text-slate-700 ml-1.5">
+                      <span className="text-xs font-bold text-slate-800 ml-1.5">
                         {r.rating || 5}.0
                       </span>
                     </div>
 
                     {/* Comment */}
-                    <p className="text-xs text-slate-700 leading-relaxed italic mb-6 line-clamp-4">
+                    <p className="text-xs text-slate-600 leading-relaxed italic mb-6 line-clamp-4">
                       &ldquo;{r.comment}&rdquo;
                     </p>
                   </div>
 
                   {/* Customer Info */}
-                  <div className="flex items-center gap-3 pt-4 border-t border-slate-200/80 relative z-10">
+                  <div className="flex items-center gap-3 pt-4 border-t border-slate-100 relative z-10">
                     <div
                       className={`w-10 h-10 rounded-full bg-gradient-to-tr ${avatarGradient} text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0`}
                     >
@@ -193,7 +198,7 @@ export default function TestimonialsSection() {
                         <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" title="Đã nghiệm thu công trình" />
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+                        <span className="text-[10px] text-indigo-800 font-semibold bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded truncate max-w-[140px]">
                           {r.serviceName || "Dịch vụ sơn nhà"}
                         </span>
                         {displayDate && (

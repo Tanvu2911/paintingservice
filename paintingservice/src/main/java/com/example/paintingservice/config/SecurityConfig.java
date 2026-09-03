@@ -18,6 +18,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -29,11 +30,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Configuration
+@EnableMethodSecurity
 @RequiredArgsConstructor
 @Slf4j
 public class SecurityConfig {
@@ -69,17 +72,20 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/login",
                                 "/api/register",
-                                "/status",
-                                "/health",
                                 "/error",
-                                "/api/payments/vnpay/**",
-                                "/api/payments/momo/ipn",
-                                "/api/payments/zalopay/callback"
-                        ).permitAll()
+                                "/api/payments/vnpay/**")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/services/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/staff/**").permitAll()
                         .anyRequest().authenticated())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"status\":401,\"message\":\"Phiên đăng nhập đã hết hạn hoặc không hợp lệ.\"}");
+                        })
+                )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
@@ -90,7 +96,8 @@ public class SecurityConfig {
     public CommandLineRunner initData() {
         return args -> {
             // 1. Kiểm tra và tạo các Role cơ bản nếu chưa có
-            List<String> requiredRoles = List.of("ROLE_ADMIN", "ROLE_STAFF", "ROLE_CUSTOMER", "ROLE_TECHNICIAN", "ROLE_SUPERVISOR");
+            List<String> requiredRoles = List.of("ROLE_ADMIN", "ROLE_STAFF", "ROLE_CUSTOMER", "ROLE_TECHNICIAN",
+                    "ROLE_SUPERVISOR");
             for (String roleName : requiredRoles) {
                 if (roleRepository.findByName(roleName).isEmpty()) {
                     Role r = new Role();
@@ -134,7 +141,8 @@ public class SecurityConfig {
 
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
+        configuration
+                .setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

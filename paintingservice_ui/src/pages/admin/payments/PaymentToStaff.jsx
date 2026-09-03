@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import {
   QrCode,
   RefreshCw,
@@ -12,12 +12,14 @@ import {
   CreditCard,
   Clock,
   Eye,
+  ShieldAlert,
 } from "lucide-react";
 import AxiosConfig from "../../../util/AxiosConfig";
 import StatusBadge from "../../../components/common/StatusBadge";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import Modal from "../../../components/common/Modal";
 import QRCodePayment from "../../../components/common/QRCodePayment";
+import StaffWarrantyPayoutTab from "./components/StaffWarrantyPayoutTab";
 import { formatMoney } from "../../../util/formatters";
 import { getVietQRBankCode, calculateFinancials } from "../../../util/orderFlowUtils";
 
@@ -70,32 +72,48 @@ function KpiStrip({ items }) {
 export default function PaymentToStaff() {
   const { showToast } = useOutletContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
   const [salaryHistories, setSalaryHistories] = useState([]);
   const [allStaff, setAllStaff] = useState([]);
+  const [warrantyClaims, setWarrantyClaims] = useState([]);
 
   // UI state
-  const [activeTab, setActiveTab] = useState("CUSTOMER"); // "CUSTOMER" | "STAFF" | "RECONCILIATION"
-  const [search, setSearch] = useState("");
+  const initialTab = searchParams.get("tab") || location.state?.tab || "CUSTOMER";
+  const initialSearch = searchParams.get("search") ?? location.state?.search ?? "";
+
+  const [activeTab, setActiveTab] = useState(initialTab); // "CUSTOMER" | "STAFF" | "WARRANTY" | "RECONCILIATION"
+  const [search, setSearch] = useState(String(initialSearch));
   const [paymentFilter, setPaymentFilter] = useState("ALL"); // "ALL" | "PAID_ALL" | "PAID_DEPOSIT" | "UNPAID"
   const [ledgerTypeFilter, setLedgerTypeFilter] = useState("ALL"); // "ALL" | "IN" | "OUT"
   const [ledgerStatusFilter, setLedgerStatusFilter] = useState("ALL"); // "ALL" | "COMPLETED" | "PENDING"
   const [payoutModal, setPayoutModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    const t = searchParams.get("tab") || location.state?.tab;
+    if (t) setActiveTab(t);
+    const s = searchParams.get("search") ?? location.state?.search;
+    if (s !== undefined && s !== null) setSearch(String(s));
+  }, [location.state, searchParams]);
+
   const loadData = async (isRefresh = false) => {
     setLoading(true);
     try {
-      const [bR, sR, stR] = await Promise.all([
+      const [bR, sR, stR, wR] = await Promise.all([
         AxiosConfig.get("/bookings"),
         AxiosConfig.get("/salary-histories").catch(() => ({ data: [] })),
         AxiosConfig.get("/staff").catch(() => ({ data: [] })),
+        AxiosConfig.get("/warranty-claims").catch(() => ({ data: [] })),
       ]);
       const norm = (d) => (Array.isArray(d) ? d : d?.content || []);
       setOrders(norm(bR.data));
       setSalaryHistories(norm(sR.data));
       setAllStaff(norm(stR.data));
+      setWarrantyClaims(norm(wR.data));
       if (isRefresh) showToast?.("Đã làm mới dữ liệu thanh toán & đối soát!", "success");
     } catch {
       showToast?.("Lỗi tải dữ liệu thanh toán", "error");
@@ -143,7 +161,25 @@ export default function PaymentToStaff() {
     }
     const sp = getStaffProfile(staffId, staffName);
     setPayoutModal({
+      isWarranty: false,
       orderId: order.id, staffId, staffName, role, amount,
+      bankName: sp?.bankName || "MB Bank",
+      bankCode: getVietQRBankCode(sp?.bankName || "MB Bank"),
+      bankAccountNumber: sp?.bankAccountNumber || sp?.phoneNumber || "—",
+      bankAccountName: sp?.bankAccountName || staffName,
+    });
+  };
+
+  const openWarrantyPayoutQR = (claim, staffId, staffName, role, amount) => {
+    const sp = getStaffProfile(staffId, staffName);
+    setPayoutModal({
+      isWarranty: true,
+      claimId: claim.id,
+      orderId: claim.bookingId,
+      staffId,
+      staffName,
+      role,
+      amount,
       bankName: sp?.bankName || "MB Bank",
       bankCode: getVietQRBankCode(sp?.bankName || "MB Bank"),
       bankAccountNumber: sp?.bankAccountNumber || sp?.phoneNumber || "—",
@@ -155,10 +191,17 @@ export default function PaymentToStaff() {
     if (!payoutModal) return;
     try {
       setSubmitting(true);
-      const res = await AxiosConfig.post(
-        `/payments/staff-payout?bookingId=${payoutModal.orderId}&staffId=${payoutModal.staffId}&role=${payoutModal.role}`
-      );
-      showToast?.(res.data?.message || "Đã quyết toán thù lao thành công!", "success");
+      if (payoutModal.isWarranty) {
+        const res = await AxiosConfig.post(
+          `/payments/warranty-staff-payout?claimId=${payoutModal.claimId}&staffId=${payoutModal.staffId}&role=${payoutModal.role}`
+        );
+        showToast?.(res.data?.message || "Đã quyết toán thù lao bảo hành thành công!", "success");
+      } else {
+        const res = await AxiosConfig.post(
+          `/payments/staff-payout?bookingId=${payoutModal.orderId}&staffId=${payoutModal.staffId}&role=${payoutModal.role}`
+        );
+        showToast?.(res.data?.message || "Đã quyết toán thù lao thành công!", "success");
+      }
       setPayoutModal(null);
       await loadData();
     } catch (err) {
@@ -186,8 +229,6 @@ export default function PaymentToStaff() {
       }
     });
 
-    const totalCollected = depositCollected + finalCollected;
-
     // Chi trả nhân viên
     const staffPaid = salaryHistories
       .filter((s) => s.paymentStatus === "PAID")
@@ -212,26 +253,84 @@ export default function PaymentToStaff() {
       }
     });
 
-    const systemNetBalance = totalCollected - staffPaid;
+    const totalBookingCollected = depositCollected + finalCollected;
+
+    let warrantyStaffPaidTotal = 0;
+    let warrantyStaffPendingTotal = 0;
+    let companyFaultStaffPaid = 0;
+    let warrantyCustomerPaidTotal = 0;
+    let warrantyCustomerPendingTotal = 0;
+
+    warrantyClaims.forEach((c) => {
+      const price = Number(c.finalSupportPrice) || 0;
+      if (price > 0) {
+        if (c.customerPaid || c.customerAccepted) {
+          warrantyCustomerPaidTotal += price;
+        } else {
+          warrantyCustomerPendingTotal += price;
+        }
+      }
+
+      const surAmt = Number(c.surveyorSalary) || 100000;
+      const worAmt = Number(c.workerSalary) || 200000;
+      if (c.surveyorId) {
+        if (c.surveyorPaid) warrantyStaffPaidTotal += surAmt;
+        else warrantyStaffPendingTotal += surAmt;
+      }
+      if (c.technicianId) {
+        if (c.workerPaid) warrantyStaffPaidTotal += worAmt;
+        else warrantyStaffPendingTotal += worAmt;
+      }
+      if (c.faultType !== "CUSTOMER_FAULT") {
+        if (c.surveyorPaid) companyFaultStaffPaid += surAmt;
+        if (c.workerPaid) companyFaultStaffPaid += worAmt;
+      }
+    });
+
+    const totalCollected = totalBookingCollected + warrantyCustomerPaidTotal;
+    const systemNetBalance = totalCollected - staffPaid - warrantyStaffPaidTotal;
 
     return {
       totalOrders: orders.length,
       totalContractValue,
       depositCollected,
       finalCollected,
+      totalBookingCollected,
+      warrantyCustomerPaidTotal,
+      warrantyCustomerPendingTotal,
       totalCollected,
-      pendingCollection: Math.max(0, totalContractValue - totalCollected),
+      pendingCollection: Math.max(0, totalContractValue - totalBookingCollected),
       staffPaid,
       staffPending,
       systemNetBalance,
+      warrantyStaffPaidTotal,
+      warrantyStaffPendingTotal,
+      companyFaultStaffPaid,
     };
-  }, [orders, salaryHistories]);
+  }, [orders, salaryHistories, warrantyClaims]);
+
+  const filteredWarrantyClaims = useMemo(() => {
+    return warrantyClaims.filter((c) => {
+      if (!search) return true;
+      const s = search.toLowerCase().trim();
+      const sq = s.replace(/^#/, "");
+      return (
+        String(c.id) === sq ||
+        String(c.id).includes(sq) ||
+        String(c.bookingId) === sq ||
+        String(c.bookingId).includes(sq) ||
+        (c.customerName && c.customerName.toLowerCase().includes(s)) ||
+        (c.surveyorName && c.surveyorName.toLowerCase().includes(s)) ||
+        (c.technicianName && c.technicianName.toLowerCase().includes(s))
+      );
+    });
+  }, [warrantyClaims, search]);
 
   // ── Danh sách sổ cái Đối soát (Inflow & Outflow Transactions)
   const reconciliationLedger = useMemo(() => {
     const list = [];
 
-    // 1. Dòng tiền VÀO (+) từ Khách hàng
+    // 1. Dòng tiền VÀO (+) từ Khách hàng hợp đồng gốc
     orders.forEach((o) => {
       const fin = calculateFinancials(o);
       const customerName = o.customerName || o.customer?.fullName || o.customer?.username || "Khách hàng";
@@ -301,7 +400,7 @@ export default function PaymentToStaff() {
       }
     });
 
-    // 2. Dòng tiền RA (-) Chi trả Nhân sự
+    // 2. Dòng tiền RA (-) Chi trả Nhân sự đơn gốc
     orders.forEach((o) => {
       const fin = calculateFinancials(o);
       const total = fin.total;
@@ -351,20 +450,89 @@ export default function PaymentToStaff() {
       }
     });
 
+    // 3. Dòng tiền VÀO (+) từ Khách hàng đóng phí hỗ trợ Bảo hành
+    warrantyClaims.forEach((c) => {
+      const price = Number(c.finalSupportPrice) || 0;
+      if (price > 0) {
+        const isPaid = Boolean(c.customerPaid || c.customerAccepted);
+        list.push({
+          id: `IN-WAR-${c.id}`,
+          bookingId: c.bookingId,
+          type: "IN",
+          category: `Thu phí hỗ trợ BH #${c.id}`,
+          party: c.customerName || "Khách hàng",
+          partyRole: "Khách hàng",
+          amount: price,
+          status: isPaid ? "COMPLETED" : "PENDING",
+          statusText: isPaid ? "Đã thu tiền" : "Chờ khách đóng",
+          date: c.createdAt,
+          rawDate: parseDate(c.createdAt),
+          order: { id: c.bookingId, customerName: c.customerName, address: c.address },
+        });
+      }
+
+      // 4. Dòng tiền RA (-) Chi trả thù lao bảo hành
+      if (c.surveyorId) {
+        list.push({
+          id: `OUT-WAR-SUP-${c.id}-${c.surveyorId}`,
+          bookingId: c.bookingId,
+          staffId: c.surveyorId,
+          role: "SURVEYOR",
+          type: "OUT",
+          category: `Thù lao Giám sát BH #${c.id}`,
+          party: c.surveyorName || "Giám sát viên",
+          partyRole: "Giám sát viên",
+          amount: Number(c.surveyorSalary) || 100000,
+          status: c.surveyorPaid ? "COMPLETED" : "PENDING",
+          statusText: c.surveyorPaid ? "Đã quyết toán" : "Chờ quyết toán",
+          date: c.surveyorPaidAt || c.createdAt,
+          rawDate: parseDate(c.surveyorPaidAt || c.createdAt),
+          order: { id: c.bookingId, customerName: c.customerName, address: c.address },
+          canPayout: !c.surveyorPaid,
+          isWarranty: true,
+          claimId: c.id,
+        });
+      }
+
+      if (c.technicianId) {
+        list.push({
+          id: `OUT-WAR-WOR-${c.id}-${c.technicianId}`,
+          bookingId: c.bookingId,
+          staffId: c.technicianId,
+          role: "TECHNICIAN",
+          type: "OUT",
+          category: `Thù lao Thợ BH #${c.id}`,
+          party: c.technicianName || "Kỹ thuật viên",
+          partyRole: "Đội thợ thi công",
+          amount: Number(c.workerSalary) || 200000,
+          status: c.workerPaid ? "COMPLETED" : "PENDING",
+          statusText: c.workerPaid ? "Đã quyết toán" : "Chờ quyết toán",
+          date: c.workerPaidAt || c.createdAt,
+          rawDate: parseDate(c.workerPaidAt || c.createdAt),
+          order: { id: c.bookingId, customerName: c.customerName, address: c.address },
+          canPayout: !c.workerPaid,
+          isWarranty: true,
+          claimId: c.id,
+        });
+      }
+    });
+
     return list.sort((a, b) => (b.rawDate?.getTime() || 0) - (a.rawDate?.getTime() || 0));
-  }, [orders, salaryHistories]);
+  }, [orders, salaryHistories, warrantyClaims]);
 
   // ── Lọc danh sách theo Tab
-  const q = search.toLowerCase().trim();
+  const rawQ = (search || "").toLowerCase().trim();
+  const q = rawQ.replace(/^#/, "");
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const matchSearch = !q || (
+        String(o.id) === q ||
         String(o.id).includes(q) ||
-        (o.customerName || o.customer?.fullName || o.customer?.username || "").toLowerCase().includes(q) ||
-        (o.supervisorName || "").toLowerCase().includes(q) ||
-        (o.technicianName || "").toLowerCase().includes(q) ||
-        (o.address || "").toLowerCase().includes(q)
+        (o.customerName || o.customer?.fullName || o.customer?.username || "").toLowerCase().includes(rawQ) ||
+        (o.supervisorName || "").toLowerCase().includes(rawQ) ||
+        (o.technicianName || "").toLowerCase().includes(rawQ) ||
+        (o.address || "").toLowerCase().includes(rawQ)
       );
 
       if (!matchSearch) return false;
@@ -378,7 +546,7 @@ export default function PaymentToStaff() {
 
       return true;
     }).sort((a, b) => Number(b.id) - Number(a.id));
-  }, [orders, q, paymentFilter]);
+  }, [orders, q, rawQ, paymentFilter]);
 
   const filteredLedger = useMemo(() => {
     return reconciliationLedger.filter((item) => {
@@ -468,7 +636,8 @@ export default function PaymentToStaff() {
           {[
             { id: "CUSTOMER", label: "1. Thu tiền công trình", icon: CreditCard, count: orders.length },
             { id: "STAFF", label: "2. Quyết toán nhân viên", icon: UsersIcon, count: orders.filter(o => o.supervisorId || o.technicianId).length },
-            { id: "RECONCILIATION", label: "3. Sổ cái đối soát dòng tiền", icon: Wallet, count: reconciliationLedger.length },
+            { id: "WARRANTY", label: "3. Quyết toán bảo hành", icon: ShieldAlert, count: warrantyClaims.length },
+            { id: "RECONCILIATION", label: "4. Sổ cái đối soát dòng tiền", icon: Wallet, count: reconciliationLedger.length },
           ].map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
@@ -805,7 +974,21 @@ export default function PaymentToStaff() {
             </div>
           )}
 
-          {/* ════════════════ TAB 3: SỔ CÁI ĐỐI SOÁT DÒNG TIỀN (THAY THẾ VÍ ĐỐI SOÁT CŨ) ════════════════ */}
+          {/* ════════════════ TAB 3: QUYẾT TOÁN BẢO HÀNH ════════════════ */}
+          {activeTab === "WARRANTY" && (
+            <StaffWarrantyPayoutTab
+              filteredWarrantyClaims={filteredWarrantyClaims}
+              openWarrantyPayoutQR={openWarrantyPayoutQR}
+              navigate={navigate}
+              kpi={kpi}
+              thCls={thCls}
+              tdCls={tdCls}
+              search={search}
+              handleClearSearch={() => setSearch("")}
+            />
+          )}
+
+          {/* ════════════════ TAB 4: SỔ CÁI ĐỐI SOÁT DÒNG TIỀN ════════════════ */}
           {activeTab === "RECONCILIATION" && (
             <div className="space-y-5">
               {/* Thẻ Dòng Tiền Ròng Hệ Thống (Master Wallet Card) */}

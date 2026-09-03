@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import AxiosConfig from "../../../util/AxiosConfig";
 import JobCard from "../components/JobCard";
+import TechnicianJobDetailModal from "./components/TechnicianJobDetailModal";
+import ImageLightboxModal from "../../../components/common/ImageLightboxModal";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import PromptDialog from "../../../components/common/PromptDialog";
@@ -31,6 +33,7 @@ import {
   Sparkles,
   AlertTriangle,
   XCircle,
+  Eye,
 } from "lucide-react";
 
 export default function TechnicianJobs() {
@@ -47,6 +50,33 @@ export default function TechnicianJobs() {
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [sortOrder, setSortOrder] = useState("newest"); // 'newest' | 'oldest' | 'price_desc' | 'price_asc'
   const [viewMode, setViewMode] = useState("table"); // 'table' | 'grid'
+
+  // Detail Modal State
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [viewTab, setViewTab] = useState("info");
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState(null);
+
+  const openDetail = async (job) => {
+    setSelectedJob(job);
+    setViewTab("info");
+    try {
+      setLoadingDetail(true);
+      const res = await AxiosConfig.get(`/bookings/${job.id}`);
+      setSelectedDetail(res.data);
+    } catch {
+      setSelectedDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const splitImageUrls = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  };
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -314,8 +344,8 @@ export default function TechnicianJobs() {
                 onClick={() => setFilter(tab.key)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   active
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
                 }`}
               >
                 <span>{tab.label}</span>
@@ -345,7 +375,7 @@ export default function TechnicianJobs() {
               placeholder="Tìm theo #Mã đơn, dịch vụ, địa chỉ, khách hàng..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition font-medium"
+              className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition font-medium"
             />
             {searchTerm && (
               <button
@@ -363,7 +393,7 @@ export default function TechnicianJobs() {
             <select
               value={selectedDistrict}
               onChange={(e) => setSelectedDistrict(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
             >
               <option value="">Khu vực: Tất cả Hà Nội</option>
               {HANOI_DISTRICTS.map((d) => (
@@ -379,7 +409,7 @@ export default function TechnicianJobs() {
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
             >
               <option value="newest">Ngày thi công mới nhất</option>
               <option value="oldest">Ngày thi công cũ nhất</option>
@@ -432,7 +462,7 @@ export default function TechnicianJobs() {
                 setSearchTerm("");
                 setFilter("ALL");
               }}
-              className="text-amber-700 hover:text-amber-900 font-bold hover:underline cursor-pointer"
+              className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer"
             >
               Xóa tất cả bộ lọc
             </button>
@@ -448,24 +478,24 @@ export default function TechnicianJobs() {
           <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center mx-auto">
             <Wrench className="w-8 h-8 text-slate-400" />
           </div>
-          <h3 className="font-bold text-slate-900 text-base">Không có công trình nào phù hợp</h3>
+          <h3 className="font-bold text-slate-800 text-base">Không tìm thấy công trình nào</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Bạn hiện chưa có công việc nào trong trạng thái này. Khi Admin phân công công trình mới, việc sẽ hiển thị tại đây.
+            Chưa có công trình nào phù hợp với bộ lọc hiện tại. Thử đổi trạng thái hoặc tìm từ khóa khác.
           </p>
         </div>
       ) : viewMode === "table" ? (
         /* TABLE VIEW (Chuẩn như trang Admin) */
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3.5 px-4">#Mã &amp; Dịch vụ</th>
-                  <th className="py-3.5 px-4">Khách hàng</th>
-                  <th className="py-3.5 px-4">Địa chỉ &amp; Ngày thi công</th>
-                  <th className="py-3.5 px-4">Giá trị &amp; Thù lao thợ</th>
-                  <th className="py-3.5 px-4">Trạng thái</th>
-                  <th className="py-3.5 px-4 text-right">Thao tác</th>
+                <tr className="bg-slate-50/80 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-slate-100">
+                  <th className="py-3.5 px-5">Công trình &amp; Dịch vụ</th>
+                  <th className="py-3.5 px-5">Khách hàng</th>
+                  <th className="py-3.5 px-5">Địa chỉ &amp; Khu vực</th>
+                  <th className="py-3.5 px-5">Giá trị &amp; Thù lao</th>
+                  <th className="py-3.5 px-5">Trạng thái</th>
+                  <th className="py-3.5 px-5 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -478,85 +508,94 @@ export default function TechnicianJobs() {
                   const isWaitingAcceptance = status === "WORKER_COMPLETED";
                   const isDone = ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(status);
                   const isCancelled = status === "CANCELLED" || status === "WORKER_REJECTED";
+                  const parsed = parseHanoiAddress(job.address);
 
                   return (
                     <tr
                       key={job.id}
-                      className="hover:bg-slate-50/80 transition group"
+                      onClick={() => openDetail(job)}
+                      className="hover:bg-slate-50/80 transition group cursor-pointer"
                     >
-                      {/* Mã & Dịch vụ */}
-                      <td className="py-3.5 px-4 align-top">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                      {/* 1. Mã & Dịch vụ */}
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className="font-mono text-emerald-700 group-hover:text-emerald-800 transition">
                             #{job.id}
                           </span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-800 truncate max-w-[150px]">
+                            {job.serviceName || job.service?.name || "Sơn sửa nhà"}
+                          </span>
                         </div>
-                        <div className="font-bold text-slate-900 mt-1 line-clamp-1 group-hover:text-amber-700 transition">
-                          {job.serviceName || job.service?.name || "Sơn sửa nhà"}
-                        </div>
+                        {(job.expectedStartDate || job.appointmentDate) && (
+                          <div className="text-[10.5px] text-slate-400 mt-1 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            <span>Ngày hẹn: {formatDate(job.expectedStartDate || job.appointmentDate)}</span>
+                          </div>
+                        )}
                         {job.description && (
-                          <div className="text-[11px] text-slate-400 italic mt-0.5 line-clamp-1">
+                          <div className="text-[10px] text-slate-400 italic mt-0.5 line-clamp-1">
                             &ldquo;{job.description}&rdquo;
                           </div>
                         )}
                       </td>
 
-                      {/* Khách hàng */}
-                      <td className="py-3.5 px-4 align-top">
-                        <div className="font-bold text-slate-800">
+                      {/* 2. Khách hàng */}
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="font-bold text-slate-900 truncate">
                           {job.customerName || job.customer?.username || "Khách hàng"}
                         </div>
-                        {job.customerPhone && (
+                        {job.customerPhone ? (
                           <a
                             href={`tel:${job.customerPhone}`}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 mt-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-slate-500 hover:text-blue-600 flex items-center gap-1 mt-0.5"
                           >
-                            <Phone className="w-3 h-3" />
+                            <Phone className="w-3 h-3 text-slate-400" />
                             <span>{job.customerPhone}</span>
                           </a>
-                        )}
-                      </td>
-
-                      {/* Địa chỉ & Ngày thi công */}
-                      <td className="py-3.5 px-4 align-top max-w-xs">
-                        <div className="flex items-start gap-1 text-slate-700">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2 leading-relaxed font-medium">
-                            {job.address || "Địa chỉ công trình"}
-                          </span>
-                        </div>
-                        {(job.expectedStartDate || job.appointmentDate) && (
-                          <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
-                            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span>Ngày hẹn: {formatDate(job.expectedStartDate || job.appointmentDate)}</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Giá trị & Thù lao thợ */}
-                      <td className="py-3.5 px-4 align-top">
-                        {job.totalAmount && Number(job.totalAmount) > 0 ? (
-                          <div className="space-y-0.5">
-                            <div className="text-[11px] text-slate-500">
-                              Tổng: <span className="font-bold text-slate-800">{formatMoney(job.totalAmount)}</span>
-                            </div>
-                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-black">
-                              <Wallet className="w-3 h-3 text-emerald-600" />
-                              <span>Thù lao (60%): {formatMoney(Number(job.totalAmount) * 0.60)}</span>
-                            </div>
-                          </div>
                         ) : (
-                          <span className="text-slate-400 italic">Chưa xác định</span>
+                          <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
 
-                      {/* Trạng thái */}
-                      <td className="py-3.5 px-4 align-top">
+                      {/* 3. Địa chỉ & Khu vực */}
+                      <td className="py-3.5 px-5 align-top max-w-xs">
+                        <div className="text-slate-700 font-medium text-xs truncate" title={job.address}>
+                          {job.address || "Địa chỉ công trình"}
+                        </div>
+                        {parsed.district && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                              <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>{parsed.district}</span>
+                            </span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* 4. Giá trị & Thù lao thợ */}
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="font-black text-slate-900 text-xs">
+                          {Number(job.totalAmount) > 0 ? (
+                            <span className="font-mono text-slate-900">{formatMoney(job.totalAmount)}</span>
+                          ) : (
+                            <span className="text-slate-400 italic font-normal text-[11px]">Chưa xác định</span>
+                          )}
+                        </div>
+                        <div className="text-[10.5px] text-emerald-700 font-mono mt-0.5 flex items-center gap-1">
+                          <Wallet className="w-3 h-3 text-emerald-600" />
+                          <span>Thù lao (60%): <strong>{formatMoney(Number(job.totalAmount || 0) * 0.60)}</strong></span>
+                        </div>
+                      </td>
+
+                      {/* 5. Trạng thái */}
+                      <td className="py-3.5 px-5 align-top">
                         <StatusBadge status={status} />
                       </td>
 
-                      {/* Thao tác */}
-                      <td className="py-3.5 px-4 align-top text-right">
+                      {/* 6. Thao tác */}
+                      <td className="py-3.5 px-5 align-top text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {canAccept && (
                             <>
@@ -585,7 +624,7 @@ export default function TechnicianJobs() {
                             <button
                               type="button"
                               onClick={() => handleStart(job)}
-                              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black transition shadow-xs cursor-pointer flex items-center gap-1.5 text-xs"
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 text-xs"
                             >
                               <Play className="w-3.5 h-3.5 fill-current" />
                               <span>Bắt đầu thi công</span>
@@ -622,6 +661,17 @@ export default function TechnicianJobs() {
                               {status === "WORKER_REJECTED" ? "Đã từ chối" : "Đã hủy"}
                             </span>
                           )}
+
+                          {/* Nút Xem chi tiết */}
+                          <button
+                            type="button"
+                            onClick={() => openDetail(job)}
+                            className="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 transition cursor-pointer shadow-xs flex items-center gap-1 text-xs"
+                            title="Xem chi tiết công trình"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Chi tiết</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -642,6 +692,7 @@ export default function TechnicianJobs() {
               onReject={handleReject}
               onStart={handleStart}
               onComplete={handleComplete}
+              onViewDetail={openDetail}
             />
           ))}
         </div>
@@ -658,6 +709,34 @@ export default function TechnicianJobs() {
             onPageChange={setCurrentPage}
           />
         </div>
+      )}
+
+      {/* Technician Job Detail Modal */}
+      <TechnicianJobDetailModal
+        selectedJob={selectedJob}
+        selectedDetail={selectedDetail}
+        loadingDetail={loadingDetail}
+        viewTab={viewTab}
+        setViewTab={setViewTab}
+        splitImageUrls={splitImageUrls}
+        setSelectedPreviewImage={setSelectedPreviewImage}
+        closeModal={() => {
+          setSelectedJob(null);
+          setSelectedDetail(null);
+        }}
+        onAccept={handleAccept}
+        onReject={handleReject}
+        onStart={handleStart}
+        onComplete={handleComplete}
+      />
+
+      {/* Lightbox Modal */}
+      {selectedPreviewImage && (
+        <ImageLightboxModal
+          isOpen={!!selectedPreviewImage}
+          imageSrc={selectedPreviewImage}
+          onClose={() => setSelectedPreviewImage(null)}
+        />
       )}
 
       {/* Confirm Action Dialog */}

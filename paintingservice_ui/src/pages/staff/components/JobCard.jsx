@@ -14,6 +14,7 @@ import {
   Phone,
   ArrowRight,
   Wallet,
+  Eye,
 } from "lucide-react";
 import { formatMoney } from "../../../util/formatters";
 import { formatDate } from "../../../util/orderFlowUtils";
@@ -43,7 +44,10 @@ export default function JobCard({
   const isCancelled = status === "CANCELLED" || status === "WORKER_REJECTED";
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-amber-300 transition-all duration-200 flex flex-col justify-between space-y-4 group">
+    <div
+      onClick={() => onViewDetail?.(job)}
+      className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-emerald-300 transition-all duration-200 flex flex-col justify-between space-y-4 group cursor-pointer"
+    >
       <div>
         {/* Card Header: Mã đơn, Dịch vụ & Status */}
         <div className="flex justify-between items-start gap-2 mb-3">
@@ -56,7 +60,7 @@ export default function JobCard({
                 {job.serviceName || job.service?.name || "Sơn sửa nhà"}
               </span>
             </div>
-            <h3 className="font-black text-slate-900 text-base mt-2 line-clamp-1 group-hover:text-amber-700 transition">
+            <h3 className="font-black text-slate-900 text-base mt-2 line-clamp-1 group-hover:text-emerald-700 transition">
               {job.title || job.serviceName || `Công trình #${job.id}`}
             </h3>
           </div>
@@ -66,7 +70,7 @@ export default function JobCard({
         {/* Thông tin chính ngắn gọn */}
         <div className="space-y-2.5 text-xs bg-slate-50/90 p-4 rounded-2xl border border-slate-100">
           <div className="flex items-start gap-2.5">
-            <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <p className="text-slate-800 font-bold leading-relaxed">
               {job.address || "Địa chỉ theo công trình"}
             </p>
@@ -129,7 +133,7 @@ export default function JobCard({
       </div>
 
       {/* Action Buttons */}
-      <div className="space-y-2 pt-1 border-t border-slate-100">
+      <div className="space-y-2 pt-1 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
         {canAccept && (
           <div className="flex gap-2">
             {canReject && (
@@ -158,9 +162,9 @@ export default function JobCard({
             <button
               type="button"
               onClick={() => onStart?.(job)}
-              className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black shadow-xs transition text-xs flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs transition text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Play className="w-4 h-4 fill-current text-slate-950" />
+              <Play className="w-4 h-4 fill-current text-white" />
               <span>Bắt đầu thi công ngay</span>
             </button>
             {canReject && (
@@ -205,6 +209,16 @@ export default function JobCard({
             {status === "WORKER_REJECTED" ? "Đã từ chối đơn này" : "Đơn đã hủy"}
           </div>
         )}
+
+        {/* Nút Xem chi tiết công trình */}
+        <button
+          type="button"
+          onClick={() => onViewDetail?.(job)}
+          className="w-full py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 transition text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+        >
+          <Eye className="w-3.5 h-3.5 text-slate-500" />
+          <span>Xem chi tiết công trình</span>
+        </button>
       </div>
     </div>
   );

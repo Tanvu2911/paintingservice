@@ -52,18 +52,18 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         // Validate token trước khi lấy username để tránh MalformedJwtException
         if (jwt != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            if (jwtUtil.validateToken(jwt)) {
-                username = jwtUtil.getUsernameFromJWT(jwt);
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-//                Tạo authentication object
-//                Gán quyền cho user
-//                Không cần password vì đã check khi sinh token
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()
-                );
-//                Gán authentication vào SecurityContext
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            try {
+                if (jwtUtil.validateToken(jwt)) {
+                    username = jwtUtil.getUsernameFromJWT(jwt);
+                    UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception ex) {
+                SecurityContextHolder.clearContext();
             }
         }
 //        Tiếp tục filter chain

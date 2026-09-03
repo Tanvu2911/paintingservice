@@ -8,8 +8,8 @@ export function getNotificationDestination(notification, user) {
   if (!notification) return null;
   const fullText = `${notification.title || ""} ${notification.content || ""} ${notification.message || ""}`;
 
-  // Tìm mã đơn hàng / yêu cầu / hợp đồng dạng: #123, đơn hàng #123, yêu cầu #123, đơn 123, công trình #123...
-  const bookingMatch = fullText.match(/(?:#|đơn hàng\s*#?|yêu cầu\s*#?|đơn\s*#?|công trình\s*#?|hợp đồng.*#)(\d+)/i);
+  // Tìm mã đơn hàng / yêu cầu / hợp đồng / bảo hành dạng: #123, đơn hàng #123, bảo hành #123...
+  const bookingMatch = fullText.match(/(?:#|đơn hàng\s*#?|bảo hành\s*#?|yêu cầu\s*#?|đơn\s*#?|công trình\s*#?|hợp đồng.*#)(\d+)/i);
   const bookingId = bookingMatch ? bookingMatch[1] : null;
 
   let currentUser = user;
@@ -17,11 +17,14 @@ export function getNotificationDestination(notification, user) {
     try {
       const saved = localStorage.getItem("user");
       if (saved) currentUser = JSON.parse(saved);
-    } catch (e) {}
+    } catch (e) { }
   }
+
+  const isWarrantyNoti = /bảo hành|warranty|sự cố sơn|thẩm định|khắc phục sự cố/i.test(fullText);
 
   // 1. Quản trị viên (Admin)
   if (isAdmin(currentUser)) {
+    if (isWarrantyNoti) return "/admin/warranties";
     if (bookingId) return `/admin/bookings/${bookingId}`;
     if (/hợp đồng|contract/i.test(fullText)) return "/admin/contracts";
     if (/nhân viên|thợ|giám sát|staff/i.test(fullText)) return "/admin/employees";
@@ -34,6 +37,7 @@ export function getNotificationDestination(notification, user) {
 
   // 2. Nhân viên Giám sát (Survey Staff)
   if (isSurveyStaff(currentUser)) {
+    if (isWarrantyNoti) return "/staff/survey/warranties";
     if (bookingId) return `/staff/survey/jobs`;
     if (/lịch sử/i.test(fullText)) return "/staff/survey/history";
     if (/ví|thù lao|rút tiền|tiền/i.test(fullText)) return "/staff/survey/wallet";
@@ -44,6 +48,7 @@ export function getNotificationDestination(notification, user) {
 
   // 3. Thợ thi công (Technician Staff)
   if (isTechnicianStaff(currentUser)) {
+    if (isWarrantyNoti) return "/staff/technician/warranties";
     if (bookingId) return `/staff/technician/jobs`;
     if (/lịch sử/i.test(fullText)) return "/staff/technician/history";
     if (/ví|thù lao|rút tiền|tiền/i.test(fullText)) return "/staff/technician/wallet";
@@ -54,6 +59,7 @@ export function getNotificationDestination(notification, user) {
 
   // 4. Khách hàng (Customer)
   if (bookingId) return `/customer/bookings/${bookingId}`;
+  if (isWarrantyNoti) return "/customer/ongoing";
   if (/ví|nạp tiền|thanh toán/i.test(fullText)) return "/customer/wallet";
   if (/lịch sử/i.test(fullText)) return "/customer/ongoing";
   if (/đặt lịch|tạo yêu cầu/i.test(fullText)) return "/customer/booking";

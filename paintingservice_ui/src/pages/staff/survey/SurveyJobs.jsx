@@ -35,6 +35,8 @@ import ImageLightboxModal from "../../../components/common/ImageLightboxModal";
 import StatusBadge from "../../../components/common/StatusBadge";
 import Pagination from "../../../components/common/Pagination";
 import { parseHanoiAddress, HANOI_DISTRICTS } from "../../../data/hanoiLocations";
+import { formatMoney } from "../../../util/formatters";
+import { formatDate } from "../../../util/orderFlowUtils";
 
 export default function SurveyJobs() {
   const context = useOutletContext() || {};
@@ -1039,8 +1041,8 @@ export default function SurveyJobs() {
                 onClick={() => setStatusFilter(tab.key)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                   active
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-blue-700"
                 }`}
               >
                 <span>{tab.label}</span>
@@ -1184,14 +1186,13 @@ export default function SurveyJobs() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3.5 px-4">#Mã &amp; Dịch vụ</th>
-                  <th className="py-3.5 px-4">Khách hàng</th>
-                  <th className="py-3.5 px-4">Địa chỉ &amp; Lịch hẹn</th>
-                  <th className="py-3.5 px-4">Báo giá &amp; Thù lao</th>
-                  <th className="py-3.5 px-4">Đội thợ</th>
-                  <th className="py-3.5 px-4">Trạng thái</th>
-                  <th className="py-3.5 px-4 text-right">Thao tác</th>
+                <tr className="bg-slate-50/80 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-slate-100">
+                  <th className="py-3.5 px-5">Đơn hàng &amp; Dịch vụ</th>
+                  <th className="py-3.5 px-5">Khách hàng</th>
+                  <th className="py-3.5 px-5">Công trình &amp; Khu vực</th>
+                  <th className="py-3.5 px-5">Dự toán &amp; Thù lao</th>
+                  <th className="py-3.5 px-5">Trạng thái</th>
+                  <th className="py-3.5 px-5 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1207,6 +1208,8 @@ export default function SurveyJobs() {
                   const canSupervisorAccept =
                     status === "WORKER_COMPLETED" && (!detail || !detail.supervisorAccepted);
                   const hasTeam = job.technicianName || job.preferredTechnicianName;
+                  const parsed = parseHanoiAddress(job.address);
+                  const supervisorPayout = Number(job.totalAmount) > 0 ? Number(job.totalAmount) * 0.10 : Number(job.surveyFee) || 200000;
 
                   return (
                     <tr
@@ -1214,117 +1217,106 @@ export default function SurveyJobs() {
                       className="hover:bg-slate-50/80 transition group cursor-pointer"
                       onClick={() => openModal(job, "view")}
                     >
-                      {/* Mã & Dịch vụ */}
-                      <td className="py-3.5 px-4 align-top">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                      {/* 1. Mã đơn & Dịch vụ */}
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className="font-mono text-blue-600 group-hover:text-blue-800 transition">
                             #{job.id}
                           </span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-800 truncate max-w-[150px]">
+                            {job.serviceName || "Khảo sát sơn"}
+                          </span>
                         </div>
-                        <div className="font-bold text-slate-900 mt-1 line-clamp-1 group-hover:text-blue-600 transition">
-                          {job.serviceName || "Dịch vụ sơn sửa"}
+                        <div className="text-[10.5px] text-slate-400 mt-1 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <span>
+                            {job.appointmentDate ? formatDate(job.appointmentDate) : "Chưa đặt lịch hẹn"}
+                          </span>
                         </div>
                         {hasSurveyReport && (
                           <div className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded mt-1 border border-indigo-200">
-                            <FileText className="w-3 h-3" />
+                            <FileText className="w-2.5 h-2.5" />
                             <span>Đã có báo cáo KS</span>
                           </div>
                         )}
                       </td>
 
-                      {/* Khách hàng */}
-                      <td className="py-3.5 px-4 align-top">
-                        <div className="font-bold text-slate-800">
+                      {/* 2. Khách hàng */}
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="font-bold text-slate-900 truncate">
                           {job.customerName || "Khách hàng"}
                         </div>
-                        {job.customerPhone && (
+                        {job.customerPhone ? (
                           <a
                             href={`tel:${job.customerPhone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 mt-0.5"
+                            className="text-[11px] text-slate-500 hover:text-blue-600 flex items-center gap-1 mt-0.5"
                           >
-                            <Phone className="w-3 h-3" />
+                            <Phone className="w-3 h-3 text-slate-400" />
                             <span>{job.customerPhone}</span>
                           </a>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
 
-                      {/* Địa chỉ & Lịch hẹn */}
-                      <td className="py-3.5 px-4 align-top max-w-xs">
-                        <div className="flex items-start gap-1 text-slate-700">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2 leading-relaxed">
-                            {job.address || "Chưa có địa chỉ"}
-                          </span>
+                      {/* 3. Công trình & Khu vực */}
+                      <td className="py-3.5 px-5 align-top max-w-xs">
+                        <div className="text-slate-700 font-medium text-xs truncate" title={job.address}>
+                          {job.address || "Địa chỉ công trình"}
                         </div>
-                        <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
-                          <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>
-                            {job.appointmentDate
-                              ? new Date(job.appointmentDate).toLocaleString("vi-VN", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : "Chưa đặt lịch"}
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {parsed.district && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                              <MapPin className="w-2.5 h-2.5 text-blue-600" />
+                              <span>{parsed.district}</span>
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-500">
+                            Thợ: <strong className={hasTeam ? "text-emerald-900" : "text-slate-400"}>{hasTeam ? `@${hasTeam}` : "Chưa gán"}</strong>
                           </span>
                         </div>
                       </td>
 
-                      {/* Báo giá & Thù lao */}
-                      <td className="py-3.5 px-4 align-top">
-                        {job.totalAmount && Number(job.totalAmount) > 0 ? (
-                          <div className="space-y-0.5">
-                            <div className="font-black text-slate-900">
-                              {formatMoney(job.totalAmount)}
-                            </div>
-                            <div className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                              <Wallet className="w-3 h-3 text-emerald-600" />
-                              <span>Thù lao GS (10%): {formatMoney(Number(job.totalAmount) * 0.10)}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic">Chưa báo giá</span>
-                        )}
+                      {/* 4. Dự toán & Thù lao */}
+                      <td className="py-3.5 px-5 align-top">
+                        <div className="font-black text-slate-900 text-xs">
+                          {Number(job.totalAmount) > 0 ? (
+                            <span className="font-mono text-slate-900">{formatMoney(job.totalAmount)}</span>
+                          ) : (
+                            <span className="text-slate-400 italic font-normal text-[11px]">Chưa báo giá</span>
+                          )}
+                        </div>
+                        <div className="text-[10.5px] text-emerald-700 font-mono mt-0.5 flex items-center gap-1">
+                          <Wallet className="w-3 h-3 text-emerald-600" />
+                          <span>Thù lao (10%): <strong>{formatMoney(supervisorPayout)}</strong></span>
+                        </div>
                       </td>
 
-                      {/* Đội thợ */}
-                      <td className="py-3.5 px-4 align-top">
-                        {hasTeam ? (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-bold">
-                            <Wrench className="w-3 h-3 text-emerald-600" />
-                            <span>{job.technicianName || job.preferredTechnicianName}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 italic text-[11px]">Chưa phân thợ</span>
-                        )}
-                      </td>
-
-                      {/* Trạng thái */}
-                      <td className="py-3.5 px-4 align-top">
+                      {/* 5. Trạng thái */}
+                      <td className="py-3.5 px-5 align-top">
                         <StatusBadge status={status} />
                       </td>
 
-                      {/* Thao tác */}
-                      <td className="py-3.5 px-4 align-top text-right" onClick={(e) => e.stopPropagation()}>
+                      {/* 6. Thao tác */}
+                      <td className="py-3.5 px-5 align-top text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {canAccept && (
                             <>
                               <button
                                 type="button"
                                 onClick={() => handleAcceptJob(job.id)}
-                                className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
+                                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
                                 title="Nhận việc khảo sát"
                               >
                                 <Check className="w-3.5 h-3.5" />
-                                <span className="hidden xl:inline">Nhận việc</span>
+                                <span>Nhận việc</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleRejectJob(job.id)}
-                                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer"
+                                className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer"
                                 title="Từ chối"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -1336,7 +1328,7 @@ export default function SurveyJobs() {
                             <button
                               type="button"
                               onClick={() => openModal(job, "report")}
-                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
                             >
                               <FileText className="w-3.5 h-3.5" />
                               <span>Báo cáo KS</span>
@@ -1347,10 +1339,10 @@ export default function SurveyJobs() {
                             <button
                               type="button"
                               onClick={() => openModal(job, "daily")}
-                              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
                             >
                               <Calendar className="w-3.5 h-3.5" />
-                              <span>Nhật ký ngày</span>
+                              <span>Nhật ký</span>
                             </button>
                           )}
 
@@ -1358,7 +1350,7 @@ export default function SurveyJobs() {
                             <button
                               type="button"
                               onClick={() => handleSupervisorAccept(job.id)}
-                              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xs cursor-pointer flex items-center gap-1 text-xs"
                             >
                               <Award className="w-3.5 h-3.5" />
                               <span>Nghiệm thu</span>
@@ -1368,10 +1360,11 @@ export default function SurveyJobs() {
                           <button
                             type="button"
                             onClick={() => openModal(job, "view")}
-                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 transition cursor-pointer shadow-xs flex items-center gap-1 text-xs"
                             title="Xem chi tiết"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Chi tiết</span>
                           </button>
                         </div>
                       </td>
@@ -1473,7 +1466,7 @@ export default function SurveyJobs() {
                       <button
                         type="button"
                         onClick={() => handleAcceptJob(job.id)}
-                        className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>Nhận việc</span>
@@ -2116,7 +2109,7 @@ export default function SurveyJobs() {
                         onClick={() => setCustomerAgreed(true)}
                         className={`py-3 rounded-xl text-xs font-bold border-2 transition cursor-pointer flex items-center justify-center gap-2 ${
                           customerAgreed
-                            ? "border-slate-900 bg-slate-900 text-white shadow-xs"
+                            ? "border-blue-600 bg-blue-600 text-white shadow-xs"
                             : "border-slate-200 text-slate-600 hover:bg-slate-50"
                         }`}
                       >

@@ -86,8 +86,8 @@ export default function TechnicianDashboard() {
   return (
     <div className="space-y-6 max-w-7xl">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 p-6 md:p-8 rounded-3xl text-white shadow-xl shadow-emerald-950/20 relative overflow-hidden border border-emerald-800/50">
-        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="bg-gradient-to-r from-[#064E3B] via-[#047857] to-[#090D1A] p-6 md:p-8 rounded-3xl text-white shadow-xl shadow-emerald-950/20 relative overflow-hidden border border-emerald-700/40">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-3 border border-white/15">
@@ -138,7 +138,7 @@ export default function TechnicianDashboard() {
             {/* Nút Xem công trình */}
             <Link
               to="/staff/technician/jobs"
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-xs transition flex items-center gap-2 border border-emerald-400/30 shadow-md cursor-pointer"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl text-xs transition flex items-center gap-2 border border-emerald-400/30 shadow-md cursor-pointer"
             >
               <Briefcase className="w-4 h-4 text-white" />
               <span>Xem công trình</span>
@@ -154,29 +154,29 @@ export default function TechnicianDashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-sky-50/70 via-white to-white p-5 rounded-3xl border border-sky-100 shadow-xs hover:shadow-md transition">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-sky-800 uppercase tracking-wider">
-              Đang thi công
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-sky-600 text-white shadow-xs shadow-sky-500/20 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <p className="text-3xl font-black text-sky-600 mt-3">{stats.inProgress || 0}</p>
-          <p className="text-[11px] text-slate-500 mt-1 font-medium">Công trình đang triển khai</p>
-        </div>
-
         <div className="bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 rounded-3xl border border-emerald-100 shadow-xs hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-              Đã hoàn thành
+              Đang thi công
             </span>
             <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white shadow-xs shadow-emerald-500/20 flex items-center justify-center">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-3xl font-black text-emerald-600 mt-3">{stats?.inProgress || 0}</p>
+          <p className="text-[11px] text-slate-500 mt-1 font-medium">Công trình đang triển khai</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-teal-50/70 via-white to-white p-5 rounded-3xl border border-teal-100 shadow-xs hover:shadow-md transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-teal-800 uppercase tracking-wider">
+              Đã hoàn thành
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white shadow-xs shadow-teal-500/20 flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-3xl font-black text-emerald-600 mt-3">{stats?.completed || 0}</p>
+          <p className="text-3xl font-black text-teal-600 mt-3">{stats?.completed || 0}</p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">Công trình đã bàn giao</p>
         </div>
 
@@ -199,7 +199,7 @@ export default function TechnicianDashboard() {
             <span className="text-[11px] text-slate-500 font-medium">{ratingStats.count} lượt đánh giá</span>
             <Link
               to="/staff/technician/reviews"
-              className="text-[11px] font-bold text-amber-700 hover:text-amber-800 inline-flex items-center gap-0.5"
+              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-0.5"
             >
               <span>Xem góp ý</span>
               <ChevronRight className="w-3 h-3" />
@@ -207,17 +207,17 @@ export default function TechnicianDashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-50/70 via-white to-white p-5 rounded-3xl border border-indigo-100 shadow-xs hover:shadow-md transition">
+        <div className="bg-gradient-to-br from-emerald-50/70 via-white to-white p-5 rounded-3xl border border-emerald-100 shadow-xs hover:shadow-md transition">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-indigo-800 uppercase tracking-wider">
+            <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
               Tổng thù lao nhận
             </span>
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white shadow-xs shadow-indigo-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white shadow-xs shadow-emerald-500/20 flex items-center justify-center">
               <Wallet className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-2xl font-black text-indigo-600 mt-3 truncate font-mono">
-            {formatMoney(stats.totalRevenue || 0)}
+          <p className="text-2xl font-black text-emerald-600 mt-3 truncate font-mono">
+            {formatMoney(stats?.totalRevenue || 0)}
           </p>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">Tổng thù lao công trình</p>
         </div>
