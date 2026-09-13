@@ -168,8 +168,6 @@ export default function CreateContractModal({
                 remainingAmount: Number(form.remainingAmount || 0),
             };
 
-            console.log("CREATE CONTRACT PAYLOAD:", payload);
-
             const res = await AxiosConfig.post("/contracts", payload);
 
             showToast?.(

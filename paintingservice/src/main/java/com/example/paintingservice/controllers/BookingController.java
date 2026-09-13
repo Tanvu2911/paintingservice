@@ -74,7 +74,7 @@ public class BookingController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication) {
         bookingService.deleteBooking(id, authentication.getName());
         return ResponseEntity.noContent().build();
@@ -121,12 +121,6 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.assignTeam(id, technicianId));
     }
 
-    // ==================== THANH TOÁN NHÂN VIÊN ====================
-    @PostMapping("/{id}/pay-staff")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> payStaff(@PathVariable Long id) {
-        return ResponseEntity.ok(bookingService.payStaff(id));
-    }
 
     // ==================== CÁC API CỦA ĐỘI THỢ & GIÁM SÁT ====================
     @PostMapping("/{id}/accept-job")

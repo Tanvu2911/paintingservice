@@ -68,6 +68,21 @@ export default function Sidebar({
                 {item.icon}
               </span>
               <span className="flex-1 text-left">{item.label}</span>
+              {/* Hình tròn nháy thông báo trên các mục */}
+              {item.hasPing && (
+                <span className="relative flex h-2.5 w-2.5 shrink-0" title="Có thông báo / cập nhật mới">
+                  <span
+                    className={`animate-ping absolute inline-flex h-full w-full rounded-full ${
+                      isActive ? "bg-amber-300" : "bg-blue-400"
+                    } opacity-75`}
+                  />
+                  <span
+                    className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                      isActive ? "bg-amber-400" : "bg-blue-600"
+                    }`}
+                  />
+                </span>
+              )}
               {item.badge != null && item.badge > 0 && (
                 <span
                   className={`min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center ${isActive

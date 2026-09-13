@@ -6,6 +6,8 @@ import java.util.Map;
 import com.example.paintingservice.dto.BookingDto;
 import com.example.paintingservice.entity.Booking;
 
+import com.example.paintingservice.entity.User;
+
 public interface BookingService extends BaseService<Booking, Long> {
 
     BookingDto createBooking(BookingDto dto, String currentUsername);
@@ -18,13 +20,19 @@ public interface BookingService extends BaseService<Booking, Long> {
 
     List<Booking> findAllBySurveyor_Id(Long surveyorId);
 
+    List<Booking> findSurveyJobsForStaff(Long staffId);
+
+    List<Booking> findAllOrderByIdDesc();
+
     Map<String, Object> sendQuote(Long id, Map<String, Object> payload);
 
     Map<String, Object> confirmDeposit(Long id, Map<String, String> payload);
 
-    Map<String, Object> assignTeam(Long id, Long technicianId);
+    User autoAssignTechnician(Booking booking);
 
-    Map<String, Object> payStaff(Long id);
+    User handleWorkerAutoAssignmentAfterDeposit(Booking booking);
+
+    Map<String, Object> assignTeam(Long id, Long technicianId);
 
     BookingDto acceptJob(Long bookingId, String username);
 

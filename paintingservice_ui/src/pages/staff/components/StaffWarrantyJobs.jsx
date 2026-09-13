@@ -121,6 +121,30 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
 
   const handleRefresh = () => fetchClaims(true);
 
+  // Tính thù lao hiển thị thông minh cho Nhân sự
+  const getExpectedPayout = useCallback(
+    (c) => {
+      if (!c) return 0;
+      const supportPrice = Number(c.finalSupportPrice) || Number(c.suggestedPrice) || 0;
+      const isCustomerFault = c.faultType === "CUSTOMER_FAULT" || supportPrice > 0;
+      if (isSurveyor) {
+        if (c.surveyorSalary != null) return Number(c.surveyorSalary);
+        return isCustomerFault ? (supportPrice > 0 ? Math.round(supportPrice * 0.10) : 100000) : 100000;
+      } else {
+        if (c.workerSalary != null) return Number(c.workerSalary);
+        const isOldWorker = Boolean(
+          c.technicianId &&
+          c.previousTechnicianId &&
+          String(c.technicianId) === String(c.previousTechnicianId)
+        );
+        if (isCustomerFault) return supportPrice > 0 ? Math.round(supportPrice * 0.60) : 200000;
+        if (isOldWorker) return 0;
+        return 200000;
+      }
+    },
+    [isSurveyor]
+  );
+
   // =========================================================
   // ACTIONS: GIÁM SÁT
   // =========================================================
@@ -669,9 +693,7 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedClaims.map((claim) => {
             const statusInfo = getStatusBadge(claim.status);
-            const payoutAmount = !isSurveyor
-              ? Number(claim.workerSalary) || 200000
-              : Number(claim.surveyorSalary) || 100000;
+            const payoutAmount = getExpectedPayout(claim);
 
             return (
               <div
@@ -755,7 +777,7 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
                       <span>Thù lao {isSurveyor ? "khảo sát & NT" : "khắc phục"}:</span>
                     </span>
                     <span className="text-xs font-black text-slate-900 font-mono">
-                      {formatMoney(payoutAmount)}
+                      {payoutAmount === 0 ? "0đ (Trách nhiệm)" : formatMoney(payoutAmount)}
                     </span>
                   </div>
                 </div>
@@ -893,9 +915,7 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
               <tbody className="divide-y divide-slate-100">
                 {paginatedClaims.map((claim) => {
                   const statusInfo = getStatusBadge(claim.status);
-                  const payoutAmount = !isSurveyor
-                    ? Number(claim.workerSalary) || 200000
-                    : Number(claim.surveyorSalary) || 100000;
+                  const payoutAmount = getExpectedPayout(claim);
 
                   return (
                     <tr
@@ -928,9 +948,15 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
                       </td>
 
                       <td className="py-3 px-4 align-middle">
-                        <span className="inline-block px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-xs font-mono border border-emerald-200">
-                          {formatMoney(payoutAmount)}
-                        </span>
+                        {payoutAmount === 0 ? (
+                          <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+                            0đ (Trách nhiệm)
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-xs font-mono border border-emerald-200">
+                            {formatMoney(payoutAmount)}
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-3 px-4 align-middle">
@@ -1075,11 +1101,7 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
                   Thù lao {isSurveyor ? "Giám sát" : "Thợ"} nhận
                 </span>
                 <span className="text-base sm:text-lg font-black text-emerald-700 font-mono block mt-0.5">
-                  {formatMoney(
-                    !isSurveyor
-                      ? Number(selectedClaim.workerSalary) || 200000
-                      : Number(selectedClaim.surveyorSalary) || 100000
-                  )}
+                  {formatMoney(getExpectedPayout(selectedClaim))}
                 </span>
               </div>
 
@@ -1293,20 +1315,20 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
                         Thù lao {isSurveyor ? "Giám sát viên" : "Đội thợ thi công"}
                       </span>
                       <div className="text-2xl font-black text-slate-900 font-mono mt-0.5">
-                        {formatMoney(
-                          !isSurveyor
-                            ? Number(selectedClaim.workerSalary) || 200000
-                            : Number(selectedClaim.surveyorSalary) || 100000
-                        )}
+                        {getExpectedPayout(selectedClaim) === 0 ? "0đ (Trách nhiệm)" : formatMoney(getExpectedPayout(selectedClaim))}
                       </div>
                       <p className="text-[11px] text-slate-900/80 mt-0.5">
-                        Quyết toán tự động sau khi hoàn tất nghiệm thu thực tế với khách hàng.
+                        {getExpectedPayout(selectedClaim) === 0 ? "Bảo hành trách nhiệm cho đơn công trình trước đó, không phát sinh chi phí thù lao." : "Quyết toán tự động sau khi hoàn tất nghiệm thu thực tế với khách hàng."}
                       </p>
                     </div>
                     <div>
                       {(!isSurveyor ? selectedClaim.workerPaid : selectedClaim.surveyorPaid) ? (
                         <span className="inline-block px-3 py-1 bg-blue-600 text-white font-bold text-xs rounded shadow-xs">
                           ✓ Đã thanh toán vào ví
+                        </span>
+                      ) : getExpectedPayout(selectedClaim) === 0 ? (
+                        <span className="inline-block px-3 py-1 bg-slate-100 text-slate-700 font-bold text-xs rounded border border-slate-200">
+                          ✓ 0đ (Bảo hành trách nhiệm)
                         </span>
                       ) : (
                         <span className="inline-block px-3 py-1 bg-white text-slate-900 font-bold text-xs rounded border border-slate-200">

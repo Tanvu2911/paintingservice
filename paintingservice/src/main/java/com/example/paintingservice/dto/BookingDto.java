@@ -24,6 +24,8 @@ public class BookingDto {
     private Long customerId;
     private String customerName;
     private String customerPhone;
+    private String customerEmail;
+    private String customerAddress;
 
     private Long surveyorId;
     private String surveyorName;
@@ -42,6 +44,11 @@ public class BookingDto {
 
     private Long preferredTechnicianId;
     private String preferredTechnicianName;
+
+    private Long preferredSupervisorId;
+    private String preferredSupervisorName;
+    private String preferredSupervisorPhone;
+    private String preferredSupervisorAvatar;
 
     @NotNull(message = "serviceId is required")
     private Long serviceId;

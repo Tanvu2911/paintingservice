@@ -1,5 +1,5 @@
 import React from "react";
-import { Camera, X } from "lucide-react";
+import { Camera, X, ClipboardList } from "lucide-react";
 
 export default function SurveyReportModal({
   selectedJob,
@@ -39,6 +39,25 @@ export default function SurveyReportModal({
 
         {/* Modal Body */}
         <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+          {/* Thông tin yêu cầu ban đầu của khách hàng */}
+          {selectedJob.description && (
+            <div className="p-3 bg-blue-50/80 rounded-lg border border-blue-200/80">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-bold text-blue-900 text-xs flex items-center gap-1.5">
+                  <ClipboardList className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Yêu cầu ban đầu từ khách ({selectedJob.customerName || "Khách hàng"}):</span>
+                </span>
+                {selectedJob.appointmentTime && (
+                  <span className="text-[10px] font-mono text-blue-700 bg-white px-1.5 py-0.5 rounded border border-blue-200">
+                    Giờ hẹn: {selectedJob.appointmentTime.slice(0, 5)}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-700 italic leading-relaxed whitespace-pre-wrap">
+                "{selectedJob.description}"
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-bold text-slate-900 mb-1">
               Nội dung khảo sát hiện trạng *

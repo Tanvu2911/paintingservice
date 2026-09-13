@@ -34,7 +34,7 @@ export default function SurveyCard({
 }) {
   const status = job.status || "PENDING";
   const totalAmount = Number(job.totalAmount) || 0;
-  const supervisorPayout = totalAmount > 0 ? totalAmount * 0.10 : Number(job.surveyFee) || 200000;
+  const supervisorPayout = totalAmount > 0 ? totalAmount * 0.1 : 0;
 
   // Supervisor Actions Permissions
   const canAccept = ["PENDING", "SURVEY_ASSIGNED"].includes(status);

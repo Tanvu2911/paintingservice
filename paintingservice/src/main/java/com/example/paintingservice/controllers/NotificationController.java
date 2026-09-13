@@ -58,6 +58,19 @@ public class NotificationController {
         return ResponseEntity.ok().build();
     }
 
+    // API đánh dấu 1 thông báo cụ thể của tôi là đã đọc
+    @PutMapping("/me/{id}/read")
+    public ResponseEntity<Void> markAsRead(@PathVariable Long id, Authentication auth) {
+        Long userId = userRepository.findByUsername(auth.getName()).get().getId();
+        notificationService.findById(id).ifPresent(n -> {
+            if (n.getUser() != null && n.getUser().getId().equals(userId)) {
+                n.setIsRead(true);
+                notificationService.save(n);
+            }
+        });
+        return ResponseEntity.ok().build();
+    }
+
     // API xóa tất cả thông báo của tôi
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteAllMyNotifications(Authentication auth) {

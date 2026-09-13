@@ -11,6 +11,7 @@ export default function ContractModal({
   onClose,
   contract,
   booking,
+  order,
   role = "customer", // "customer" | "admin"
   showToast,
   onSuccess,
@@ -20,11 +21,14 @@ export default function ContractModal({
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Nhận linh hoạt booking hoặc order từ props để đảm bảo dùng chung ở mọi trang
+  const b = booking || order || {};
+
   const canSignAsCustomer =
     role === "customer" &&
     contract &&
     !contract.customerSigned &&
-    ["WAITING_CUSTOMER_SIGNATURE", "CUSTOMER_ACCEPTED_QUOTE"].includes(booking?.status);
+    ["WAITING_CUSTOMER_SIGNATURE", "CUSTOMER_ACCEPTED_QUOTE"].includes(b?.status);
 
   const getCanvasPosition = (event) => {
     const canvas = canvasRef.current;
@@ -107,10 +111,10 @@ export default function ContractModal({
       }
 
       // Đảm bảo đơn sang trạng thái WAITING_DEPOSIT
-      if (booking?.id && booking.status !== "WAITING_DEPOSIT") {
+      if (b?.id && b.status !== "WAITING_DEPOSIT") {
         try {
-          await AxiosConfig.put(`/bookings/${booking.id}`, {
-            ...booking,
+          await AxiosConfig.put(`/bookings/${b.id}`, {
+            ...b,
             status: "WAITING_DEPOSIT",
           });
         } catch (e) {
@@ -131,9 +135,12 @@ export default function ContractModal({
 
   if (!isOpen) return null;
 
-  const total = Number(booking?.totalAmount) || 0;
-  const deposit = booking?.depositAmount ? Number(booking?.depositAmount) : total * 0.3;
-  const remaining = Math.max(0, total - deposit);
+  const total = Number(b?.totalAmount) || 0;
+  const deposit = b?.depositAmount ? Number(b?.depositAmount) : (total > 0 ? total * 0.3 : 0);
+  const remaining = b?.remainingAmount ? Number(b?.remainingAmount) : Math.max(0, total - deposit);
+  const customerName = b?.customerName || b?.customer?.fullName || b?.customer?.username || "Khách hàng";
+  const customerPhone = b?.customerPhone || b?.customer?.phoneNumber || "—";
+  const address = b?.address || "Hà Nội";
 
   return (
     <Modal
@@ -142,7 +149,7 @@ export default function ContractModal({
       title="Hợp Đồng Dịch Vụ Sơn Sửa Điện Tử"
       maxWidth="max-w-3xl"
     >
-      <div className="space-y-6 text-xs text-slate-700">
+      <div className="space-y-5 text-xs text-slate-700">
         {/* Header Thông Tin Hợp Đồng */}
         <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -150,7 +157,7 @@ export default function ContractModal({
               Mã số hợp đồng
             </span>
             <span className="font-mono font-black text-slate-900 text-sm">
-              {contract?.contractCode || `HD-2026-${booking?.id || "000"}`}
+              {contract?.contractCode || `HD-2026-${b?.id || "000"}`}
             </span>
           </div>
 
@@ -158,51 +165,77 @@ export default function ContractModal({
             <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
               {contract?.adminSigned && contract?.customerSigned
                 ? "✓ Đã có đủ 2 chữ ký pháp lý"
-                : contract?.customerSigned
-                ? "Chờ Admin ký duyệt cọc"
-                : "Chờ Khách hàng ký"}
+                : contract?.adminSigned
+                  ? "✓ Admin đã ký duyệt • Chờ khách ký"
+                  : contract?.customerSigned
+                    ? "✓ Khách đã ký • Chờ Admin duyệt cọc"
+                    : "Chờ hai bên ký kết"}
             </span>
+          </div>
+        </div>
+
+        {/* Tóm tắt các mốc thanh toán */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl">
+            <span className="text-[10px] uppercase font-bold text-blue-700 block">Tổng giá trị hợp đồng</span>
+            <span className="text-sm font-black text-blue-900 font-mono block mt-0.5">{formatMoney(total)}</span>
+          </div>
+          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
+            <span className="text-[10px] uppercase font-bold text-amber-800 block">Đợt 1: Cọc 30%</span>
+            <span className="text-sm font-black text-amber-900 font-mono block mt-0.5">{formatMoney(deposit)}</span>
+          </div>
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <span className="text-[10px] uppercase font-bold text-slate-600 block">Đợt 2: Tất toán 70%</span>
+            <span className="text-sm font-black text-slate-900 font-mono block mt-0.5">{formatMoney(remaining)}</span>
           </div>
         </div>
 
         {/* Nội dung Hợp đồng */}
         <div className="border border-slate-200 rounded-2xl p-5 bg-white space-y-4 max-h-80 overflow-y-auto leading-relaxed shadow-inner">
-          <div className="text-center border-b border-slate-100 pb-3 space-y-1">
-            <h4 className="font-black text-slate-900 text-sm uppercase">
-              CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-            </h4>
-            <p className="text-[11px] font-bold text-slate-500">Độc lập - Tự do - Hạnh phúc</p>
-            <h3 className="font-black text-slate-800 text-base pt-2">
-              HỢP ĐỒNG KINH TẾ DỊCH VỤ SƠN SỬA CÔNG TRÌNH
-            </h3>
-          </div>
+          {contract?.content ? (
+            <div className="whitespace-pre-wrap font-sans text-xs text-slate-800 leading-relaxed">
+              {contract.content}
+            </div>
+          ) : (
+            <>
+              <div className="text-center border-b border-slate-100 pb-3 space-y-1">
+                <h4 className="font-black text-slate-900 text-sm uppercase">
+                  CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+                </h4>
+                <p className="text-[11px] font-bold text-slate-500">Độc lập - Tự do - Hạnh phúc</p>
+                <h3 className="font-black text-slate-800 text-base pt-2">
+                  HỢP ĐỒNG KINH TẾ DỊCH VỤ SƠN SỬA CÔNG TRÌNH
+                </h3>
+              </div>
 
-          <div className="space-y-2">
-            <p>
-              <strong>Bên A (Khách hàng):</strong> {booking?.customerName || "Chủ công trình"} • SĐT: {booking?.customerPhone || "—"}
-            </p>
-            <p>
-              <strong>Bên B (Đơn vị thi công):</strong> Công Ty Dịch Vụ Sơn Sửa Nhà 247 Hà Nội
-            </p>
-            <p>
-              <strong>Địa điểm thi công:</strong> {booking?.address || "Hà Nội"}
-            </p>
-            <p>
-              <strong>Ngày bắt đầu thi công:</strong> {formatDate(booking?.expectedStartDate)} • Dự kiến: {booking?.estimatedDays || 3} ngày
-            </p>
-            <p>
-              <strong>Tổng giá trị hợp đồng:</strong> <strong className="text-slate-900">{formatMoney(total)}</strong>
-            </p>
-            <p>
-              - Đợt 1 (Đặt cọc 30%): <strong>{formatMoney(deposit)}</strong> khi ký hợp đồng.
-            </p>
-            <p>
-              - Đợt 2 (Tất toán 70%): <strong>{formatMoney(remaining)}</strong> sau khi nghiệm thu đạt yêu cầu.
-            </p>
-            <p>
-              <strong>Thời hạn bảo hành:</strong> {booking?.warrantyYears || 2} năm cam kết chính hãng.
-            </p>
-          </div>
+              <div className="space-y-2">
+                <p>
+                  <strong>Bên A (Khách hàng):</strong> {customerName} • SĐT: {customerPhone}
+                </p>
+                <p>
+                  <strong>Bên B (Đơn vị thi công):</strong> Công Ty Dịch Vụ Sơn Sửa Nhà 247 Hà Nội
+                </p>
+                <p>
+                  <strong>Địa điểm thi công:</strong> {address}
+                </p>
+                <p>
+                  <strong>Ngày bắt đầu thi công:</strong> {formatDate(b?.expectedStartDate)} • Dự kiến: {b?.estimatedDays || 3} ngày
+                </p>
+                <p>
+                  <strong>Tổng giá trị hợp đồng:</strong> <strong className="text-slate-900">{formatMoney(total)}</strong>
+                </p>
+                <p>
+                  - Đợt 1 (Đặt cọc 30%): <strong>{formatMoney(deposit)}</strong> khi ký hợp đồng.
+                </p>
+                <p>
+                  - Đợt 2 (Tất toán 70%): <strong>{formatMoney(remaining)}</strong> sau khi nghiệm thu đạt yêu cầu.
+                </p>
+                <p>
+                  <strong>Thời hạn bảo hành:</strong> {b?.warrantyYears || 2} năm cam kết chính hãng.
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Khu vực 2 Chữ Ký Pháp Lý */}
@@ -253,12 +286,12 @@ export default function ContractModal({
                   </div>
                 )}
                 <span className="text-[10px] text-slate-400 mt-1">
-                  Xác nhận cọc • {formatDate(contract.adminSignedAt || booking?.updatedAt)}
+                  Đã ký duyệt • {formatDate(contract.adminSignedAt || booking?.updatedAt)}
                 </span>
               </div>
             ) : (
               <div className="border border-dashed border-slate-300 rounded-xl p-4 text-slate-400 min-h-[90px] flex items-center justify-center">
-                Admin sẽ ký duyệt sau khi nhận cọc 30%
+                Admin chưa ký duyệt hợp đồng
               </div>
             )}
           </div>
@@ -315,7 +348,7 @@ export default function ContractModal({
             <button
               type="button"
               onClick={() => {
-                exportContractPDF(contract, booking);
+                exportContractPDF(contract, b);
                 showToast?.("Đã tải xuống file PDF hợp đồng thành công!", "success");
               }}
               className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"

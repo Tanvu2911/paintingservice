@@ -6,6 +6,20 @@
 # Environment files
 .env
 .env.*
+!.env.example
+
+# Local Spring and App configs
+**/application-local.yaml
+**/application-local.yml
+**/application-local.properties
+**/*.local.yaml
+**/*.local.yml
+
+# Patch and backup files
+*.patch
+*.diff
+*.sql
+*.bak
 
 # OS files
 .DS_Store

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Star, ShieldCheck, MapPin, CheckCircle2, ArrowRight } from "lucide-react";
 import StaffDetailModal from "../common/StaffDetailModal";
+import ScrollReveal from "../common/ScrollReveal";
 
 const DEFAULT_SAMPLE_TECHNICIANS = [
   {
@@ -131,7 +132,7 @@ export default function TechnicianSection({ technicians = [], loading = false })
       <div className="absolute inset-0 bg-[radial-gradient(#059669_1px,transparent_1px)] [background-size:32px_32px] opacity-10 pointer-events-none" />
 
       <div className="relative max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <ScrollReveal animation="fade-up" className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-4 py-1.5 rounded-full border border-emerald-200 shadow-xs">
             Đội Ngũ Nhân Sự Tận Tâm
           </span>
@@ -141,17 +142,23 @@ export default function TechnicianSection({ technicians = [], loading = false })
           <p className="text-sm text-slate-500 mt-2.5">
             Mỗi kỹ thuật viên đều được xác thực danh tính và có tay nghề cao. Bấm vào ảnh để xem chi tiết hồ sơ.
           </p>
-        </div>
+        </ScrollReveal>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading
             ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
             : featured.map((tech, idx) => (
-                <TechnicianCard
+                <ScrollReveal
                   key={tech.userId ?? tech.id ?? idx}
-                  tech={tech}
-                  onClick={() => setSelectedTech(tech)}
-                />
+                  animation="fade-up"
+                  delay={idx * 130}
+                  className="h-full"
+                >
+                  <TechnicianCard
+                    tech={tech}
+                    onClick={() => setSelectedTech(tech)}
+                  />
+                </ScrollReveal>
               ))}
         </div>
 

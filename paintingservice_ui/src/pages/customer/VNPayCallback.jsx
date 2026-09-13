@@ -1,18 +1,27 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { CheckCircle2, XCircle, ClipboardList, Home, ArrowRight, ShieldCheck, Clock, Check } from "lucide-react";
+import { CheckCircle2, XCircle, ClipboardList, Home, ArrowRight, ShieldCheck, Clock, Check, Pause, Play } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import { formatMoney } from "../../util/formatters";
+import { useAuth } from "../../context/AuthContext";
 
 export default function VNPayCallback() {
   const location = useLocation();
   const navigate = useNavigate();
+  const auth = useAuth() || {};
+  const isAdmin = auth.isAdmin;
+
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState(null);
   const [countdown, setCountdown] = useState(5);
+  const [autoRedirectPaused, setAutoRedirectPaused] = useState(false);
   const timerRef = useRef(null);
+  const hasProcessedRef = useRef(false);
 
   useEffect(() => {
+    if (hasProcessedRef.current) return;
+    hasProcessedRef.current = true;
+
     const processCallback = async () => {
       try {
         const query = location.search;
@@ -41,17 +50,20 @@ export default function VNPayCallback() {
     processCallback();
   }, [location.search]);
 
-  // Countdown timer 5s auto redirect
+  // Countdown timer 5s auto redirect (chỉ tự động chuyển tiếp khi thanh toán THÀNH CÔNG và không bị tạm dừng)
   useEffect(() => {
-    if (loading) return;
+    if (loading || !result?.success || autoRedirectPaused) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
 
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
           const target = result?.bookingId
-            ? `/customer/bookings/${result.bookingId}`
-            : "/customer/ongoing";
+            ? (isAdmin ? `/admin/orders/${result.bookingId}` : `/customer/bookings/${result.bookingId}`)
+            : (isAdmin ? "/admin/orders" : "/customer/ongoing");
           navigate(target, { replace: true });
           return 0;
         }
@@ -62,7 +74,7 @@ export default function VNPayCallback() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [loading, result, navigate]);
+  }, [loading, result, autoRedirectPaused, isAdmin, navigate]);
 
   if (loading) {
     return (
@@ -177,42 +189,74 @@ export default function VNPayCallback() {
           </div>
         )}
 
-        {/* 5s Auto-redirect Countdown Indicator */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 text-[#1E3A8A] font-medium">
-            <Clock className="w-4 h-4 text-[#1E3A8A] shrink-0" />
-            <span>Tự động chuyển tiếp sau <strong>{countdown}s</strong>...</span>
+        {/* 5s Auto-redirect Countdown Indicator (Chỉ hiển thị khi thành công) */}
+        {isSuccess && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-[#1E3A8A] font-medium">
+              <Clock className="w-4 h-4 text-[#1E3A8A] shrink-0" />
+              {autoRedirectPaused ? (
+                <span className="text-slate-600">Đã tạm dừng tự động chuyển hướng.</span>
+              ) : (
+                <span>Tự động chuyển tiếp sau <strong>{countdown}s</strong>...</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAutoRedirectPaused((prev) => !prev)}
+                className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1"
+              >
+                {autoRedirectPaused ? (
+                  <>
+                    <Play className="w-3 h-3 text-emerald-600" />
+                    <span>Tiếp tục</span>
+                  </>
+                ) : (
+                  <>
+                    <Pause className="w-3 h-3 text-amber-600" />
+                    <span>Dừng</span>
+                  </>
+                )}
+              </button>
+              {!autoRedirectPaused && (
+                <div className="w-7 h-7 rounded-full bg-[#1E3A8A] text-white font-black flex items-center justify-center text-xs shrink-0">
+                  {countdown}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[#1E3A8A] text-white font-black flex items-center justify-center text-xs shrink-0 shadow-xs">
-            {countdown}
-          </div>
-        </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           {result?.bookingId ? (
             <button
               type="button"
-              onClick={() => navigate(`/customer/bookings/${result.bookingId}`)}
+              onClick={() => {
+                const target = isAdmin
+                  ? `/admin/orders/${result.bookingId}`
+                  : `/customer/bookings/${result.bookingId}`;
+                navigate(target);
+              }}
               className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-amber-500/20 cursor-pointer flex items-center justify-center gap-2"
             >
               <ClipboardList className="w-4 h-4" />
-              <span>Xem tiến độ đơn #{result.bookingId}</span>
+              <span>{isAdmin ? `Xem đơn hàng #${result.bookingId}` : `Xem tiến độ đơn #${result.bookingId}`}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
             <Link
-              to="/customer/ongoing"
+              to={isAdmin ? "/admin/orders" : "/customer/ongoing"}
               className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-amber-500/20 text-center flex items-center justify-center gap-2"
             >
               <ClipboardList className="w-4 h-4" />
-              <span>Về Quản lý yêu cầu</span>
+              <span>{isAdmin ? "Quản lý đơn hàng" : "Quản lý yêu cầu"}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           )}
 
           <Link
-            to="/customer/dashboard"
+            to={isAdmin ? "/admin/dashboard" : "/customer/dashboard"}
             className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition text-center flex items-center justify-center gap-1.5"
           >
             <Home className="w-4 h-4 text-slate-500" />

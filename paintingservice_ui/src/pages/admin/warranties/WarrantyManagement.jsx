@@ -402,17 +402,15 @@ export default function WarrantyManagement() {
                 setStatusFilter(tab.id);
                 setCurrentPage(1);
               }}
-              className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer text-xs font-semibold shrink-0 ${
-                statusFilter === tab.id
+              className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer text-xs font-semibold shrink-0 ${statusFilter === tab.id
                   ? "bg-blue-600 text-white shadow-xs"
                   : "text-slate-500 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <span>{tab.label}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold leading-none ${
-                  statusFilter === tab.id ? "bg-white/20 text-white" : "bg-slate-50 text-slate-900"
-                }`}
+                className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold leading-none ${statusFilter === tab.id ? "bg-white/20 text-white" : "bg-slate-50 text-slate-900"
+                  }`}
               >
                 {tab.count}
               </span>
@@ -471,6 +469,33 @@ export default function WarrantyManagement() {
               <tbody className="divide-y divide-slate-100 text-slate-900">
                 {currentClaims.map((claim) => {
                   const customerImgs = claim.imageUrls ? claim.imageUrls.split(",").filter(Boolean) : [];
+                  const isCustomerFault = claim.faultType === "CUSTOMER_FAULT" || Number(claim.finalSupportPrice) > 0 || Number(claim.suggestedPrice) > 0;
+                  const supportPrice = Number(claim.finalSupportPrice) || Number(claim.suggestedPrice) || 0;
+                  const isOldWorker = Boolean(
+                    claim.technicianId &&
+                    claim.previousTechnicianId &&
+                    String(claim.technicianId) === String(claim.previousTechnicianId)
+                  );
+
+                  let defaultWorkerAmt = 200000;
+                  if (claim.workerSalary != null) {
+                    defaultWorkerAmt = Number(claim.workerSalary);
+                  } else if (isCustomerFault) {
+                    defaultWorkerAmt = supportPrice > 0 ? Math.round(supportPrice * 0.60) : 200000;
+                  } else if (isOldWorker) {
+                    defaultWorkerAmt = 0;
+                  }
+
+                  let defaultSurveyorAmt = 100000;
+                  if (claim.surveyorSalary != null) {
+                    defaultSurveyorAmt = Number(claim.surveyorSalary);
+                  } else if (isCustomerFault) {
+                    defaultSurveyorAmt = supportPrice > 0 ? Math.round(supportPrice * 0.10) : 100000;
+                  }
+
+                  const surAmt = claim.surveyorSalary != null ? Number(claim.surveyorSalary) : defaultSurveyorAmt;
+                  const worAmt = claim.workerSalary != null ? Number(claim.workerSalary) : defaultWorkerAmt;
+
                   return (
                     <tr
                       key={claim.id}
@@ -560,11 +585,15 @@ export default function WarrantyManagement() {
                             {claim.status === "COMPLETED" && (
                               claim.surveyorPaid ? (
                                 <span className="text-[10px] bg-slate-50 text-slate-900 font-bold px-1.5 py-0.5 rounded border border-slate-200 leading-none shrink-0">
-                                  ✓ {formatMoney(claim.surveyorSalary || 100000)}
+                                  ✓ {formatMoney(surAmt)}
+                                </span>
+                              ) : surAmt === 0 ? (
+                                <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-1.5 py-0.5 rounded border border-slate-200 leading-none shrink-0">
+                                  ✓ 0đ (Trách nhiệm)
                                 </span>
                               ) : (
                                 <span className="text-[10px] bg-slate-50 text-slate-900 font-semibold px-1.5 py-0.5 rounded border border-slate-200 leading-none shrink-0">
-                                  Chờ chi
+                                  Chờ chi ({formatMoney(surAmt)})
                                 </span>
                               )
                             )}
@@ -577,16 +606,21 @@ export default function WarrantyManagement() {
                             {claim.status === "COMPLETED" && (
                               claim.workerPaid ? (
                                 <span className="text-[10px] bg-slate-50 text-slate-900 font-bold px-1.5 py-0.5 rounded border border-slate-200 leading-none shrink-0">
-                                  ✓ {formatMoney(claim.workerSalary || 200000)}
+                                  ✓ {formatMoney(worAmt)}
+                                </span>
+                              ) : worAmt === 0 ? (
+                                <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-1.5 py-0.5 rounded border border-slate-200 leading-none shrink-0">
+                                  ✓ 0đ (Trách nhiệm)
                                 </span>
                               ) : (
                                 <span className="text-[10px] bg-slate-50 text-slate-900 font-semibold px-1.5 py-0.5 rounded border border-slate-200 leading-none shrink-0">
-                                  Chờ chi
+                                  Chờ chi ({formatMoney(worAmt)})
                                 </span>
                               )
                             )}
                           </div>
-                          {claim.status === "COMPLETED" && (!claim.surveyorPaid || !claim.workerPaid) && (
+                          {claim.status === "COMPLETED" && 
+                            ((claim.surveyorId && !claim.surveyorPaid && surAmt > 0) || (claim.technicianId && !claim.workerPaid && worAmt > 0)) && (
                             <Link
                               to={`/admin/payments?tab=STAFF&subTab=WARRANTY&claimId=${claim.id}&search=${claim.id}`}
                               className="inline-flex items-center gap-1 text-[10.5px] text-slate-900 font-bold hover:underline pt-0.5"
@@ -775,11 +809,10 @@ export default function WarrantyManagement() {
                       key={tab.id}
                       type="button"
                       onClick={() => setSupervisorModalTab(tab.id)}
-                      className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer ${
-                        supervisorModalTab === tab.id
+                      className={`px-2.5 py-1 rounded-lg font-semibold text-[11px] transition cursor-pointer ${supervisorModalTab === tab.id
                           ? "bg-blue-600 text-white shadow-xs"
                           : "bg-slate-50 text-slate-500 hover:bg-slate-50"
-                      }`}
+                        }`}
                     >
                       {tab.label}
                     </button>
@@ -817,11 +850,10 @@ export default function WarrantyManagement() {
                       <div
                         key={sId}
                         onClick={() => setSelectedSurveyorId(sId)}
-                        className={`p-3 rounded-lg border transition cursor-pointer flex items-center justify-between gap-3 ${
-                          isSelected
+                        className={`p-3 rounded-lg border transition cursor-pointer flex items-center justify-between gap-3 ${isSelected
                             ? "border-blue-600 bg-slate-50 ring-1 ring-[#1E3A8A] shadow-xs"
                             : "border-slate-200 bg-white hover:border-slate-200 hover:bg-slate-50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           {s.avatar ? (
@@ -832,9 +864,8 @@ export default function WarrantyManagement() {
                             />
                           ) : (
                             <div
-                              className={`w-9 h-9 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${
-                                isSelected ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-900"
-                              }`}
+                              className={`w-9 h-9 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${isSelected ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-900"
+                                }`}
                             >
                               {(s.username || s.fullName || "S").charAt(0).toUpperCase()}
                             </div>

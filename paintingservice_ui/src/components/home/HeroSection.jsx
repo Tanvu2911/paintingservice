@@ -1,118 +1,229 @@
-import { ShieldCheck, CalendarPlus, ArrowRight, Sparkles, Palette, Award, CheckCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CalendarPlus, ArrowRight, Sparkles, ShieldCheck, ChevronLeft, ChevronRight, CheckCircle2, Building2 } from "lucide-react";
+import ScrollReveal from "../common/ScrollReveal";
+
+const SHOWCASE_ITEMS = [
+  {
+    id: 1,
+    image: "/hero-living.jpg",
+    title: "Phòng Khách Sang Trọng",
+    palette: "Kem Ấm & Xanh Sage",
+    colorDots: ["#E7DFD5", "#98A898", "#2C3E50"],
+    feature: "Bề mặt mịn lì • Chống bám bẩn 100%",
+  },
+  {
+    id: 2,
+    image: "/hero-luxury.jpg",
+    title: "Nội Thất Tân Cổ Điển",
+    palette: "Trắng Sứ & Phào Chỉ Vàng",
+    colorDots: ["#F9F9F7", "#D4AF37", "#3B4252"],
+    feature: "Đường nét sắc cạnh • Độ hoàn thiện 5 sao",
+  },
+  {
+    id: 3,
+    image: "/hero-villa.jpg",
+    title: "Biệt Thự Hiện Đại",
+    palette: "Trắng Tuyết & Xám Slate",
+    colorDots: ["#FFFFFF", "#64748B", "#1E293B"],
+    feature: "Sơn ngoại thất cao cấp • Chống thấm 10 năm",
+  },
+];
 
 export default function HeroSection({ onBookingCTA }) {
-  const COLOR_PALETTES = [
-    { name: "Xanh Ngọc Dulux", bg: "bg-emerald-500", border: "border-emerald-300", tag: "Hot Trend 2026" },
-    { name: "Xanh Biển Jotun", bg: "bg-sky-500", border: "border-sky-300", tag: "Hiện đại" },
-    { name: "Cam Ấm Kova", bg: "bg-amber-500", border: "border-amber-300", tag: "Ấm cúng" },
-    { name: "Tím Thạch Anh Nippon", bg: "bg-violet-500", border: "border-violet-300", tag: "Sang trọng" },
-    { name: "Hồng San Hô Dulux", bg: "bg-rose-400", border: "border-rose-300", tag: "Tinh tế" },
-    { name: "Vàng Kem Hoàng Gia", bg: "bg-yellow-400", border: "border-yellow-300", tag: "Cổ điển" },
-  ];
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  // Tự động chuyển ảnh nền sau mỗi 4.5 giây
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % SHOWCASE_ITEMS.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentItem = SHOWCASE_ITEMS[activeIdx];
+
+  const handlePrev = () => {
+    setActiveIdx((prev) => (prev === 0 ? SHOWCASE_ITEMS.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setActiveIdx((prev) => (prev + 1) % SHOWCASE_ITEMS.length);
+  };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#090D1A] via-[#0F172A] to-[#0B132B] text-white pt-20 pb-28 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
-      {/* Decorative ambient color blur circles & SVG dot grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:28px_28px] opacity-40 pointer-events-none" />
-      <div className="absolute -top-24 -left-20 w-[34rem] h-[34rem] bg-gradient-to-br from-blue-600/25 to-teal-500/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/4 -right-20 w-[32rem] h-[32rem] bg-gradient-to-bl from-amber-500/20 to-rose-500/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-20 left-1/3 w-[30rem] h-[30rem] bg-gradient-to-tr from-sky-500/20 to-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative max-w-5xl mx-auto text-center space-y-8">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-blue-500/10 border border-blue-500/30 text-blue-300 shadow-xs backdrop-blur-md">
-          <ShieldCheck className="w-4 h-4 text-blue-400" />
-          <span>Cam kết sơn chính hãng 100% • Khảo sát &amp; Báo giá tận nơi miễn phí</span>
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-          </span>
-        </div>
-
-        <h2 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight text-white">
-          Nâng Tầm Không Gian Sống <br className="hidden sm:inline" />
-          Bằng <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-amber-400 bg-clip-text text-transparent underline decoration-amber-400 underline-offset-8">Lớp Sơn Precision Paint</span>
-        </h2>
-
-        <p className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
-          Giải pháp thi công sơn nhà trọn gói uy tín: Hợp đồng điện tử minh bạch,
-          thanh toán trực tuyến qua VNPay Sandbox, thợ lành nghề và bảo hành điện tử dài hạn.
-        </p>
-
-        {/* CTA Buttons */}
-        <div className="flex flex-wrap justify-center items-center gap-4 pt-2">
-          <button
-            type="button"
-            onClick={onBookingCTA}
-            className="px-8 py-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-sm rounded-2xl shadow-xl shadow-amber-500/30 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+    <section className="relative overflow-hidden bg-slate-950 text-white min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] flex items-center border-b border-slate-800/80">
+      {/* ẢNH CÔNG TRÌNH FULL BANNER 100% (Full Background Slider) */}
+      <div className="absolute inset-0 w-full h-full overflow-hidden">
+        {SHOWCASE_ITEMS.map((item, idx) => (
+          <div
+            key={item.id}
+            className={`absolute inset-0 w-full h-full transition-all duration-1000 ease-in-out ${
+              idx === activeIdx ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
+            }`}
           >
-            <CalendarPlus className="w-5 h-5 text-white" />
-            <span>Đặt Lịch Khảo Sát &amp; Nhận Báo Giá Miễn Phí</span>
-            <ArrowRight className="w-4 h-4 ml-1" />
-          </button>
-          <a
-            href="#services"
-            className="px-7 py-4 bg-slate-900/90 hover:bg-slate-800 text-white font-bold text-sm rounded-2xl border border-slate-700 shadow-sm transition-all flex items-center gap-2 backdrop-blur-md hover:scale-[1.01]"
-          >
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>Xem Bảng Giá Dịch Vụ</span>
-          </a>
-        </div>
+            <img
+              src={item.image}
+              alt={item.title}
+              className="w-full h-full object-cover object-center"
+            />
+          </div>
+        ))}
 
-        {/* Interactive Paint Palette Strip */}
-        <div className="pt-6 max-w-2xl mx-auto">
-          <div className="bg-slate-900/90 backdrop-blur-md rounded-2xl p-3.5 border border-slate-800 shadow-xl flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-200 px-2">
-              <Palette className="w-4 h-4 text-emerald-400" />
-              <span>Bảng Màu Sơn Xu Hướng 2026:</span>
+        {/* Lớp phủ đa tầng: Làm nổi bật ảnh ở bên phải, giữ nền chữ bên trái rõ nét và sang trọng */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/70 to-slate-950/25 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/40 pointer-events-none" />
+      </div>
+
+      {/* Nút lùi/tiến đổi ảnh Full Banner */}
+      <button
+        type="button"
+        onClick={handlePrev}
+        aria-label="Ảnh trước"
+        className="hidden md:flex absolute left-4 lg:left-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/60 hover:bg-slate-900/90 border border-slate-700/80 text-white items-center justify-center backdrop-blur-md transition-all hover:scale-110 z-20 cursor-pointer shadow-xl"
+      >
+        <ChevronLeft className="w-6 h-6" />
+      </button>
+      <button
+        type="button"
+        onClick={handleNext}
+        aria-label="Ảnh kế tiếp"
+        className="hidden md:flex absolute right-4 lg:right-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/60 hover:bg-slate-900/90 border border-slate-700/80 text-white items-center justify-center backdrop-blur-md transition-all hover:scale-110 z-20 cursor-pointer shadow-xl"
+      >
+        <ChevronRight className="w-6 h-6" />
+      </button>
+
+      {/* NỘI DUNG CHÍNH (Chữ là phụ - Đặt gọn gàng, tinh tế bên trái) */}
+      <div className="relative max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 z-10">
+        <div className="max-w-2xl flex flex-col items-start space-y-6 text-left">
+          
+          <ScrollReveal animation="fade-up" duration={500}>
+            {/* 1. Huy hiệu nhỏ trang nhã */}
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold text-amber-300 bg-slate-900/80 border border-amber-500/30 shadow-md backdrop-blur-md">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Dịch Vụ Thi Công Sơn Nhà 5 Sao • Precision Paint</span>
             </div>
-            <div className="flex items-center gap-2">
-              {COLOR_PALETTES.map((c, i) => (
-                <div
-                  key={i}
-                  className="group relative cursor-pointer"
-                  title={`${c.name} - ${c.tag}`}
-                >
-                  <div className={`w-6 h-6 rounded-full ${c.bg} border-2 ${c.border} shadow-xs transition-transform group-hover:scale-125`} />
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block whitespace-nowrap bg-white text-slate-900 text-[10px] font-bold px-2 py-1 rounded-md shadow-lg z-20">
-                    {c.name} ({c.tag})
-                  </div>
-                </div>
+          </ScrollReveal>
+
+          <ScrollReveal animation="fade-up" duration={600} delay={100}>
+            {/* 2. Tiêu đề cô đọng, súc tích */}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.12]">
+              Nâng Tầm Không Gian Sống <br />
+              <span className="bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-300 bg-clip-text text-transparent">
+                Đẳng Cấp &amp; Bền Màu
+              </span>
+            </h1>
+          </ScrollReveal>
+
+          <ScrollReveal animation="fade-up" duration={600} delay={200}>
+            {/* 3. Mô tả ngắn 1 câu - Chữ là phụ */}
+            <p className="text-sm sm:text-base lg:text-lg text-slate-200/95 leading-relaxed font-normal max-w-xl drop-shadow-sm">
+              Khảo sát &amp; tư vấn phối màu 0đ tận nơi. Thi công sắc nét, bàn giao sạch sẽ với chính sách bảo hành điện tử 5 năm.
+            </p>
+          </ScrollReveal>
+
+          <ScrollReveal animation="fade-up" duration={600} delay={300} className="w-full">
+            {/* 4. Nút hành động */}
+            <div className="flex flex-wrap items-center gap-3.5 pt-1">
+              <button
+                type="button"
+                onClick={onBookingCTA}
+                className="px-7 py-3.5 sm:py-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-amber-500/30 transition-all duration-200 flex items-center gap-2.5 cursor-pointer hover:scale-105 active:scale-95"
+              >
+                <CalendarPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Đặt Lịch Khảo Sát 0đ</span>
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200 group-hover:translate-x-1" />
+              </button>
+
+              <a
+                href="#services"
+                className="px-6 py-3.5 sm:py-4 bg-slate-900/80 hover:bg-slate-800/90 text-slate-100 hover:text-white font-semibold text-sm sm:text-base rounded-xl border border-slate-700/80 transition-all duration-200 flex items-center gap-2 backdrop-blur-md hover:scale-105 active:scale-95 shadow-md"
+              >
+                <span>Xem Bảng Giá &amp; Dịch Vụ</span>
+              </a>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal animation="fade-up" duration={600} delay={400} className="w-full">
+            {/* 5. Dải chứng nhận uy tín (Không dùng ảnh khách ảo) */}
+            <div className="pt-4 border-t border-slate-700/60 flex flex-wrap items-center gap-5 sm:gap-7 text-xs sm:text-sm text-slate-300">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                <span><strong className="text-white font-bold">5.200+</strong> công trình đã thực hiện</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Bảo hành 5 năm</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>100% Sơn chính hãng</span>
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </div>
+
+      {/* THẺ THÔNG TIN DỰ ÁN & BỘ ĐIỀU KHIỂN ẢNH (Góc dưới bên phải màn hình) */}
+      <div className="absolute bottom-4 sm:bottom-6 right-4 sm:right-6 lg:right-10 z-20 max-w-sm sm:max-w-md w-full">
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-950/80 backdrop-blur-xl border border-slate-700/70 shadow-2xl space-y-3">
+          {/* Tiêu đề & Thông số hoàn thiện */}
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs sm:text-sm font-bold text-white">
+                  {currentItem.title}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Dự án thực tế
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
+                {currentItem.feature}
+              </p>
+            </div>
+
+            {/* Số thứ tự ảnh */}
+            <div className="text-right shrink-0">
+              <span className="text-xs font-mono font-bold text-amber-400">
+                0{activeIdx + 1}
+              </span>
+              <span className="text-xs text-slate-500"> / 0{SHOWCASE_ITEMS.length}</span>
+            </div>
+          </div>
+
+          {/* Gam màu thực tế & nút chuyển thumbnail */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+            <div className="flex items-center gap-1.5 text-xs text-slate-300">
+              <span className="text-[11px] text-slate-400">Gam màu:</span>
+              <span className="font-medium text-white">{currentItem.palette}</span>
+              <div className="flex items-center gap-1 ml-1">
+                {currentItem.colorDots.map((c, i) => (
+                  <span
+                    key={i}
+                    className="w-2.5 h-2.5 rounded-full border border-white/20 shadow-xs"
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Các nút chấm chọn ảnh */}
+            <div className="flex items-center gap-1.5">
+              {SHOWCASE_ITEMS.map((item, idx) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveIdx(idx)}
+                  aria-label={`Chuyển tới ${item.title}`}
+                  className={`h-2 sm:h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                    idx === activeIdx
+                      ? "w-6 bg-amber-400"
+                      : "w-2 bg-slate-600 hover:bg-slate-400"
+                  }`}
+                />
               ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Color-Coded Metrics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-8 border-t border-slate-800 max-w-4xl mx-auto">
-          <div className="p-4 bg-slate-900/90 rounded-2xl border border-emerald-500/30 shadow-lg backdrop-blur-md hover:border-emerald-400 hover:bg-slate-850 transition-all">
-            <div className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">5.200+</div>
-            <div className="text-xs text-slate-300 mt-1 font-semibold flex items-center justify-center gap-1">
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Công trình hoàn thiện</span>
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-900/90 rounded-2xl border border-amber-500/30 shadow-lg backdrop-blur-md hover:border-amber-400 hover:bg-slate-850 transition-all">
-            <div className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-amber-400 to-orange-300 bg-clip-text text-transparent">99.8%</div>
-            <div className="text-xs text-slate-300 mt-1 font-semibold flex items-center justify-center gap-1">
-              <Award className="w-3.5 h-3.5 text-amber-400" />
-              <span>Khách hàng hài lòng</span>
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-900/90 rounded-2xl border border-sky-500/30 shadow-lg backdrop-blur-md hover:border-sky-400 hover:bg-slate-850 transition-all">
-            <div className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-sky-400 to-blue-300 bg-clip-text text-transparent">VNPay</div>
-            <div className="text-xs text-slate-300 mt-1 font-semibold flex items-center justify-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
-              <span>Thanh toán tự động</span>
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-900/90 rounded-2xl border border-indigo-500/30 shadow-lg backdrop-blur-md hover:border-indigo-400 hover:bg-slate-850 transition-all">
-            <div className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-indigo-400 to-violet-300 bg-clip-text text-transparent">5 Năm</div>
-            <div className="text-xs text-slate-300 mt-1 font-semibold flex items-center justify-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Bảo hành điện tử</span>
             </div>
           </div>
         </div>
@@ -120,3 +231,5 @@ export default function HeroSection({ onBookingCTA }) {
     </section>
   );
 }
+
+

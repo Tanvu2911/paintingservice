@@ -1,4 +1,5 @@
-import { Search, FileText, Hammer, Award, Clock } from "lucide-react";
+import { Search, FileText, Hammer, Award, Clock, ArrowRight } from "lucide-react";
+import ScrollReveal from "../common/ScrollReveal";
 
 const WORKFLOW_STEPS = [
   {
@@ -55,7 +56,7 @@ export default function WorkflowSection({ onBookingCTA }) {
       <div className="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:28px_28px] opacity-35 pointer-events-none" />
 
       <div className="relative max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <ScrollReveal animation="fade-up" className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-xs font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-4 py-1.5 rounded-full border border-blue-500/30 shadow-xs">
             Quy Trình 4 Bước Chuẩn Precision Paint
           </span>
@@ -65,55 +66,64 @@ export default function WorkflowSection({ onBookingCTA }) {
           <p className="text-sm text-slate-400 mt-2.5">
             Bảo vệ quyền lợi tối đa của khách hàng với hợp đồng điện tử và thanh toán tự động qua VNPay Sandbox.
           </p>
-        </div>
+        </ScrollReveal>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {WORKFLOW_STEPS.map((step) => {
+          {WORKFLOW_STEPS.map((step, index) => {
             const StepIcon = step.Icon;
             return (
-              <div
+              <ScrollReveal
                 key={step.step}
-                className={`bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-7 relative hover:shadow-2xl transition-all duration-300 group hover:-translate-y-1.5 ${step.borderHover}`}
+                animation="fade-up"
+                delay={index * 140}
+                className="h-full"
               >
-                <div className={`w-13 h-13 rounded-2xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110 shadow-xs ${step.iconBg}`}>
-                  <StepIcon className="w-6 h-6" />
+                <div
+                  className={`h-full bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-7 relative hover:shadow-2xl transition-all duration-300 group hover:-translate-y-2 hover:scale-[1.02] cursor-default ${step.borderHover}`}
+                >
+                  <div className={`w-13 h-13 rounded-2xl flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-115 shadow-xs ${step.iconBg}`}>
+                    <StepIcon className="w-6 h-6" />
+                  </div>
+                  <span className={`absolute top-6 right-6 text-5xl font-black select-none pointer-events-none transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 ${step.stepNumColor}`}>
+                    {step.step}
+                  </span>
+                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border mb-2.5 ${step.badgeBg}`}>
+                    {step.highlight}
+                  </span>
+                  <h4 className="font-bold text-white text-base mb-2">{step.title}</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-normal">{step.desc}</p>
                 </div>
-                <span className={`absolute top-6 right-6 text-5xl font-black select-none pointer-events-none ${step.stepNumColor}`}>
-                  {step.step}
-                </span>
-                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border mb-2.5 ${step.badgeBg}`}>
-                  {step.highlight}
-                </span>
-                <h4 className="font-bold text-white text-base mb-2">{step.title}</h4>
-                <p className="text-xs text-slate-400 leading-relaxed font-normal">{step.desc}</p>
-              </div>
+              </ScrollReveal>
             );
           })}
         </div>
 
         {/* Banner lưu ý */}
-        <div className="mt-14 bg-gradient-to-r from-blue-950/80 via-slate-900/90 to-slate-950/90 backdrop-blur-md border border-blue-800/60 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0 shadow-xs">
-              <Clock className="w-6 h-6" />
+        <ScrollReveal animation="zoom-in" delay={180}>
+          <div className="mt-14 bg-gradient-to-r from-blue-950/80 via-slate-900/90 to-slate-950/90 backdrop-blur-md border border-blue-800/60 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0 shadow-xs">
+                <Clock className="w-6 h-6" />
+              </div>
+              <div>
+                <h5 className="font-bold text-white text-sm sm:text-base">
+                  Thanh toán an toàn &amp; tự động qua cổng VNPay Sandbox:
+                </h5>
+                <p className="text-xs text-slate-300 mt-0.5 font-normal">
+                  Khách hàng nộp cọc 30% và tất toán 70% trực tiếp trên hệ thống để được kích hoạt tiến độ và nghiệm thu bảo hành.
+                </p>
+              </div>
             </div>
-            <div>
-              <h5 className="font-bold text-white text-sm sm:text-base">
-                Thanh toán an toàn &amp; tự động qua cổng VNPay Sandbox:
-              </h5>
-              <p className="text-xs text-slate-300 mt-0.5 font-normal">
-                Khách hàng nộp cọc 30% và tất toán 70% trực tiếp trên hệ thống để được kích hoạt tiến độ và nghiệm thu bảo hành.
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={onBookingCTA}
+              className="whitespace-nowrap px-7 py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all duration-300 cursor-pointer shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 shrink-0 flex items-center gap-1.5 group/btn"
+            >
+              <span>Đặt Lịch Ngay</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onBookingCTA}
-            className="whitespace-nowrap px-7 py-3.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-lg shadow-amber-500/30 active:scale-95 shrink-0"
-          >
-            Đặt Lịch Ngay
-          </button>
-        </div>
+        </ScrollReveal>
       </div>
     </section>
   );

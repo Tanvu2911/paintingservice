@@ -1,6 +1,7 @@
 import React from "react";
-import { Wrench } from "lucide-react";
+import { Wrench, DollarSign, Sparkles } from "lucide-react";
 import Modal from "../../../../components/common/Modal";
+import { formatMoney } from "../../../../util/formatters";
 
 export default function AssignWarrantyTechnicianModal({
   isOpen,
@@ -16,10 +17,34 @@ export default function AssignWarrantyTechnicianModal({
   setSelectedTechnicianId,
   technicianNote,
   setTechnicianNote,
+  workerSalary,
+  setWorkerSalary,
   submittingTechnician,
   handleAssignTechnicianSubmit,
 }) {
   if (!isOpen) return null;
+
+  const isCustomerFault = claim?.faultType === "CUSTOMER_FAULT" || Number(claim?.finalSupportPrice) > 0;
+  const supportPrice = Number(claim?.finalSupportPrice) || Number(claim?.suggestedPrice) || 0;
+  const isSelectedPreviousTech = Boolean(
+    claim?.previousTechnicianId && String(claim.previousTechnicianId) === String(selectedTechnicianId)
+  );
+
+  const handleSelectTech = (tid) => {
+    setSelectedTechnicianId(tid);
+    const isPrev = claim?.previousTechnicianId && String(claim.previousTechnicianId) === String(tid);
+    if (isCustomerFault) {
+      if (supportPrice > 0) {
+        setWorkerSalary(String(Math.round(supportPrice * 0.6)));
+      } else {
+        setWorkerSalary("200000");
+      }
+    } else if (isPrev) {
+      setWorkerSalary("0");
+    } else {
+      setWorkerSalary("200000");
+    }
+  };
 
   return (
     <Modal
@@ -73,7 +98,7 @@ export default function AssignWarrantyTechnicianModal({
           </div>
 
           {/* Danh sách thợ dạng thẻ (Card list) */}
-          <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+          <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
             {filteredTechnicians.length === 0 ? (
               <div className="text-center py-6 text-slate-500 text-xs">
                 Không tìm thấy đội thợ phù hợp theo bộ lọc
@@ -95,7 +120,7 @@ export default function AssignWarrantyTechnicianModal({
                 return (
                   <div
                     key={tid}
-                    onClick={() => setSelectedTechnicianId(tid)}
+                    onClick={() => handleSelectTech(tid)}
                     className={`p-3 rounded-lg border transition cursor-pointer flex items-center justify-between gap-3 ${
                       isSelected
                         ? "border-blue-600 bg-slate-50 shadow-xs"
@@ -158,7 +183,7 @@ export default function AssignWarrantyTechnicianModal({
                         type="radio"
                         name="technicianSelect"
                         checked={isSelected}
-                        onChange={() => setSelectedTechnicianId(tid)}
+                        onChange={() => handleSelectTech(tid)}
                         className="w-4 h-4 text-slate-900 focus:ring-[#1E3A8A]"
                       />
                     </div>
@@ -167,6 +192,102 @@ export default function AssignWarrantyTechnicianModal({
               })
             )}
           </div>
+        </div>
+
+        {/* Ô nhập số tiền công cho Thợ */}
+        <div className="p-3.5 bg-blue-50/50 rounded-xl border border-blue-200 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="block font-bold text-slate-900 text-xs flex items-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-blue-600" />
+              <span>Số Tiền Công Cho Thợ Thi Công (VNĐ)</span>
+            </label>
+            {isCustomerFault && supportPrice > 0 && (
+              <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-purple-600" />
+                Giá khách đóng: {formatMoney(supportPrice)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1">
+              <input
+                type="number"
+                min="0"
+                step="10000"
+                value={workerSalary}
+                onChange={(e) => setWorkerSalary(e.target.value)}
+                placeholder="Nhập số tiền công..."
+                className="w-full pl-3 pr-12 py-2 bg-white rounded-lg border border-slate-300 font-bold font-mono text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">
+                VNĐ
+              </span>
+            </div>
+
+            {/* Các nút chọn nhanh */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {isCustomerFault && supportPrice > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setWorkerSalary(String(Math.round(supportPrice * 0.6)))}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-lg text-[11px] transition cursor-pointer"
+                    title="Gợi ý hưởng 60% tiền khách"
+                  >
+                    60% ({formatMoney(Math.round(supportPrice * 0.6))})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkerSalary(String(Math.round(supportPrice * 0.7)))}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-lg text-[11px] transition cursor-pointer"
+                    title="Gợi ý hưởng 70% tiền khách"
+                  >
+                    70% ({formatMoney(Math.round(supportPrice * 0.7))})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkerSalary(String(Math.round(supportPrice * 0.5)))}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-lg text-[11px] transition cursor-pointer"
+                  >
+                    50%
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setWorkerSalary("0")}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-lg text-[11px] transition cursor-pointer"
+                  >
+                    0đ (Trách nhiệm)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkerSalary("200000")}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-lg text-[11px] transition cursor-pointer"
+                  >
+                    200.000đ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWorkerSalary("300000")}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold rounded-lg text-[11px] transition cursor-pointer"
+                  >
+                    300.000đ
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-500">
+            {isCustomerFault
+              ? "Lỗi khách quan: Tiền công trích từ khoản phí hỗ trợ khách đóng. Admin có thể nhập bất kỳ số tiền nào phù hợp với công việc."
+              : isSelectedPreviousTech
+              ? "★ Thợ cũ chịu trách nhiệm bảo hành: Gợi ý 0đ (không phát sinh thù lao). Admin có thể hỗ trợ thêm tiền xăng xe nếu muốn."
+              : "Thợ mới thi công: Công ty thanh toán thù lao theo định mức thỏa thuận (mặc định 200.000đ hoặc gõ số tiền khác)."}
+          </p>
         </div>
 
         <div className="space-y-1">
@@ -194,7 +315,7 @@ export default function AssignWarrantyTechnicianModal({
             className="px-5 py-2 bg-blue-600 hover:bg-blue-600 text-white font-semibold rounded-lg transition cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5 text-center leading-normal"
           >
             <Wrench className="w-4 h-4 shrink-0" />
-            <span>{submittingTechnician ? "Đang gán..." : "Xác Nhận Phân Thợ"}</span>
+            <span>{submittingTechnician ? "Đang gán..." : "Xác Nhận Phân Thợ & Tiền Công"}</span>
           </button>
         </div>
       </form>

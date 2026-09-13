@@ -84,11 +84,41 @@ export default function StaffWarrantyPayoutTab({
                     (String(c.id) === String(search).trim() ||
                       String(c.bookingId) === String(search).trim())
                 );
+                const supportPrice = Number(c.finalSupportPrice) || Number(c.suggestedPrice) || 0;
                 const isCustomerFault =
-                  c.faultType === "CUSTOMER_FAULT" || Number(c.finalSupportPrice) > 0;
-                const supportPrice = Number(c.finalSupportPrice) || 0;
-                const surAmt = Number(c.surveyorSalary) || 100000;
-                const worAmt = Number(c.workerSalary) || 200000;
+                  c.faultType === "CUSTOMER_FAULT" || supportPrice > 0;
+                const isOldWorker = Boolean(
+                  c.technicianId &&
+                  c.previousTechnicianId &&
+                  String(c.technicianId) === String(c.previousTechnicianId)
+                );
+
+                let defaultWorkerAmt = 200000;
+                let workerDesc = "Thợ mới (Công ty chi)";
+                if (isCustomerFault) {
+                  defaultWorkerAmt = supportPrice > 0 ? Math.round(supportPrice * 0.60) : 200000;
+                  workerDesc = "Hưởng 60% tiền khách";
+                } else if (isOldWorker) {
+                  defaultWorkerAmt = 0;
+                  workerDesc = "Thợ cũ (0đ - Trách nhiệm)";
+                }
+
+                let defaultSurveyorAmt = 100000;
+                let surveyorDesc = "Định mức công ty";
+                if (isCustomerFault) {
+                  defaultSurveyorAmt = supportPrice > 0 ? Math.round(supportPrice * 0.10) : 100000;
+                  surveyorDesc = "Hưởng 10% tiền khách";
+                }
+
+                const surAmt = c.surveyorSalary != null ? Number(c.surveyorSalary) : defaultSurveyorAmt;
+                const worAmt = c.workerSalary != null ? Number(c.workerSalary) : defaultWorkerAmt;
+
+                if (c.workerSalary != null) {
+                  workerDesc = "Thù lao do Admin ấn định";
+                }
+                if (c.surveyorSalary != null) {
+                  surveyorDesc = "Thù lao do Admin ấn định";
+                }
 
                 return (
                   <tr
@@ -164,8 +194,15 @@ export default function StaffWarrantyPayoutTab({
                             <span className="font-bold text-slate-900 font-mono">
                               {formatMoney(surAmt)}
                             </span>
-                            <Badge ok={c.surveyorPaid} okLabel="Đã chi" failLabel="Chưa chi" />
+                            {surAmt === 0 ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                <Check className="w-2.5 h-2.5" /> Trách nhiệm (0đ)
+                              </span>
+                            ) : (
+                              <Badge ok={c.surveyorPaid} okLabel="Đã chi" failLabel="Chưa chi" />
+                            )}
                           </div>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">{surveyorDesc}</span>
                         </div>
                       ) : (
                         <span className="text-slate-400 italic">Chưa phân GS</span>
@@ -183,8 +220,15 @@ export default function StaffWarrantyPayoutTab({
                             <span className="font-bold text-slate-900 font-mono">
                               {formatMoney(worAmt)}
                             </span>
-                            <Badge ok={c.workerPaid} okLabel="Đã chi" failLabel="Chưa chi" />
+                            {worAmt === 0 ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                <Check className="w-2.5 h-2.5" /> Trách nhiệm (0đ)
+                              </span>
+                            ) : (
+                              <Badge ok={c.workerPaid} okLabel="Đã chi" failLabel="Chưa chi" />
+                            )}
                           </div>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">{workerDesc}</span>
                         </div>
                       ) : (
                         <span className="text-slate-400 italic">Chưa phân thợ</span>
@@ -193,7 +237,7 @@ export default function StaffWarrantyPayoutTab({
 
                     {/* Trạng thái chi */}
                     <td className={tdCls + " text-center"}>
-                      {c.surveyorPaid && c.workerPaid ? (
+                      {(c.surveyorPaid || surAmt === 0) && (c.workerPaid || worAmt === 0) ? (
                         <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 inline-flex items-center gap-1">
                           <Check className="w-3 h-3" /> Đã chi đủ công
                         </span>
@@ -219,7 +263,7 @@ export default function StaffWarrantyPayoutTab({
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        {c.surveyorId && !c.surveyorPaid && (
+                        {c.surveyorId && !c.surveyorPaid && surAmt > 0 && (
                           <button
                             type="button"
                             onClick={() =>
@@ -228,7 +272,8 @@ export default function StaffWarrantyPayoutTab({
                                 c.surveyorId,
                                 c.surveyorName,
                                 "SURVEYOR",
-                                surAmt
+                                surAmt,
+                                { payoutNote: surveyorDesc }
                               )
                             }
                             className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 px-2.5 py-1 rounded-lg transition cursor-pointer shadow-xs"
@@ -238,7 +283,7 @@ export default function StaffWarrantyPayoutTab({
                           </button>
                         )}
 
-                        {c.technicianId && !c.workerPaid && (
+                        {c.technicianId && !c.workerPaid && worAmt > 0 && (
                           <button
                             type="button"
                             onClick={() =>
@@ -247,7 +292,8 @@ export default function StaffWarrantyPayoutTab({
                                 c.technicianId,
                                 c.technicianName,
                                 "TECHNICIAN",
-                                worAmt
+                                worAmt,
+                                { payoutNote: workerDesc }
                               )
                             }
                             className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1 rounded-lg transition cursor-pointer shadow-xs"

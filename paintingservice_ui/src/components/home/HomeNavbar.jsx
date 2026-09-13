@@ -9,6 +9,8 @@ export default function HomeNavbar({
   onLogout,
   notifications,
   onMarkRead,
+  onMarkAllRead,
+  onMarkSingleRead,
   onDeleteAll,
   onDeleteOne,
   onBookingCTA,
@@ -21,7 +23,7 @@ export default function HomeNavbar({
         {/* Logo */}
         <div
           onClick={() => navigate("/home")}
-          className="flex items-center gap-3 cursor-pointer group"
+          className="flex items-center gap-3 cursor-pointer group hover:scale-102 transition-transform"
         >
           <div className="w-10 h-10 bg-[#1E3A8A] text-white rounded-xl flex items-center justify-center shadow-xs group-hover:bg-[#1e40af] transition-colors">
             <Paintbrush className="w-5 h-5 text-amber-400" />
@@ -63,7 +65,7 @@ export default function HomeNavbar({
                 <button
                   type="button"
                   onClick={onBookingCTA}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4.5 py-2.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition cursor-pointer shadow-md shadow-amber-500/20 active:scale-95"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-4.5 py-2.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all duration-200 cursor-pointer shadow-md shadow-amber-500/20 hover:scale-105 active:scale-95"
                 >
                   <CalendarPlus className="w-4 h-4 text-white" />
                   <span>Đặt lịch khảo sát</span>
@@ -74,6 +76,8 @@ export default function HomeNavbar({
                 user={user}
                 notifications={notifications}
                 onMarkRead={onMarkRead}
+                onMarkAllRead={onMarkAllRead || onMarkRead}
+                onMarkSingleRead={onMarkSingleRead}
                 onDeleteAll={onDeleteAll}
                 onDeleteOne={onDeleteOne}
               />
@@ -94,9 +98,10 @@ export default function HomeNavbar({
                 menuItems={
                   isCustomer(user)
                     ? [
-                        { label: "Đặt lịch khảo sát", to: "/customer/booking", icon: <CalendarPlus /> },
-                        { label: "Quản lý yêu cầu & Lịch sử", to: "/customer/ongoing", icon: <ClipboardList /> },
-                        { label: "Hồ sơ & Địa chỉ", to: "/customer/profile", icon: <User /> },
+                        { label: "Bảng điều khiển", to: "/customer/dashboard", icon: <ClipboardList /> },
+                        { label: "Đặt lịch mới", to: "/customer/booking", icon: <CalendarPlus /> },
+                        { label: "Quản lý công trình", to: "/customer/ongoing", icon: <Paintbrush /> },
+                        { label: "Thông tin tài khoản", to: "/customer/profile", icon: <User /> },
                       ]
                     : [
                         { label: "Trang quản lý", to: getRedirectPath(user), icon: <User /> },
@@ -109,14 +114,14 @@ export default function HomeNavbar({
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-[#1E3A8A] hover:bg-blue-50 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-[#1E3A8A] hover:bg-blue-50 rounded-xl transition-all duration-200 cursor-pointer hover:scale-102 active:scale-98"
               >
                 Đăng nhập
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/register")}
-                className="px-4 py-2.5 text-xs font-bold text-white bg-[#1E3A8A] hover:bg-[#1e40af] rounded-xl shadow-xs transition cursor-pointer"
+                className="px-4 py-2.5 text-xs font-bold text-white bg-[#1E3A8A] hover:bg-[#1e40af] rounded-xl shadow-xs transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95"
               >
                 Đăng ký
               </button>

@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate, useOutletContext } from "react-router-dom";
 import AxiosConfig from "../../../util/AxiosConfig";
-import DashboardHeader from "../../../components/layout/DashboardHeader";
 import StatusBadge from "../../../components/common/StatusBadge";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
-import Modal from "../../../components/common/Modal";
-import QRCodePayment from "../../../components/common/QRCodePayment";
 import OrderTimeline from "./OrderTimeline";
-import OrderActionBanner from "../../../components/common/OrderActionBanner";
-import SurveyReportCard from "../../../components/common/SurveyReportCard";
 import ContractModal from "../../../components/common/ContractModal";
 import ImageLightboxModal from "../../../components/common/ImageLightboxModal";
+import AssignStaffModal from "./components/AssignStaffModal";
+import SendQuoteModal from "./components/SendQuoteModal";
+import AdminSignConfirmModal from "./components/AdminSignConfirmModal";
+import OrderDailyReportsModal from "./components/OrderDailyReportsModal";
+import OrderPayoutModal from "./components/OrderPayoutModal";
 import { parseHanoiAddress } from "../../../data/hanoiLocations";
 import {
   UserCheck,
@@ -24,20 +24,30 @@ import {
   PenTool,
   ShieldCheck,
   User,
-  Building,
   Check,
   Sparkles,
   ArrowLeft,
   ArrowRight,
-  Printer,
   Download,
   DollarSign,
-  QrCode,
   CreditCard,
+  Phone,
+  Copy,
+  CheckCheck,
+  ExternalLink,
+  Wrench,
+  Camera,
+  Maximize2,
+  FileSignature,
 } from "lucide-react";
 import { exportContractPDF } from "../../../util/contractPdfExport";
 import { formatMoney } from "../../../util/formatters";
-import { getVietQRBankCode, parseNegotiationInfo } from "../../../util/orderFlowUtils";
+import {
+  getVietQRBankCode,
+  parseNegotiationInfo,
+  formatDate,
+  parseImageUrls,
+} from "../../../util/orderFlowUtils";
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -52,6 +62,17 @@ export default function OrderDetail() {
   const [allBookings, setAllBookings] = useState([]);
   const [assignModal, setAssignModal] = useState(null); // 'supervisor' | 'worker'
   const [selectedId, setSelectedId] = useState("");
+
+  // Tab điều hướng chính
+  const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'staff' | 'reports' | 'contract'
+  const [copied, setCopied] = useState("");
+
+  const handleCopy = (text, type) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopied(type);
+    setTimeout(() => setCopied(""), 2000);
+  };
 
   // Hợp đồng
   const [contract, setContract] = useState(null);
@@ -70,15 +91,15 @@ export default function OrderDetail() {
   const [quoteWarrantyYears, setQuoteWarrantyYears] = useState("2");
 
   // Modal Filter Tabs
-  const [workerModalTab, setWorkerModalTab] = useState("all"); // 'all' | 'district' | 'idle'
-  const [supervisorModalTab, setSupervisorModalTab] = useState("all"); // 'all' | 'district' | 'idle'
+  const [workerModalTab, setWorkerModalTab] = useState("all");
+  const [supervisorModalTab, setSupervisorModalTab] = useState("all");
 
   // Deposit Confirm & Admin Sign
   const [confirmDepositModal, setConfirmDepositModal] = useState(false);
   const adminSigCanvasRef = useRef(null);
   const [hasAdminSignature, setHasAdminSignature] = useState(false);
 
-  // Payments
+  // Payments & Lightbox
   const [payments, setPayments] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
 
@@ -170,11 +191,6 @@ export default function OrderDetail() {
       .filter(Boolean);
   };
 
-  const formatMoney = (value) => {
-    if (value == null || value === "") return "—";
-    return Number(value).toLocaleString("vi-VN") + " đ";
-  };
-
   const fetchOrder = useCallback(async () => {
     try {
       const res = await AxiosConfig.get(`/bookings/${id}`);
@@ -240,10 +256,12 @@ export default function OrderDetail() {
     if (!bookingId) return;
     try {
       const res = await AxiosConfig.get("/salary-histories");
-      const list = Array.isArray(res.data) ? res.data : (res.data?.content || []);
-      const filtered = list.filter((s) => Number(s.bookingId || s.booking?.id) === Number(bookingId));
+      const list = Array.isArray(res.data) ? res.data : res.data?.content || [];
+      const filtered = list.filter(
+        (s) => Number(s.bookingId || s.booking?.id) === Number(bookingId)
+      );
       setSalaryHistories(filtered);
-    } catch (e) {
+    } catch {
       setSalaryHistories([]);
     }
   }, []);
@@ -295,7 +313,15 @@ export default function OrderDetail() {
     return () => {
       isMounted = false;
     };
-  }, [id, fetchBookingDetail, fetchContract, fetchDailyReports, fetchPayments, fetchSalaryHistories, showToast]);
+  }, [
+    id,
+    fetchBookingDetail,
+    fetchContract,
+    fetchDailyReports,
+    fetchPayments,
+    fetchSalaryHistories,
+    showToast,
+  ]);
 
   // Compute Active Workloads per Staff
   const activeSupervisorJobs = useMemo(() => {
@@ -327,14 +353,14 @@ export default function OrderDetail() {
     return map;
   }, [allBookings]);
 
-  // Extract District of Customer Order Address
+  // Extract District
   const projectDistrict = useMemo(() => {
     if (!order?.address) return "";
     const parsed = parseHanoiAddress(order.address);
     return parsed.district || "";
   }, [order?.address]);
 
-  // Phân công Giám sát (POST /api/bookings/{id}/assign-supervisor)
+  // Phân công Giám sát
   const handleAssignSupervisor = async () => {
     if (!selectedId) {
       showToast?.("Vui lòng chọn giám sát viên", "error");
@@ -348,19 +374,14 @@ export default function OrderDetail() {
       setAssignModal(null);
       fetchOrder();
     } catch (err) {
-      showToast?.(
-        err.response?.data?.message || "Lỗi phân công giám sát",
-        "error"
-      );
+      showToast?.(err.response?.data?.message || "Lỗi phân công giám sát", "error");
     }
   };
 
-  // Phân công Đội thợ (POST /api/bookings/{id}/assign-team)
+  // Phân công Đội thợ
   const handleAssignWorker = async () => {
     const targetWorkerId =
-      selectedId ||
-      order?.preferredTechnicianId ||
-      order?.preferredTechnician?.id;
+      selectedId || order?.preferredTechnicianId || order?.preferredTechnician?.id;
 
     if (!targetWorkerId) {
       showToast?.("Vui lòng chọn đội thợ thi công", "error");
@@ -379,14 +400,10 @@ export default function OrderDetail() {
       setAssignModal(null);
       fetchOrder();
     } catch (err) {
-      showToast?.(
-        err.response?.data?.message || "Lỗi giao đơn cho đội thợ",
-        "error"
-      );
+      showToast?.(err.response?.data?.message || "Lỗi giao đơn cho đội thợ", "error");
     }
   };
 
-  // Tổng hợp phân công Giám sát / Đội thợ
   const handleAssign = async () => {
     if (assignModal === "supervisor") {
       await handleAssignSupervisor();
@@ -395,34 +412,8 @@ export default function OrderDetail() {
     }
   };
 
-  // Cập nhật trạng thái Booking
-  const handleUpdateStatus = async (newStatus) => {
-    try {
-      await AxiosConfig.put(`/bookings/${id}`, { ...order, status: newStatus });
-      showToast?.("Cập nhật trạng thái thành công!", "success");
-      fetchOrder();
-    } catch (err) {
-      showToast?.(err.response?.data?.message || "Lỗi cập nhật trạng thái", "error");
-    }
-  };
-
-  // Tạo hợp đồng
-  const handleCreateContract = async () => {
-    try {
-      await AxiosConfig.post(`/contracts`, {
-        bookingId: Number(id),
-        content: `Hợp đồng thi công cho đơn ${id}\nTổng tiền: ${order.totalAmount || 0} VNĐ\nTiền cọc: ${order.depositAmount || 0} VNĐ`,
-      });
-      showToast?.("Đã lập hợp đồng thành công, chờ khách ký!", "success");
-      fetchOrder();
-      fetchContract(id);
-    } catch (err) {
-      showToast?.(err.response?.data?.message || "Lỗi tạo hợp đồng", "error");
-    }
-  };
-
-  // Báo giá
-  const handleSendQuote = async () => {
+  // Báo giá & Ký hợp đồng Bên B (Pre-sign)
+  const handleSendQuote = async (adminSignature) => {
     if (!quoteTotal || Number(quoteTotal) <= 0) {
       showToast?.("Vui lòng nhập tổng báo giá hợp lệ", "error");
       return;
@@ -434,11 +425,13 @@ export default function OrderDetail() {
         warrantyYears: Number(quoteWarrantyYears) || 2,
       };
       if (quoteDeposit) payload.depositAmount = Number(quoteDeposit);
+      if (adminSignature) payload.adminSignature = adminSignature;
 
       await AxiosConfig.post(`/bookings/${id}/send-quote`, payload);
-      showToast?.("Đã gửi báo giá và lập hợp đồng chi tiết cho khách hàng!", "success");
+      showToast?.("Đã gửi báo giá và ký duyệt hợp đồng điện tử thành công!", "success");
       setQuoteModalOpen(false);
       fetchOrder();
+      fetchContract(id);
     } catch (err) {
       showToast?.(err.response?.data?.message || "Lỗi gửi báo giá", "error");
     }
@@ -446,25 +439,33 @@ export default function OrderDetail() {
 
   // Xác nhận cọc và Admin ký HĐ
   const handleConfirmDeposit = async () => {
-    if (!hasAdminSignature) {
-      showToast?.("Vui lòng ký tên xác nhận trước khi gửi!", "error");
-      return;
-    }
-
     let signature = null;
-    if (adminSigCanvasRef.current) {
+    if (adminSigCanvasRef.current && hasAdminSignature) {
       try {
         signature = adminSigCanvasRef.current.toDataURL("image/png");
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
 
+    // Nếu không vẽ chữ ký mới nhưng hợp đồng đã có chữ ký từ bước gửi báo giá
+    if (!signature && contract?.adminSignatureImg) {
+      signature = contract.adminSignatureImg;
+    }
+
+    if (!signature && !hasAdminSignature) {
+      showToast?.("Vui lòng ký tên xác nhận trước khi gửi!", "error");
+      return;
+    }
+
     try {
-      await AxiosConfig.post(`/bookings/${id}/confirm-deposit`, {
+      const res = await AxiosConfig.post(`/bookings/${id}/confirm-deposit`, {
         adminSignature: signature,
       });
-      showToast?.("Đã xác nhận tiền cọc & ký duyệt hợp đồng thành công!", "success");
+      showToast?.(
+        res.data?.message || "Đã xác nhận tiền cọc & ký duyệt hợp đồng thành công!",
+        "success"
+      );
       setConfirmDepositModal(false);
       fetchOrder();
       fetchContract(id);
@@ -477,61 +478,62 @@ export default function OrderDetail() {
   const isDepositPaid = order?.paymentStatus === "DEPOSIT_PAID" || order?.depositPaid;
   const isFullyPaid = Boolean(
     order?.paymentStatus === "FULLY_PAID" ||
-    order?.finalPaid ||
-    order?.status === "PAID_TO_STAFF" ||
-    order?.status === "COMPLETED"
+      order?.finalPaid ||
+      order?.status === "PAID_TO_STAFF" ||
+      order?.status === "COMPLETED"
   );
   const isContractSignedByBoth = Boolean(contract?.adminSigned && contract?.customerSigned);
 
-  // Chỉ cho phép gán/đổi Giám sát khi đơn chưa khảo sát xong & chưa nộp báo cáo
-  const canChangeSupervisor = ["PENDING", "SURVEY_ASSIGNED", "ACCEPTED", "SURVEYING"].includes(status);
-
-  // Đơn đã bắt đầu thi công hoặc đã hoàn tất
-  const isWorkStartedOrCompleted = ["PROCESSING", "WORKER_COMPLETED", "WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(status);
-
-  // Điều kiện để phân công / đổi thợ thi công: Admin VÀ Khách đều PHẢI ký hợp đồng & đã cọc tiền & CHƯA bắt đầu thi công
+  // Phân quyền
+  const canChangeSupervisor = ["PENDING", "SURVEY_ASSIGNED", "ACCEPTED", "SURVEYING"].includes(
+    status
+  );
+  const isWorkStartedOrCompleted = [
+    "PROCESSING",
+    "WORKER_COMPLETED",
+    "WAITING_FINAL_PAYMENT",
+    "COMPLETED",
+    "PAID_TO_STAFF",
+  ].includes(status);
   const canAssignWorker = Boolean(
     isContractSignedByBoth &&
-    (order?.depositPaid || order?.paymentStatus === "DEPOSIT_PAID" || ["DEPOSIT_CONFIRMED", "ASSIGNED"].includes(status)) &&
-    !isWorkStartedOrCompleted
+      (order?.depositPaid ||
+        order?.paymentStatus === "DEPOSIT_PAID" ||
+        ["DEPOSIT_CONFIRMED", "ASSIGNED"].includes(status)) &&
+      !isWorkStartedOrCompleted
   );
 
   const orderServiceName = order?.serviceName || order?.service?.name || "";
-
-  // Báo cáo khảo sát từ Giám sát viên
   const surveyDetail = bookingDetails && bookingDetails.length > 0 ? bookingDetails[0] : null;
   const surveyImages = useMemo(() => {
     if (!surveyDetail?.surveyImages) return [];
     return parseImageUrls(surveyDetail.surveyImages);
   }, [surveyDetail?.surveyImages]);
 
-  // 1. Chỉ thợ CÙNG DỊCH VỤ khách chọn và ĐANG BẬT TRẠNG THÁI HOẠT ĐỘNG
+  // Thợ đủ điều kiện
   const eligibleWorkers = useMemo(() => {
     return workers.filter((w) => {
-      // Phải bật trạng thái hoạt động
       const isAvailable = w.available === true || w.available !== false;
       if (!isAvailable) return false;
-
-      // Cùng chuyên môn dịch vụ khách chọn
       if (orderServiceName) {
         const specs = w.specialty ? w.specialty.toLowerCase() : "";
         const cleanSrv = orderServiceName.toLowerCase().trim();
-        if (!specs.includes(cleanSrv) && !cleanSrv.includes(specs)) {
-          return false;
-        }
+        if (!specs.includes(cleanSrv) && !cleanSrv.includes(specs)) return false;
       }
       return true;
     });
   }, [workers, orderServiceName]);
 
-  // Thợ cùng khu vực
   const districtWorkers = useMemo(() => {
     if (!projectDistrict) return eligibleWorkers;
-    const cleanDistrict = projectDistrict.replace("Quận ", "").replace("Huyện ", "").replace("Thị xã ", "").toLowerCase();
+    const cleanDistrict = projectDistrict
+      .replace("Quận ", "")
+      .replace("Huyện ", "")
+      .replace("Thị xã ", "")
+      .toLowerCase();
     return eligibleWorkers.filter((w) => w.serviceArea?.toLowerCase().includes(cleanDistrict));
   }, [eligibleWorkers, projectDistrict]);
 
-  // Thợ đang rảnh (0 đơn đang làm)
   const idleWorkers = useMemo(() => {
     return eligibleWorkers.filter((w) => {
       const wId = String(w.userId || w.id);
@@ -539,35 +541,30 @@ export default function OrderDetail() {
     });
   }, [eligibleWorkers, activeWorkerJobs]);
 
-  // Danh sách thợ hiển thị theo tab đã chọn
   const displayWorkers = useMemo(() => {
     let list = eligibleWorkers;
     if (workerModalTab === "district") list = districtWorkers;
     else if (workerModalTab === "idle") list = idleWorkers;
 
-    // Sắp xếp ưu tiên cùng khu vực và rảnh
     return [...list].sort((a, b) => {
       const aId = String(a.userId || a.id);
       const bId = String(b.userId || b.id);
-      const aDistrictMatch = projectDistrict && a.serviceArea?.toLowerCase().includes(projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase());
-      const bDistrictMatch = projectDistrict && b.serviceArea?.toLowerCase().includes(projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase());
+      const cleanDistrict = projectDistrict
+        ? projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase()
+        : "";
+      const aDistrictMatch = cleanDistrict && a.serviceArea?.toLowerCase().includes(cleanDistrict);
+      const bDistrictMatch = cleanDistrict && b.serviceArea?.toLowerCase().includes(cleanDistrict);
       if (aDistrictMatch && !bDistrictMatch) return -1;
       if (!aDistrictMatch && bDistrictMatch) return 1;
-
-      const aLoad = activeWorkerJobs[aId] || 0;
-      const bLoad = activeWorkerJobs[bId] || 0;
-      return aLoad - bLoad;
+      return (activeWorkerJobs[aId] || 0) - (activeWorkerJobs[bId] || 0);
     });
   }, [eligibleWorkers, districtWorkers, idleWorkers, workerModalTab, projectDistrict, activeWorkerJobs]);
 
-  // 1. Chỉ Giám sát ĐANG BẬT TRẠNG THÁI HOẠT ĐỘNG
+  // Giám sát đủ điều kiện
   const eligibleSupervisors = useMemo(() => {
-    return supervisors.filter((s) => {
-      return s.available === true || s.available !== false;
-    });
+    return supervisors.filter((s) => s.available === true || s.available !== false);
   }, [supervisors]);
 
-  // Giám sát cùng khu vực
   const districtSupervisors = useMemo(() => {
     if (!projectDistrict) return eligibleSupervisors;
     const cleanDistrict = projectDistrict
@@ -575,12 +572,9 @@ export default function OrderDetail() {
       .replace("Huyện ", "")
       .replace("Thị xã ", "")
       .toLowerCase();
-    return eligibleSupervisors.filter((s) =>
-      s.serviceArea?.toLowerCase().includes(cleanDistrict)
-    );
+    return eligibleSupervisors.filter((s) => s.serviceArea?.toLowerCase().includes(cleanDistrict));
   }, [eligibleSupervisors, projectDistrict]);
 
-  // Giám sát đang rảnh (0 đơn đang làm)
   const idleSupervisors = useMemo(() => {
     return eligibleSupervisors.filter((s) => {
       const sId = String(s.userId || s.id);
@@ -588,7 +582,6 @@ export default function OrderDetail() {
     });
   }, [eligibleSupervisors, activeSupervisorJobs]);
 
-  // Danh sách giám sát hiển thị theo tab đã chọn
   const displaySupervisors = useMemo(() => {
     let list = eligibleSupervisors;
     if (supervisorModalTab === "district") list = districtSupervisors;
@@ -598,78 +591,39 @@ export default function OrderDetail() {
       const aId = String(a.userId || a.id);
       const bId = String(b.userId || b.id);
       const cleanDistrict = projectDistrict
-        ? projectDistrict.replace("Quận ", "").replace("Huyện ", "").replace("Thị xã ", "").toLowerCase()
+        ? projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase()
         : "";
       const aDistrictMatch = cleanDistrict && a.serviceArea?.toLowerCase().includes(cleanDistrict);
       const bDistrictMatch = cleanDistrict && b.serviceArea?.toLowerCase().includes(cleanDistrict);
       if (aDistrictMatch && !bDistrictMatch) return -1;
       if (!aDistrictMatch && bDistrictMatch) return 1;
-
-      const aLoad = activeSupervisorJobs[aId] || 0;
-      const bLoad = activeSupervisorJobs[bId] || 0;
-      return aLoad - bLoad;
+      return (activeSupervisorJobs[aId] || 0) - (activeSupervisorJobs[bId] || 0);
     });
-  }, [
-    eligibleSupervisors,
-    districtSupervisors,
-    idleSupervisors,
-    supervisorModalTab,
-    projectDistrict,
-    activeSupervisorJobs,
-  ]);
+  }, [eligibleSupervisors, districtSupervisors, idleSupervisors, supervisorModalTab, projectDistrict, activeSupervisorJobs]);
 
-  // Thù lao nhân sự & xử lý thanh toán (Tỷ lệ: Admin 30% · Giám sát 10%+VT · Kỹ thuật 60%)
+  // Thù lao & Tài chính
   const totalAmt = Number(order?.totalAmount) || 0;
-  const adminFee = totalAmt * 0.30;
-  const supervisorBaseFee = totalAmt * 0.10;
+  const depositAmt = Number(order?.depositAmount) || totalAmt * 0.3;
+  const remainingAmt = Math.max(0, totalAmt - depositAmt);
+  const supervisorBaseFee = totalAmt * 0.1;
   const materialReimbursement = (dailyReports || []).reduce(
     (sum, r) => sum + (Number(r.materialCost) || 0),
     0
   );
   const supervisorFee = supervisorBaseFee + materialReimbursement;
-  const supervisorSalary = salaryHistories.find((s) => s.roleInBooking === "SURVEYOR" || s.role === "SURVEYOR");
+  const supervisorSalary = salaryHistories.find(
+    (s) => s.roleInBooking === "SURVEYOR" || s.role === "SURVEYOR"
+  );
   const isSupervisorPaid = supervisorSalary?.paymentStatus === "PAID";
 
-  const workerFee = totalAmt * 0.60;
+  const workerFee = totalAmt * 0.6;
   const workerSalary = salaryHistories.find(
-    (s) => s.roleInBooking === "TECHNICIAN" || s.role === "TECHNICIAN" || s.roleInBooking === "WORKER"
+    (s) =>
+      s.roleInBooking === "TECHNICIAN" ||
+      s.role === "TECHNICIAN" ||
+      s.roleInBooking === "WORKER"
   );
   const isWorkerPaid = workerSalary?.paymentStatus === "PAID";
-
-  const handleOpenStaffPayout = (staffId, staffName, role, defaultAmount) => {
-    if (!isFullyPaid) {
-      showToast?.("Chỉ có thể quyết toán thù lao cho nhân viên khi khách hàng đã hoàn tất mọi thanh toán!", "warning");
-      return;
-    }
-
-    let staffProfile = null;
-    if (role === "SURVEYOR") {
-      staffProfile = supervisors.find(
-        (s) => Number(s.userId || s.id) === Number(staffId) || s.username === staffName
-      );
-    } else {
-      staffProfile = workers.find(
-        (w) => Number(w.userId || w.id) === Number(staffId) || w.username === staffName
-      );
-    }
-
-    const bankName = staffProfile?.bankName || "MB Bank (Ngân hàng Quân Đội)";
-    const bankAccountNumber = staffProfile?.bankAccountNumber || staffProfile?.phoneNumber || "0355880362";
-    const bankAccountName = staffProfile?.bankAccountName || staffName || "NHAN VIEN";
-    const bankCode = getVietQRBankCode(bankName);
-
-    setPayoutModalData({
-      orderId: order.id,
-      staffId: staffId,
-      staffName: staffName,
-      role: role,
-      amount: defaultAmount,
-      bankName: bankName,
-      bankCode: bankCode,
-      bankAccountNumber: bankAccountNumber,
-      bankAccountName: bankAccountName,
-    });
-  };
 
   const handleConfirmStaffPayout = async () => {
     if (!payoutModalData) return;
@@ -692,14 +646,16 @@ export default function OrderDetail() {
     }
   };
 
+  const negInfo = parseNegotiationInfo(order?.description);
+
   if (loading) return <LoadingSpinner />;
   if (!order) {
     return (
-      <div className="p-8 text-center bg-white rounded-3xl border border-slate-200">
-        <p className="text-slate-500 font-semibold">Không tìm thấy yêu cầu này.</p>
+      <div className="p-8 text-center bg-white rounded-xl border border-slate-200 max-w-lg mx-auto mt-10">
+        <p className="text-slate-500 font-semibold text-xs">Không tìm thấy yêu cầu này.</p>
         <button
           onClick={() => navigate("/admin/bookings")}
-          className="mt-4 px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs"
+          className="mt-4 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs"
         >
           Quay lại danh sách
         </button>
@@ -708,1139 +664,846 @@ export default function OrderDetail() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Nút Quay Lại Danh Sách Yêu Cầu */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => navigate("/admin/bookings")}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-2xl text-xs border border-slate-200 shadow-xs transition hover:border-emerald-300 cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4 text-emerald-600" />
-          <span>Quay lại danh sách yêu cầu</span>
-        </button>
-      </div>
+    <div className="space-y-4 max-w-5xl mx-auto pb-10">
 
-      <DashboardHeader
-        title={`Chi Tiết Yêu Cầu #${order.id}`}
-        subtitle={`Quản lý toàn bộ tiến độ công trình, hợp đồng và phân công nhân sự.`}
-        userName={user?.username}
-        userRole="Quản trị viên"
-        avatarChar={(user?.username || "A").charAt(0).toUpperCase()}
-      />
-
-      {/* Tiến độ trạng thái (OrderTimeline) */}
-      <OrderTimeline status={status} />
-
-      {/* Hero Admin Next-Action Guidance */}
-      <OrderActionBanner
-        role="admin"
-        booking={order}
-        contract={contract}
-        canChangeSupervisor={canChangeSupervisor}
-        dailyReportsCount={dailyReports.length}
-        onAction={(actionType) => {
-          if (actionType === "assign_supervisor") setAssignModal("supervisor");
-          else if (actionType === "quote") setQuoteModalOpen(true);
-          else if (actionType === "open_contract") setConfirmDepositModal(true);
-          else if (actionType === "confirm_deposit") setConfirmDepositModal(true);
-          else if (actionType === "assign_worker") setAssignModal("worker");
-          else if (actionType === "view_reports") setReportsModalOpen(true);
-          else if (actionType === "pay_staff") {
-            navigate(`/admin/payments?tab=STAFF&search=${order.id}`, { state: { tab: "STAFF", search: String(order.id) } });
-          }
-          else if (actionType === "export_pdf") {
-            if (contract) {
-              exportContractPDF(contract, order);
-              showToast?.("Đã tải xuống file PDF hợp đồng thành công!", "success");
-            } else {
-              showToast?.("Chưa có hợp đồng để xuất file PDF!", "warning");
-            }
-          }
-        }}
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Cột trái: Thông tin đơn hàng & Khách hàng */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="font-black text-slate-900 text-lg">Mã đơn: #{order.id}</span>
-                <StatusBadge status={status} />
-              </div>
-              <div className="text-xs text-slate-400 font-medium">
-                Ngày đăng ký: {order.createdAt ? new Date(order.createdAt).toLocaleDateString("vi-VN") : "—"}
-              </div>
-            </div>
-
-            {/* Thông tin Khách hàng & Công trình */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                  <User className="w-4 h-4 text-emerald-600" />
-                  <span>Thông tin khách hàng</span>
-                </div>
-                <div className="text-xs space-y-1">
-                  <div className="font-bold text-slate-900">
-                    {order.customerName || order.customer?.fullName || order.customer?.username || "Khách vảng lai"}
-                  </div>
-                  <div className="text-slate-500">SĐT: {order.customerPhone || order.customer?.phoneNumber || "Chưa cập nhật"}</div>
-                  <div className="text-slate-500 truncate">Email: {order.customerEmail || order.customer?.email || "—"}</div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                  <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>Địa chỉ công trình (HN)</span>
-                </div>
-                <div className="text-xs space-y-1">
-                  <div className="font-bold text-slate-900 leading-snug">{order.address || "—"}</div>
-                  {projectDistrict && (
-                    <span className="inline-block text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      Khu vực: {projectDistrict}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Mô tả hiện trạng ban đầu & Thương lượng từ khách */}
-            {(() => {
-              const negInfo = parseNegotiationInfo(order?.description);
-              const displayDesc = negInfo.initialDesc || (!negInfo.hasNegotiation ? order?.description : "") || "Không có ghi chú mô tả ban đầu.";
-
-              return (
-                <div className="space-y-3">
-                  {/* Ô mô tả ban đầu */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                      <FileText className="w-4 h-4 text-emerald-600" />
-                      <span>Hạng mục &amp; Yêu cầu ban đầu từ khách</span>
-                    </div>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      {displayDesc}
-                    </p>
-                  </div>
-
-                  {/* Khi khách đang yêu cầu thương lượng giá */}
-                  {negInfo.hasNegotiation && (
-                    <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 space-y-3 shadow-xs">
-                      <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
-                            <AlertCircle className="w-4 h-4 text-white" />
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white px-2 py-0.5 rounded-full">
-                            ⚠️ Đang Yêu Cầu Thương Lượng Giá
-                          </span>
-                        </div>
-                        {negInfo.proposedPrice && (
-                          <span className="text-xs font-black text-emerald-900 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">
-                            Đề xuất: {negInfo.proposedPrice}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div className="bg-white p-2.5 rounded-xl border border-amber-200">
-                          <span className="text-[10px] text-slate-500 font-bold block uppercase">Báo giá gốc</span>
-                          <span className="font-black text-slate-900 text-sm block mt-0.5">{order.totalAmount ? formatMoney(order.totalAmount) : "—"}</span>
-                        </div>
-                        <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                          <span className="text-[10px] text-emerald-800 font-bold block uppercase">Mức giá khách mong muốn</span>
-                          <span className="font-black text-emerald-700 text-sm block mt-0.5">{negInfo.proposedPrice || "Không nêu mức giá cụ thể"}</span>
-                        </div>
-                      </div>
-
-                      {negInfo.message && (
-                        <div className="bg-white rounded-xl border border-amber-200 p-2.5 text-xs text-amber-900 italic font-medium">
-                          💬 Lý do từ khách: "{negInfo.message}"
-                        </div>
-                      )}
-
-                      <p className="text-[10px] text-amber-700 leading-relaxed">
-                        → Hãy liên hệ khách hàng để thỏa thuận và cập nhật lại báo giá bằng nút "Cập Nhật Báo Giá" trong banner bên trên.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Lịch sử thương lượng cũ nếu có */}
-                  {negInfo.history.filter((h) => !h.isCurrent).length > 0 && (
-                    <div className="p-3 rounded-2xl bg-white border border-slate-200 space-y-1.5">
-                      <span className="text-[11px] font-bold text-slate-600 block uppercase">
-                        📜 Lịch sử các lần thương lượng trước ({negInfo.history.filter((h) => !h.isCurrent).length} lần):
-                      </span>
-                      {negInfo.history.filter((h) => !h.isCurrent).map((item, idx) => (
-                        <p key={idx} className="text-xs text-slate-600 font-medium">
-                          • {item.rawText}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* BÁO CÁO KHẢO SÁT HIỆN TRẠNG TỪ GIÁM SÁT VIÊN */}
-            {surveyDetail ? (
-              <SurveyReportCard
-                surveyDetail={surveyDetail}
-                supervisorName={order.supervisorName || order.surveyorName}
-                onPreviewImage={setPreviewImage}
-              />
-            ) : (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-500 flex items-center gap-2">
-                <span className="text-base">⏳</span>
-                <span>
-                  {order.supervisorId
-                    ? "Giám sát viên đang tiến hành khảo sát hiện trạng, chưa nộp báo cáo."
-                    : "Chưa phân công giám sát viên khảo sát công trình."}
-                </span>
-              </div>
-            )}
-
-            {/* Chi tiết tài chính & Hợp đồng */}
-            <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 space-y-3">
-              <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
-                <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                  Tài chính công trình
-                </span>
-                <span className="text-xs font-bold text-emerald-800">
-                  {isFullyPaid ? "✓ Tất toán 100%" : isDepositPaid ? "✓ Đã cọc 30%" : "Chờ cọc"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                <div>
-                  <span className="text-slate-500 block">Tổng dự toán</span>
-                  <span className="font-black text-slate-900 text-sm">
-                    {order.totalAmount ? formatMoney(order.totalAmount) : "Chưa báo giá"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Tiền cọc (30%)</span>
-                  <span className="font-bold text-emerald-700 text-sm">
-                    {order.depositAmount ? formatMoney(order.depositAmount) : "—"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Còn lại (70%)</span>
-                  <span className="font-bold text-slate-800 text-sm">
-                    {order.totalAmount && order.depositAmount
-                      ? formatMoney(order.totalAmount - order.depositAmount)
-                      : "—"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card Báo Cáo Tiến Độ & Vật Liệu Phát Sinh Hàng Ngày */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
-            <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider">
-                  Nhật Ký Thi Công &amp; Vật Tư Phát Sinh
-                </h4>
-              </div>
-              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                {dailyReports.length} báo cáo nộp
-              </span>
-            </div>
-
-            {/* Banner tổng hợp vật tư phát sinh & tiến độ */}
-            {dailyReports.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-gradient-to-r from-amber-50/60 via-orange-50/40 to-slate-50 rounded-2xl border border-amber-200/80">
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block">Số lượt báo cáo</span>
-                  <span className="text-base font-black text-slate-900">{dailyReports.length} ngày</span>
-                </div>
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block">Tiến độ cập nhật mới nhất</span>
-                  <span className="text-base font-black text-emerald-600">
-                    {dailyReports[0]?.progressPercentage != null ? `${dailyReports[0].progressPercentage}%` : "—"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-500 block">Tổng tiền vật tư phát sinh</span>
-                  <span className="text-base font-black text-amber-700">
-                    {formatMoney(materialReimbursement)}
-                  </span>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                    (Hoàn tiền cho Giám sát khi quyết toán)
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {loadingReports ? (
-              <div className="py-6 text-center text-xs text-slate-400">
-                Đang tải báo cáo nhật ký...
-              </div>
-            ) : dailyReports.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-500 flex items-center gap-2">
-                <span className="text-base">📝</span>
-                <span>
-                  {["ASSIGNED", "PROCESSING"].includes(status)
-                    ? "Đội thợ đang thi công, chưa có báo cáo nhật ký trong ngày được nộp."
-                    : "Chưa có báo cáo nhật ký thi công nào cho đơn hàng này."}
-                </span>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {dailyReports.map((report, index) => {
-                  const reportImages = parseImageUrls(report.progressImages);
-                  const itemCost = Number(report.materialCost) || 0;
-
-                  return (
-                    <div
-                      key={report.id || index}
-                      className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-amber-300 transition space-y-3.5"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-xs text-slate-900 bg-slate-200 px-2.5 py-1 rounded-lg">
-                            📅 Báo cáo ngày #{dailyReports.length - index}
-                          </span>
-                          <span className="text-xs text-slate-600 font-medium">
-                            Lập bởi: <strong className="text-slate-900 font-bold">@{report.reporterName || "Giám sát / Thợ"}</strong>
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {report.progressPercentage != null && (
-                            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                              Tiến độ: {report.progressPercentage}%
-                            </span>
-                          )}
-                          {itemCost > 0 && (
-                            <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full border border-amber-200">
-                              💰 Phát sinh: +{formatMoney(itemCost)}
-                            </span>
-                          )}
-                          {report.createdAt && (
-                            <span className="text-[10.5px] text-slate-400 font-medium">
-                              {new Date(report.createdAt).toLocaleString("vi-VN")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Thanh Progress bar mini nếu có tiến độ */}
-                      {report.progressPercentage != null && (
-                        <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                          <div
-                            className="bg-emerald-600 h-full rounded-full transition-all duration-300"
-                            style={{ width: `${Math.min(100, Math.max(0, report.progressPercentage))}%` }}
-                          />
-                        </div>
-                      )}
-
-                      {/* Nội dung báo cáo */}
-                      <div className="text-xs text-slate-800 font-medium whitespace-pre-wrap leading-relaxed bg-white p-3.5 rounded-xl border border-slate-200/60 shadow-2xs">
-                        <span className="text-[11px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">
-                          Nội dung công việc thực hiện:
-                        </span>
-                        {report.content}
-                      </div>
-
-                      {/* Khung Chi tiết Vật tư phát sinh & Tiền chi */}
-                      {(report.materialShortage || itemCost > 0) && (
-                        <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 text-xs space-y-2">
-                          <div className="flex items-center justify-between border-b border-amber-200/60 pb-1.5">
-                            <span className="font-bold text-amber-950 flex items-center gap-1.5">
-                              <span>⚠️</span> Chi tiết vật tư phát sinh trong ngày:
-                            </span>
-                            {itemCost > 0 && (
-                              <span className="font-bold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-md text-[11px]">
-                                Chi phí: <strong>{formatMoney(itemCost)}</strong>
-                              </span>
-                            )}
-                          </div>
-                          {report.materialShortage && (
-                            <p className="text-amber-900 font-medium whitespace-pre-wrap leading-relaxed">
-                              {report.materialShortage}
-                            </p>
-                          )}
-                          <p className="text-[10.5px] text-amber-700 italic">
-                            * Khoản tiền vật tư phát sinh này được cộng vào tổng quyết toán chi trả cho Giám sát viên.
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Hình ảnh tiến độ */}
-                      {reportImages.length > 0 && (
-                        <div className="space-y-1.5 pt-1">
-                          <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                            <span>📸</span> Ảnh chụp hiện trường ({reportImages.length} ảnh):
-                          </span>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                            {reportImages.map((imgUrl, imgIdx) => (
-                              <div
-                                key={imgIdx}
-                                onClick={() => setPreviewImage(imgUrl)}
-                                className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white hover:opacity-90 hover:scale-105 transition cursor-pointer shadow-xs group relative"
-                              >
-                                <img
-                                  src={imgUrl}
-                                  alt={`Tiến độ ${imgIdx + 1}`}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.src = "https://placehold.co/150x150?text=Anh+TD";
-                                  }}
-                                />
-                                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-bold">
-                                  🔍 Xem
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+      {/* 1. Header & Nút quay lại */}
+      <div className="bg-white rounded-xl border border-slate-200 px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => navigate("/admin/bookings")}
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer"
+            title="Quay lại danh sách"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <span className="font-mono font-bold text-xs bg-blue-600 text-white px-2 py-0.5 rounded">
+            #{order.id}
+          </span>
+          <h2 className="text-sm sm:text-base font-bold text-slate-800 truncate">
+            {order.serviceName || order.service?.name || "Yêu cầu dịch vụ sơn"}
+          </h2>
+          <StatusBadge status={status} />
         </div>
 
-        {/* Cột phải: Bảng điều phối nhân sự & Hành động nhanh */}
-        <div className="space-y-6">
-          {/* Card Phân công Giám sát & Thợ sơn */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-5">
-            <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider border-b border-slate-100 pb-3 flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-emerald-600" />
-              <span>Điều Phối Nhân Sự</span>
-            </h4>
-
-            {/* Giám sát viên */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-              <div className="text-xs font-bold text-slate-700">
-                Giám sát khảo sát:
-              </div>
-              <div className="font-bold text-sm text-slate-900">
-                {order.supervisorName || order.supervisor?.fullName || order.supervisor?.username ? (
-                  `@${order.supervisorName || order.supervisor?.username}`
-                ) : (
-                  <span className="text-amber-700 text-xs font-semibold">Chưa phân công</span>
-                )}
-              </div>
-              {canChangeSupervisor ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(order.supervisorId ? String(order.supervisorId) : "");
-                    setSupervisorModalTab("all");
-                    setAssignModal("supervisor");
-                  }}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
-                >
-                  {order.supervisorId ? "Đổi Giám Sát Phụ Trách" : "+ Gán Giám Sát Viên"}
-                </button>
-              ) : (
-                <div className="p-2 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-xl border border-emerald-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Giám sát đã nộp báo cáo (Khóa đổi)</span>
-                </div>
-              )}
-            </div>
-
-            {/* Đội thợ sơn */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-              <div className="text-xs font-bold text-slate-700">
-                Đội thợ thi công:
-              </div>
-              <div className="font-bold text-sm text-slate-900">
-                {order.technicianName || order.technician?.fullName || order.technician?.username ? (
-                  `@${order.technicianName || order.technician?.username}`
-                ) : (
-                  <span className="text-amber-700 text-xs font-semibold">Chưa bàn giao thợ</span>
-                )}
-              </div>
-
-              {canAssignWorker ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(order.technicianId ? String(order.technicianId) : "");
-                    setWorkerModalTab("all");
-                    setAssignModal("worker");
-                  }}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
-                >
-                  {order.technicianId ? "Đổi Đội Thợ Thi Công" : "+ Gán Đội Thợ Sơn"}
-                </button>
-              ) : isWorkStartedOrCompleted ? (
-                <div className="p-2 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded-xl border border-emerald-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>
-                    {status === "PROCESSING"
-                      ? "Đội thợ đang thi công (Khóa đổi thợ)"
-                      : "Công trình đã hoàn thành (Khóa đổi thợ)"}
-                  </span>
-                </div>
-              ) : (
-                <div className="space-y-1.5 pt-1">
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full py-2 bg-slate-200 text-slate-400 font-bold rounded-xl text-xs cursor-not-allowed"
-                  >
-                    + Gán Đội Thợ Sơn (Khóa)
-                  </button>
-                  {!contract?.customerSigned ? (
-                    <p className="text-[10.5px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-medium leading-snug">
-                      🔒 Chờ khách hàng chọn ngày và ký hợp đồng điện tử.
-                    </p>
-                  ) : !contract?.adminSigned ? (
-                    <p className="text-[10.5px] text-rose-800 bg-rose-50 p-2 rounded-xl border border-rose-200 font-bold leading-snug">
-                      ⚠️ Admin chưa ký hợp đồng! Vui lòng bấm nút <strong>"Xác Nhận Nộp Cọc &amp; Ký HĐ"</strong> bên dưới để ký hợp đồng trước khi phân thợ.
-                    </p>
-                  ) : (
-                    <p className="text-[10.5px] text-amber-800 bg-amber-50 p-2 rounded-xl border border-amber-200 font-medium leading-snug">
-                      🔒 Chờ xác nhận tiền cọc để phân công thợ thi công.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Card Quyết toán Thù Lao Nhân Sự */}
-          {isFullyPaid && (order.supervisorId || order.technicianId) && (
-            <div id="staff-payout-section" className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <div>
-                  <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Hạch Toán Thù Lao Nhân Sự</span>
-                  </h4>
-                  <p className="text-[10.5px] text-slate-500 mt-0.5">
-                    Thực hiện quyết toán qua VietQR tập trung tại trang Quản lý thanh toán
-                  </p>
-                </div>
-                {status === "PAID_TO_STAFF" || (isSupervisorPaid && isWorkerPaid) ? (
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <Check className="w-3 h-3 text-emerald-600" />
-                    <span>Đã quyết toán 100%</span>
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-amber-600" />
-                    <span>Chờ quyết toán</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-2.5 text-xs">
-                {/* Giám sát viên */}
-                {order.supervisorId && (
-                  <div className="p-2.5 bg-blue-50/40 rounded-lg border border-blue-100 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {order.supervisorAvatar || order.surveyorAvatar ? (
-                        <img
-                          src={order.supervisorAvatar || order.surveyorAvatar}
-                          alt="Supervisor"
-                          className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-md bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200">
-                          {(order.supervisorName || order.supervisor?.username || "S").charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-semibold text-blue-900 truncate">
-                          Giám sát: @{order.supervisorName || order.supervisor?.username || "Giám sát"}
-                        </div>
-                        <div className="text-[10.5px] text-slate-500 font-mono">
-                          Thù lao: <strong className="text-slate-900">{formatMoney(supervisorFee)}</strong>
-                          {materialReimbursement > 0 && (
-                            <span className="text-[10px] text-emerald-700 ml-1.5 font-sans font-medium">
-                              (+VT: {formatMoney(materialReimbursement)})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      {isSupervisorPaid ? (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-emerald-200 leading-none">
-                          <Check className="w-3 h-3 shrink-0" />
-                          <span>Đã quyết toán</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-amber-200 leading-none">
-                          <Clock className="w-3 h-3 shrink-0" />
-                          <span>Chưa quyết toán</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Đội thợ thi công */}
-                {order.technicianId && (
-                  <div className="p-2.5 bg-emerald-50/40 rounded-lg border border-emerald-100 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {order.technicianAvatar ? (
-                        <img
-                          src={order.technicianAvatar}
-                          alt="Technician"
-                          className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-md bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200">
-                          {(order.technicianName || order.technician?.username || "T").charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-semibold text-emerald-900 truncate">
-                          Đội thợ: @{order.technicianName || order.technician?.username || "Đội thợ"}
-                        </div>
-                        <div className="text-[10.5px] text-slate-500 font-mono">
-                          Thù lao: <strong className="text-slate-900">{formatMoney(workerFee)}</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      {isWorkerPaid ? (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-emerald-200 leading-none">
-                          <Check className="w-3 h-3 shrink-0" />
-                          <span>Đã quyết toán</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-amber-200 leading-none">
-                          <Clock className="w-3 h-3 shrink-0" />
-                          <span>Chưa quyết toán</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Nút điều hướng sang Quản lý thanh toán */}
-                {(!isSupervisorPaid || !isWorkerPaid) && (
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/admin/payments?tab=STAFF&search=${order.id}`, { state: { tab: "STAFF", search: String(order.id) } })}
-                    className="w-full mt-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2 text-center leading-normal"
-                  >
-                    <CreditCard className="w-4 h-4 shrink-0" />
-                    <span>Đi Đến Quản Lý Thanh Toán Để Quyết Toán VietQR</span>
-                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Các hành động xử lý bước tiếp theo */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <h4 className="font-bold text-slate-900 text-sm uppercase tracking-wider border-b border-slate-100 pb-3">
-              Xử Lý Bước Tiếp Theo
-            </h4>
-
-            {status === "WAITING_ADMIN_QUOTE" && (
-              <button
-                type="button"
-                onClick={() => setQuoteModalOpen(true)}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4 text-white" />
-                <span>Gửi Báo Giá Cho Khách</span>
-              </button>
-            )}
-
-            {(status === "WAITING_DEPOSIT" || (contract?.customerSigned && !contract?.adminSigned)) && (
-              <div className="space-y-2">
-                {isDepositPaid && !contract?.adminSigned && (
-                  <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-2xl text-[11px] leading-snug">
-                    <span className="font-bold flex items-center gap-1.5 text-emerald-800 mb-1">
-                      <span>🎉</span> Khách hàng đã chuyển cọc 30%!
-                    </span>
-                    Admin vui lòng ký duyệt hợp đồng điện tử để hoàn tất thủ tục và kích hoạt quyền phân công thợ thi công.
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setConfirmDepositModal(true)}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2 animate-pulse"
-                >
-                  <PenTool className="w-4 h-4 text-white" />
-                  <span>
-                    {isDepositPaid ? "✍️ Ký Duyệt Hợp Đồng Cọc" : "Xác Nhận Nộp Cọc & Ký HĐ"}
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {contract ? (
+        {/* Hành động nhanh trên Header */}
+        <div className="flex items-center gap-2">
+          {contract && (
+            <>
               <button
                 type="button"
                 onClick={() => setContractModalOpen(true)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2 border border-slate-200"
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
               >
-                <FileText className="w-4 h-4 text-emerald-600" />
-                <span>Xem Hợp Đồng Điện Tử</span>
+                <FileText className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Xem Hợp đồng</span>
               </button>
-            ) : (
-              <div className="text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center font-medium">
-                📄 Hợp đồng sẽ tự động sinh sau khi Admin gửi báo giá.
-              </div>
-            )}
-
-            {dailyReports.length > 0 && (
               <button
                 type="button"
-                onClick={() => setReportsModalOpen(true)}
-                className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs transition cursor-pointer border border-emerald-200 flex items-center justify-center gap-2"
+                onClick={() => {
+                  exportContractPDF(contract, order);
+                  showToast?.("Đã tải xuống file PDF hợp đồng thành công!", "success");
+                }}
+                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
+                title="Tải PDF hợp đồng"
               >
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>Báo Cáo Nhật Ký ({dailyReports.length})</span>
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Xuất PDF</span>
               </button>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Modal Phân Công Nhân Sự (Ưu tiên theo Khu vực & Tải công việc) */}
-      <Modal
-        isOpen={!!assignModal}
-        onClose={() => setAssignModal(null)}
-        title={
-          assignModal === "supervisor"
-            ? "Phân công Giám sát khảo sát"
-            : "Phân công Đội thợ thi công"
-        }
-        size="lg"
-      >
-        <div className="space-y-4">
-          {assignModal === "supervisor" ? (
-            <div className="space-y-3">
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-950 leading-relaxed">
-                <span className="font-bold block">💡 Hướng dẫn phân công Giám Sát:</span>
-                • Hệ thống hiển thị các Giám sát viên đang <strong>BẬT trạng thái hoạt động</strong>.
-                <br />
-                • Ưu tiên chọn giám sát cùng khu vực <strong>{projectDistrict || "Hà Nội"}</strong> hoặc đang rảnh để khảo sát nhanh nhất.
-              </div>
-
-              {/* 3 Mục lọc Giám sát */}
-              <div className="flex border-b border-slate-200 gap-1 pb-2">
-                <button
-                  type="button"
-                  onClick={() => setSupervisorModalTab("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "all"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  Tất cả ({eligibleSupervisors.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSupervisorModalTab("district")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "district"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  ★ Cùng khu vực ({districtSupervisors.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSupervisorModalTab("idle")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${supervisorModalTab === "idle"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  ⚡ Đang rảnh ({idleSupervisors.length})
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-950 leading-relaxed">
-                <span className="font-bold block">💡 Hướng dẫn phân công Đội Thợ:</span>
-                • Dịch vụ yêu cầu: <strong className="text-emerald-800">{orderServiceName || "Tất cả"}</strong>.
-                <br />
-                • Hệ thống <strong>chỉ hiển thị thợ cùng chuyên môn dịch vụ</strong> và đang <strong>BẬT trạng thái hoạt động</strong>.
-              </div>
-
-              {/* 3 Mục lọc thợ */}
-              <div className="flex border-b border-slate-200 gap-1 pb-2">
-                <button
-                  type="button"
-                  onClick={() => setWorkerModalTab("all")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "all"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  Tất cả ({eligibleWorkers.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkerModalTab("district")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "district"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  ★ Cùng khu vực ({districtWorkers.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkerModalTab("idle")}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${workerModalTab === "idle"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                >
-                  ⚡ Đang rảnh ({idleWorkers.length})
-                </button>
-              </div>
+      {/* 2. Dòng tóm tắt 4 ô quan trọng nhất (Quick Info Strip) - Đầy đủ thông tin, tránh lặp lại ở các tab */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 bg-white rounded-xl border border-slate-200 py-3.5 px-4 text-sm shadow-xs text-center">
+        {/* Khách hàng */}
+        <div className="p-2 flex flex-col justify-center items-center">
+          <span className="text-xs text-slate-500 font-medium block">Khách hàng</span>
+          <div className="font-bold text-slate-900 text-sm mt-0.5 truncate max-w-full">
+            {order.customerName || "Khách hàng"}
+          </div>
+          {order.customerPhone && (
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <a
+                href={`tel:${order.customerPhone}`}
+                className="text-blue-600 hover:text-blue-800 font-mono text-xs font-semibold flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 transition"
+                title={`Gọi ${order.customerPhone}`}
+              >
+                <Phone className="w-3 h-3" />
+                <span>{order.customerPhone}</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => handleCopy(order.customerPhone, "phone")}
+                className="p-1 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded transition cursor-pointer"
+                title="Sao chép SĐT"
+              >
+                {copied === "phone" ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+              </button>
             </div>
           )}
+        </div>
 
-          <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-            {((assignModal === "supervisor" ? displaySupervisors : displayWorkers).length === 0) ? (
-              <p className="text-xs text-slate-400 py-6 text-center">
-                Không tìm thấy nhân viên phù hợp với tiêu chí này
-              </p>
-            ) : (
-              (assignModal === "supervisor" ? displaySupervisors : displayWorkers).map((s) => {
-                const sId = String(s.userId || s.id);
-                const isSelected = selectedId === sId;
-
-                const isDistrictMatch =
-                  projectDistrict &&
-                  s.serviceArea?.toLowerCase().includes(projectDistrict.replace("Quận ", "").replace("Huyện ", "").toLowerCase());
-
-                const currentLoad =
-                  assignModal === "supervisor"
-                    ? (activeSupervisorJobs[sId] || 0)
-                    : (activeWorkerJobs[sId] || 0);
-
-                return (
-                  <div
-                    key={sId}
-                    onClick={() => setSelectedId(sId)}
-                    className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${isSelected
-                      ? "border-emerald-600 bg-emerald-50/60 shadow-xs"
-                      : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50"
-                      }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {s.avatar ? (
-                        <img
-                          src={s.avatar}
-                          alt={s.username}
-                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
-                        />
-                      ) : (
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${assignModal === "supervisor"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-emerald-100 text-emerald-800"
-                            }`}
-                        >
-                          {(s.username || "S").charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-xs truncate">
-                            @{s.username} {s.fullName ? `(${s.fullName})` : ""}
-                          </span>
-
-                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                            Đang hoạt động
-                          </span>
-
-                          {isDistrictMatch && (
-                            <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">
-                              ★ Cùng khu vực
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span>Chuyên môn: <strong className="text-slate-700">{s.specialty || "Sơn nhà"}</strong></span>
-                          <span>
-                            Khu vực: <strong className="text-slate-700">{s.serviceArea || "Toàn Hà Nội"}</strong>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span
-                        className={`text-xs font-bold px-2.5 py-1 rounded-xl block ${currentLoad === 0
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-100 text-slate-700"
-                          }`}
-                      >
-                        {currentLoad === 0 ? "⚡ Đang rảnh (0 đơn)" : `Đang làm: ${currentLoad} đơn`}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
+        {/* Địa chỉ công trình */}
+        <div className="p-2 flex flex-col justify-center items-center">
+          <span className="text-xs text-slate-500 font-medium block">Địa chỉ công trình</span>
+          <div className="flex items-center justify-center gap-1.5 mt-0.5 max-w-full">
+            <span className="font-semibold text-slate-800 text-sm truncate max-w-[200px]" title={order.address}>
+              {order.address || "—"}
+            </span>
+            {order.address && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 hover:text-blue-800 bg-blue-50 p-1 rounded border border-blue-200 shrink-0 transition"
+                title="Xem trên Google Maps"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             )}
           </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setAssignModal(null)}
-              className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleAssign}
-              disabled={!selectedId}
-              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
-            >
-              Xác Nhận Phân Công
-            </button>
-          </div>
+          {projectDistrict && (
+            <span className="text-[11px] font-medium text-slate-500 block truncate mt-0.5">
+              {projectDistrict}
+            </span>
+          )}
         </div>
-      </Modal>
 
-      {/* Modal Gửi / Cập Nhật Báo Giá */}
-      <Modal
-        isOpen={quoteModalOpen}
-        onClose={() => setQuoteModalOpen(false)}
-        title={order?.status === "WAITING_CUSTOMER_SIGNATURE" ? "Điều chỉnh báo giá & Dự toán thi công" : "Lập báo giá & Dự toán thi công"}
-      >
-        <div className="space-y-4">
-          {(() => {
-            const negInfo = parseNegotiationInfo(order?.description);
-            const proposedRawNumber = negInfo.proposedPrice ? negInfo.proposedPrice.replace(/[^\d]/g, "") : null;
+        {/* Tổng dự toán */}
+        <div className="p-2 flex flex-col justify-center items-center">
+          <span className="text-xs text-slate-500 font-medium block">Tổng dự toán</span>
+          <span className="font-bold text-slate-900 font-mono text-sm sm:text-base block mt-0.5">
+            {totalAmt > 0 ? formatMoney(totalAmt) : "Chưa báo giá"}
+          </span>
+          {negInfo.hasNegotiation && negInfo.proposedPrice && (
+            <span className="text-[11px] text-amber-600 font-medium block truncate mt-0.5" title={`Khách đề xuất: ${negInfo.proposedPrice}`}>
+              Khách đề xuất: {negInfo.proposedPrice}
+            </span>
+          )}
+        </div>
 
-            if (!negInfo.hasNegotiation) return null;
+        {/* Tiến độ thanh toán */}
+        <div className="p-2 flex flex-col justify-center items-center">
+          <span className="text-xs text-slate-500 font-medium block">Tiến độ thanh toán</span>
+          <span className="font-semibold text-sm block mt-0.5">
+            {isFullyPaid ? (
+              <span className="text-emerald-600 font-bold">✓ Đã tất toán 100%</span>
+            ) : isDepositPaid ? (
+              <span className="text-blue-600 font-bold">✓ Đã cọc 30%</span>
+            ) : (
+              <span className="text-amber-600 font-medium">Chờ cọc</span>
+            )}
+          </span>
+        </div>
+      </div>
 
-            return (
-              <div className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-300 rounded-2xl text-xs space-y-3 shadow-2xs">
-                <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
-                  <span className="font-black text-amber-950 flex items-center gap-1.5 text-xs uppercase tracking-wider">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                    Đề xuất điều chỉnh từ Khách hàng
+      {/* 3. Banner Hành động ưu tiên tiếp theo (Gọn gàng & Trọng tâm) */}
+      {status === "WAITING_ADMIN_QUOTE" && (
+        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <Send className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="text-blue-900">
+              Giám sát đã nộp kết quả khảo sát. Vui lòng lập và gửi báo giá cho khách hàng.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setQuoteModalOpen(true)}
+            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition shrink-0 cursor-pointer shadow-sm"
+          >
+            Gửi báo giá ngay
+          </button>
+        </div>
+      )}
+
+      {(status === "WAITING_DEPOSIT" || (contract?.customerSigned && !contract?.adminSigned)) && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <PenTool className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="text-amber-900">
+              {isDepositPaid
+                ? "Khách đã chuyển cọc 30%! Admin vui lòng ký duyệt hợp đồng điện tử."
+                : "Chờ khách đóng tiền cọc & xác nhận hợp đồng điện tử."}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfirmDepositModal(true)}
+            className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs transition shrink-0 cursor-pointer shadow-sm"
+          >
+            {isDepositPaid ? "✍️ Ký duyệt hợp đồng cọc" : "Xác nhận cọc & Ký HĐ"}
+          </button>
+        </div>
+      )}
+
+      {negInfo.hasNegotiation && (
+        <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+          <div className="space-y-0.5">
+            <span className="font-bold text-amber-900 block">
+              Khách hàng đề xuất thương lượng giá: {negInfo.proposedPrice || "Cần điều chỉnh"}
+            </span>
+            {negInfo.message && (
+              <span className="text-amber-800 italic block">"{negInfo.message}"</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setQuoteModalOpen(true)}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-sm transition shrink-0 cursor-pointer"
+          >
+            Cập nhật lại báo giá
+          </button>
+        </div>
+      )}
+
+      {/* 4. Tiến trình công trình (OrderTimeline) */}
+      <OrderTimeline status={status} />
+
+      {/* 5. Tab chuyển đổi nội dung đơn giản (4 Tabs) */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+        <div className="flex border-b border-slate-200 px-6 bg-slate-50 gap-6 text-sm font-semibold overflow-x-auto no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setActiveTab("overview")}
+            className={`py-3.5 border-b-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === "overview"
+                ? "border-blue-600 text-blue-600 font-bold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Thông tin &amp; Khảo sát
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("staff")}
+            className={`py-3.5 border-b-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === "staff"
+                ? "border-blue-600 text-blue-600 font-bold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Điều phối nhân sự
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("reports")}
+            className={`py-3.5 border-b-2 transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === "reports"
+                ? "border-blue-600 text-blue-600 font-bold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span>Nhật ký thi công</span>
+            {dailyReports.length > 0 && (
+              <span className="bg-slate-200 text-slate-700 rounded-full px-2 py-0.5 text-xs font-bold">
+                {dailyReports.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("contract")}
+            className={`py-3.5 border-b-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === "contract"
+                ? "border-blue-600 text-blue-600 font-bold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Hợp đồng &amp; Tài chính
+          </button>
+        </div>
+
+        {/* 6. Nội dung chi tiết theo Tab */}
+        <div className="p-6 text-sm space-y-5">
+
+          {/* TAB 1: THÔNG TIN & KHẢO SÁT */}
+          {activeTab === "overview" && (
+            <div className="space-y-5">
+              {/* Kế hoạch khảo sát & Yêu cầu thi công */}
+              <div className="bg-slate-50 p-4 sm:p-5 rounded-xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                  <span className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    <span>Kế Hoạch Khảo Sát &amp; Yêu Cầu Thi Công</span>
                   </span>
-                  {negInfo.proposedPrice && (
-                    <span className="font-black text-emerald-900 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full text-xs">
-                      {negInfo.proposedPrice}
+                  {order.preferredSupervisorName && (
+                    <span className="text-xs bg-blue-100 text-blue-800 font-semibold px-2.5 py-1 rounded-md">
+                      Giám sát ưu tiên: @{order.preferredSupervisorName}
                     </span>
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-white/90 p-2.5 rounded-xl border border-amber-200">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">Báo giá hiện tại</span>
-                    <span className="font-black text-slate-900 text-sm block mt-0.5">
-                      {order.totalAmount ? formatMoney(order.totalAmount) : "—"}
+                {/* 4 Chỉ số kế hoạch (Lịch hẹn, Ngày tạo đơn, Dự kiến thi công, Thời hạn bảo hành) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div className="bg-white p-3.5 rounded-lg border border-slate-200">
+                    <span className="text-xs text-slate-500 font-medium block">Lịch hẹn khảo sát</span>
+                    <strong className="text-slate-900 text-sm block mt-1">
+                      {order.appointmentDate ? formatDate(order.appointmentDate) : "Chưa hẹn"}
+                      {order.appointmentTime && ` • ${order.appointmentTime.slice(0, 5)}`}
+                    </strong>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-lg border border-slate-200">
+                    <span className="text-xs text-slate-500 font-medium block">Thời gian tạo đơn</span>
+                    <span className="text-slate-800 text-sm font-medium block mt-1">
+                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString("vi-VN") : "Hôm nay"}
                     </span>
                   </div>
-                  <div className="bg-emerald-50/90 p-2.5 rounded-xl border border-emerald-300">
-                    <span className="text-[10px] text-emerald-800 font-bold block uppercase">Mức giá đề xuất</span>
-                    <span className="font-black text-emerald-700 text-sm block mt-0.5">
-                      {negInfo.proposedPrice || "Chưa ghi số tiền"}
-                    </span>
+
+                  <div className="bg-white p-3.5 rounded-lg border border-slate-200">
+                    <span className="text-xs text-slate-500 font-medium block">Thời gian thi công dự kiến</span>
+                    <strong className="text-slate-900 text-sm block mt-1">
+                      {order.estimatedDays ? `${order.estimatedDays} ngày` : "Theo khảo sát"}
+                    </strong>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-lg border border-slate-200">
+                    <span className="text-xs text-slate-500 font-medium block">Thời hạn bảo hành</span>
+                    <strong className="text-slate-900 text-sm block mt-1">
+                      {order.warrantyYears ? `${order.warrantyYears} năm` : "Theo hợp đồng"}
+                    </strong>
                   </div>
                 </div>
 
-                {negInfo.message && (
-                  <div className="text-slate-800 text-xs bg-white/90 p-2.5 rounded-xl border border-amber-200 font-medium leading-relaxed">
-                    <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Ghi chú từ khách hàng:</span>
-                    "{negInfo.message}"
+                {/* Ghi chú / Yêu cầu ban đầu từ khách hàng */}
+                <div className="bg-white p-4 rounded-lg border border-slate-200 space-y-1.5">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide block">
+                    Ghi chú / Yêu cầu ban đầu của khách:
+                  </span>
+                  {order.description ? (
+                    <p className="text-slate-800 italic leading-relaxed whitespace-pre-wrap text-sm">
+                      "{order.description}"
+                    </p>
+                  ) : (
+                    <p className="text-slate-400 italic text-sm">
+                      Khách hàng không để lại ghi chú ban đầu.
+                    </p>
+                  )}
+                </div>
+
+                {/* Đề xuất thương lượng giá từ khách (nếu có) */}
+                {negInfo.hasNegotiation && (
+                  <div className="p-3.5 bg-amber-50 rounded-lg border border-amber-200 space-y-1 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Đề xuất thương lượng giá từ khách:</span>
+                      </span>
+                      <span className="font-mono font-bold text-amber-900">
+                        {negInfo.proposedPrice || "Cần thỏa thuận"}
+                      </span>
+                    </div>
+                    {negInfo.message && (
+                      <p className="text-amber-800 italic text-xs leading-relaxed">
+                        "{negInfo.message}"
+                      </p>
+                    )}
                   </div>
                 )}
+              </div>
 
-                {proposedRawNumber && (
+              {/* Báo cáo khảo sát hiện trường từ Giám sát */}
+              <div className="border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4 bg-white shadow-xs">
+                <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
+                    <span className="font-bold text-slate-800 text-sm uppercase tracking-wider">
+                      Biên Bản Khảo Sát Hiện Trường &amp; Dự Toán Vật Tư
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-slate-600">
+                      Giám sát viên: <strong className="text-slate-900">@{order.supervisorName || order.surveyorName || "Chưa phân công"}</strong>
+                    </span>
+                    {surveyDetail?.supervisorAccepted && (
+                      <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-md">
+                        ✓ Đã duyệt hiện trạng
+                      </span>
+                    )}
+                    {surveyDetail?.customerAccepted && (
+                      <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-md">
+                        ✓ Khách đã đồng thuận
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {surveyDetail ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                        <span className="text-xs font-bold text-slate-700 block uppercase tracking-wide">
+                          1. Hiện trạng màng sơn &amp; Đo đạc diện tích
+                        </span>
+                        <p className="text-slate-800 leading-relaxed whitespace-pre-wrap min-h-[65px] text-sm">
+                          {surveyDetail.surveyNote || "Chưa có ghi chép khảo sát."}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                        <span className="text-xs font-bold text-slate-700 block uppercase tracking-wide">
+                          2. Dự toán chủng loại vật tư &amp; Định mức sơn
+                        </span>
+                        <p className="text-slate-800 leading-relaxed whitespace-pre-wrap min-h-[65px] text-sm">
+                          {surveyDetail.materialNote || "Chưa có ghi chép vật tư."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Vật tư phát sinh / thiếu hụt */}
+                    {surveyDetail.materialShortage && (
+                      <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 space-y-1.5 text-sm">
+                        <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Ghi chú vật tư phát sinh / thiếu hụt trong khảo sát:</span>
+                        </span>
+                        <p className="text-amber-900 whitespace-pre-wrap leading-relaxed">
+                          {surveyDetail.materialShortage}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Danh sách ảnh hiện trường */}
+                    {surveyImages.length > 0 && (
+                      <div className="pt-3 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                            <Camera className="w-4 h-4 text-slate-500" />
+                            <span>Ảnh chụp hiện trường ({surveyImages.length} ảnh):</span>
+                          </span>
+                          {surveyDetail.updatedAt && (
+                            <span className="text-xs text-slate-500">
+                              Cập nhật: {new Date(surveyDetail.updatedAt).toLocaleString("vi-VN")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {surveyImages.map((url, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => setPreviewImage(url)}
+                              className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-slate-200 cursor-pointer hover:border-blue-500 transition group relative shadow-2xs"
+                            >
+                              <img
+                                src={url}
+                                alt={`survey-${idx}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition"
+                              />
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                                <Maximize2 className="w-4 h-4" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-slate-400 italic py-4 text-center text-sm">
+                    {order.supervisorId
+                      ? "Giám sát viên đang tiến hành khảo sát hiện trường, chưa nộp báo cáo."
+                      : "Chưa phân công giám sát viên để đi khảo sát đo đạc hiện trường."}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: ĐIỀU PHỐI NHÂN SỰ */}
+          {activeTab === "staff" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Giám sát viên */}
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-blue-600" />
+                      <span>Giám sát khảo sát (10%)</span>
+                    </span>
+                    {isSupervisorPaid ? (
+                      <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-md">
+                        ✓ Đã quyết toán
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-amber-100 text-amber-800 font-semibold px-2.5 py-1 rounded-md">
+                        Chưa quyết toán
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Người phụ trách:</span>
+                      <strong className="text-slate-900">
+                        {order.supervisorName ? `@${order.supervisorName}` : "Chưa phân công"}
+                      </strong>
+                    </div>
+                    {order.supervisorPhone && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">SĐT:</span>
+                        <a href={`tel:${order.supervisorPhone}`} className="font-mono text-blue-600 font-medium">
+                          {order.supervisorPhone}
+                        </a>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Thù lao giám sát (10%):</span>
+                      <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
+                        {formatMoney(supervisorFee)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {canChangeSupervisor ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(order.supervisorId ? String(order.supervisorId) : "");
+                        setSupervisorModalTab("all");
+                        setAssignModal("supervisor");
+                      }}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition cursor-pointer"
+                    >
+                      {order.supervisorId ? "Đổi Giám Sát" : "+ Gán Giám Sát"}
+                    </button>
+                  ) : (
+                    <div className="text-xs text-slate-400 text-center py-1">
+                      Đã nộp báo cáo (Khóa đổi)
+                    </div>
+                  )}
+                </div>
+
+                {/* Đội thợ sơn */}
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-amber-600" />
+                      <span>Đội thợ thi công (60%)</span>
+                    </span>
+                    {isWorkerPaid ? (
+                      <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-md">
+                        ✓ Đã quyết toán
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-amber-100 text-amber-800 font-semibold px-2.5 py-1 rounded-md">
+                        Chưa quyết toán
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Đội trưởng phụ trách:</span>
+                      <strong className="text-slate-900">
+                        {order.technicianName ? `@${order.technicianName}` : "Chưa bàn giao"}
+                      </strong>
+                    </div>
+                    {order.technicianPhone && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">SĐT:</span>
+                        <a href={`tel:${order.technicianPhone}`} className="font-mono text-blue-600 font-medium">
+                          {order.technicianPhone}
+                        </a>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Thù lao thợ (60%):</span>
+                      <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
+                        {formatMoney(workerFee)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {canAssignWorker ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(order.technicianId ? String(order.technicianId) : "");
+                        setWorkerModalTab("all");
+                        setAssignModal("worker");
+                      }}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition cursor-pointer"
+                    >
+                      {order.technicianId ? "Đổi Đội Thợ" : "+ Gán Đội Thợ Sơn"}
+                    </button>
+                  ) : isWorkStartedOrCompleted ? (
+                    <div className="text-xs text-slate-400 text-center py-1">
+                      Đang/đã thi công (Khóa đổi)
+                    </div>
+                  ) : (
+                    <div className="text-xs text-amber-700 text-center py-1">
+                      Cần ký HĐ &amp; nộp cọc trước khi gán thợ
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Nút Quyết toán thù lao sang Payments */}
+              {isFullyPaid && (!isSupervisorPaid || !isWorkerPaid) && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-sm">
+                  <span className="text-emerald-900 font-semibold">
+                    Khách đã thanh toán 100%. Vui lòng quyết toán thù lao cho Giám sát và Đội thợ.
+                  </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      setQuoteTotal(proposedRawNumber);
-                      setQuoteDeposit(String(Math.round(Number(proposedRawNumber) * 0.3)));
-                      showToast?.(`Đã áp dụng mức dự toán đề xuất: ${Number(proposedRawNumber).toLocaleString("vi-VN")}đ`, "success");
-                    }}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-1.5 hover:shadow-md active:scale-98"
+                    onClick={() =>
+                      navigate(`/admin/payments?tab=STAFF&search=${order.id}`, {
+                        state: { tab: "STAFF", search: String(order.id) },
+                      })
+                    }
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition shrink-0 cursor-pointer shadow-sm flex items-center gap-2"
                   >
-                    <span>✨</span>
-                    <span>Áp dụng mức giá đề xuất ({negInfo.proposedPrice})</span>
+                    <CreditCard className="w-4 h-4" />
+                    <span>Quyết toán VietQR</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: NHẬT KÝ THI CÔNG */}
+          {activeTab === "reports" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">
+                  Tổng số: <strong className="text-slate-900">{dailyReports.length}</strong> ngày nộp nhật ký
+                  {materialReimbursement > 0 && (
+                    <span className="ml-2 text-amber-700 font-semibold">
+                      (Vật tư phát sinh: {formatMoney(materialReimbursement)})
+                    </span>
+                  )}
+                </span>
+                {dailyReports.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setReportsModalOpen(true)}
+                    className="text-blue-600 hover:underline text-sm font-semibold cursor-pointer"
+                  >
+                    Xem dạng cửa sổ lớn
                   </button>
                 )}
               </div>
-            );
-          })()}
 
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Dựa trên khảo sát thực tế và thỏa thuận với khách hàng, Admin cập nhật lại tổng dự toán, số ngày thi công và thời hạn bảo hành. Hợp đồng điện tử sẽ tự động đồng bộ theo mức giá mới.
-          </p>
+              {loadingReports ? (
+                <div className="py-8 text-center text-slate-400">Đang tải nhật ký...</div>
+              ) : dailyReports.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-slate-400 text-sm">
+                  Chưa có báo cáo nhật ký thi công nào được gửi.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dailyReports.map((report, index) => {
+                    const reportImages = parseImageUrls(report.progressImages);
+                    const itemCost = Number(report.materialCost) || 0;
 
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Tổng giá trị dự toán (VNĐ) <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={quoteTotal}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setQuoteTotal(val);
-                  if (val && !isNaN(val)) {
-                    setQuoteDeposit(String(Math.round(Number(val) * 0.3)));
-                  } else {
-                    setQuoteDeposit("");
-                  }
-                }}
-                placeholder="Ví dụ: 15000000"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none font-bold"
-              />
+                    return (
+                      <div
+                        key={report.id || index}
+                        className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-sm"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-sm">
+                              Báo cáo #{dailyReports.length - index}
+                            </span>
+                            <span className="text-slate-500 text-xs sm:text-sm">
+                              Lập bởi @{report.reporterName || "Nhân sự"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {report.progressPercentage != null && (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded text-xs">
+                                {report.progressPercentage}%
+                              </span>
+                            )}
+                            {itemCost > 0 && (
+                              <span className="text-xs text-amber-700 font-semibold">
+                                +{formatMoney(itemCost)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-slate-800 whitespace-pre-wrap leading-relaxed text-sm">{report.content}</p>
+
+                        {report.materialShortage && (
+                          <div className="text-sm text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                            Vật tư phát sinh: {report.materialShortage}
+                          </div>
+                        )}
+
+                        {reportImages.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {reportImages.map((img, i) => (
+                              <img
+                                key={i}
+                                src={img}
+                                alt="progress"
+                                onClick={() => setPreviewImage(img)}
+                                className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-80 transition"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Tiền cọc yêu cầu (30%)
-              </label>
-              <input
-                type="number"
-                value={quoteDeposit}
-                readOnly
-                className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-emerald-700 font-bold outline-none cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Số ngày làm việc dự kiến <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={quoteEstimatedDays}
-                  onChange={(e) => setQuoteEstimatedDays(e.target.value)}
-                  placeholder="3"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none font-bold"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Thời hạn bảo hành (năm) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={quoteWarrantyYears}
-                  onChange={(e) => setQuoteWarrantyYears(e.target.value)}
-                  placeholder="2"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none font-bold"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setQuoteModalOpen(false)}
-              className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleSendQuote}
-              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
-            >
-              Gửi Báo Giá &amp; Sinh Hợp Đồng
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal Xác nhận cọc và Admin Ký */}
-      <Modal
-        isOpen={confirmDepositModal}
-        onClose={() => setConfirmDepositModal(false)}
-        title="Ký duyệt hợp đồng &amp; Xác nhận cọc"
-      >
-        <div className="space-y-4">
-          {isDepositPaid ? (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 leading-relaxed font-medium">
-              <span className="font-bold block text-emerald-900 mb-0.5">✓ Khách hàng đã chuyển cọc 30% thành công qua VNPay Sandbox!</span>
-              Số tiền cọc: <strong className="text-emerald-700">{order.depositAmount ? formatMoney(order.depositAmount) : "—"}</strong>.
-              <br />
-              Admin tiến hành ký chữ ký điện tử đại diện Công ty vào khung bên dưới để hợp đồng có đầy đủ pháp lý và kích hoạt quyền phân công thợ.
-            </div>
-          ) : (
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Khách hàng thực hiện nộp cọc 30% trực tuyến qua cổng VNPay Sandbox. Sau khi xác nhận tiền cọc, Admin tiến hành ký chữ ký điện tử đóng dấu hợp đồng.
-            </p>
           )}
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label className="block text-xs font-bold text-slate-700">
-                Chữ ký Admin (Đại diện công ty) <span className="text-rose-500">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={clearAdminSignature}
-                className="text-xs text-rose-600 hover:underline font-bold cursor-pointer"
-              >
-                Xóa chữ ký
-              </button>
-            </div>
-            <div className="border-2 border-dashed border-slate-300 rounded-2xl bg-white overflow-hidden touch-none">
-              <canvas
-                ref={adminSigCanvasRef}
-                width={500}
-                height={150}
-                className="w-full cursor-crosshair block bg-slate-50"
-                style={{ touchAction: "none" }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400">
-              {hasAdminSignature ? (
-                <span className="text-emerald-700 font-bold">✓ Đã ký tên xác nhận</span>
-              ) : (
-                <span className="text-amber-700 font-semibold">⚠️ Vui lòng ký tên vào khung trước khi xác nhận</span>
-              )}
-            </p>
-          </div>
+          {/* TAB 4: HỢP ĐỒNG & TÀI CHÍNH */}
+          {activeTab === "contract" && (
+            <div className="space-y-4">
+              {/* Bảng phân bổ tài chính công trình */}
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-3 text-sm">
+                <div className="flex justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-600">Tổng dự toán hợp đồng:</span>
+                  <strong className="font-mono text-sm sm:text-base text-slate-900 font-bold">{formatMoney(totalAmt)}</strong>
+                </div>
+                <div className="flex justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-600">Tiền cọc (30%):</span>
+                  <span className="font-mono font-bold text-slate-800">{formatMoney(depositAmt)}</span>
+                </div>
+                <div className="flex justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-600">Còn lại thanh toán khi nghiệm thu (70%):</span>
+                  <span className="font-mono font-bold text-slate-800">{formatMoney(remainingAmt)}</span>
+                </div>
+                <div className="flex justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-600">Thù lao Giám sát (10% + hoàn tiền VT):</span>
+                  <span className="font-mono font-bold text-emerald-700">{formatMoney(supervisorFee)}</span>
+                </div>
+                <div className="flex justify-between pb-2 border-b border-slate-200">
+                  <span className="text-slate-600">Thù lao Đội thợ (60%):</span>
+                  <span className="font-mono font-bold text-emerald-700">{formatMoney(workerFee)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Vận hành công ty &amp; Quỹ bảo hành sơn (30%):</span>
+                  <span className="font-mono font-bold text-slate-800">{formatMoney(totalAmt * 0.3)}</span>
+                </div>
+              </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setConfirmDepositModal(false)}
-              className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirmDeposit}
-              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs"
-            >
-              Ký Hợp Đồng &amp; Xác Nhận Cọc
-            </button>
-          </div>
+              {/* Hợp đồng điện tử */}
+              <div className="border border-slate-200 rounded-xl p-5 space-y-3 bg-white">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                  <div>
+                    <span className="text-xs text-slate-500 block uppercase font-medium">Mã hợp đồng</span>
+                    <span className="font-mono font-bold text-sm sm:text-base text-slate-900">
+                      {contract?.contractCode || `HD-${order.id}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold ${
+                        isContractSignedByBoth
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {isContractSignedByBoth
+                        ? "Đã ký kết 2 bên"
+                        : contract?.customerSigned
+                        ? "Khách đã ký • Chờ Admin"
+                        : "Chờ ký"}
+                    </span>
+                    {contract && (
+                      <button
+                        type="button"
+                        onClick={() => setContractModalOpen(true)}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs sm:text-sm font-semibold hover:bg-blue-100 transition cursor-pointer"
+                      >
+                        Xem chi tiết HĐ
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-xl text-slate-800 text-sm font-mono max-h-52 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                  {contract?.content || "Hợp đồng sẽ được khởi tạo khi gửi báo giá."}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
-      </Modal>
+      </div>
 
-      {/* Shared Contract Modal */}
+      {/* 5 Modals chuyên biệt theo SRP */}
+      <AssignStaffModal
+        assignModal={assignModal}
+        setAssignModal={setAssignModal}
+        projectDistrict={projectDistrict}
+        orderServiceName={order?.serviceName}
+        supervisorModalTab={supervisorModalTab}
+        setSupervisorModalTab={setSupervisorModalTab}
+        workerModalTab={workerModalTab}
+        setWorkerModalTab={setWorkerModalTab}
+        eligibleSupervisors={eligibleSupervisors}
+        districtSupervisors={districtSupervisors}
+        idleSupervisors={idleSupervisors}
+        displaySupervisors={displaySupervisors}
+        eligibleWorkers={eligibleWorkers}
+        districtWorkers={districtWorkers}
+        idleWorkers={idleWorkers}
+        displayWorkers={displayWorkers}
+        selectedId={selectedId}
+        setSelectedId={setSelectedId}
+        activeSupervisorJobs={activeSupervisorJobs}
+        activeWorkerJobs={activeWorkerJobs}
+        handleAssign={handleAssign}
+      />
+
+      <SendQuoteModal
+        quoteModalOpen={quoteModalOpen}
+        setQuoteModalOpen={setQuoteModalOpen}
+        order={order}
+        contract={contract}
+        quoteTotal={quoteTotal}
+        setQuoteTotal={setQuoteTotal}
+        quoteDeposit={quoteDeposit}
+        setQuoteDeposit={setQuoteDeposit}
+        quoteEstimatedDays={quoteEstimatedDays}
+        setQuoteEstimatedDays={setQuoteEstimatedDays}
+        quoteWarrantyYears={quoteWarrantyYears}
+        setQuoteWarrantyYears={setQuoteWarrantyYears}
+        handleSendQuote={handleSendQuote}
+        showToast={showToast}
+      />
+
+      <AdminSignConfirmModal
+        confirmDepositModal={confirmDepositModal}
+        setConfirmDepositModal={setConfirmDepositModal}
+        isDepositPaid={isDepositPaid}
+        order={order}
+        contract={contract}
+        adminSigCanvasRef={adminSigCanvasRef}
+        hasAdminSignature={hasAdminSignature}
+        clearAdminSignature={clearAdminSignature}
+        handleConfirmDeposit={handleConfirmDeposit}
+      />
+
+      <OrderDailyReportsModal
+        reportsModalOpen={reportsModalOpen}
+        setReportsModalOpen={setReportsModalOpen}
+        dailyReports={dailyReports}
+        setPreviewImage={setPreviewImage}
+      />
+
+      <OrderPayoutModal
+        payoutModalData={payoutModalData}
+        setPayoutModalData={setPayoutModalData}
+        submittingPayout={submittingPayout}
+        handleConfirmStaffPayout={handleConfirmStaffPayout}
+      />
+
       <ContractModal
         isOpen={contractModalOpen}
         onClose={() => setContractModalOpen(false)}
@@ -1848,175 +1511,7 @@ export default function OrderDetail() {
         booking={order}
         role="admin"
         showToast={showToast}
-        onSuccess={() => {
-          fetchOrder();
-          fetchContract(id);
-        }}
       />
-
-      {/* Modal Xem Danh Sách Báo Cáo Nhật Ký */}
-      <Modal
-        isOpen={reportsModalOpen}
-        onClose={() => setReportsModalOpen(false)}
-        title={`Nhật Ký & Báo Cáo Tiến Độ Thi Công (${dailyReports.length})`}
-        size="lg"
-      >
-        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-          {dailyReports.length === 0 ? (
-            <p className="text-xs text-slate-400 py-8 text-center font-medium">
-              Chưa có báo cáo nhật ký thi công nào.
-            </p>
-          ) : (
-            dailyReports.map((report, index) => {
-              const reportImages = parseImageUrls(report.progressImages);
-              return (
-                <div
-                  key={report.id || index}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 bg-slate-200 px-2 py-0.5 rounded-md">
-                        📅 Báo cáo ngày #{dailyReports.length - index}
-                      </span>
-                      <span className="text-slate-600 font-medium">
-                        Lập bởi: <strong className="text-slate-900">@{report.reporterName || "Thợ thi công"}</strong>
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {report.progressPercentage != null && (
-                        <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                          {report.progressPercentage}% hoàn thành
-                        </span>
-                      )}
-                      {report.createdAt && (
-                        <span className="text-[11px] text-slate-400">
-                          {new Date(report.createdAt).toLocaleString("vi-VN")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {report.progressPercentage != null && (
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-emerald-600 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(100, Math.max(0, report.progressPercentage))}%` }}
-                      />
-                    </div>
-                  )}
-
-                  <div className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed">
-                    {report.content}
-                  </div>
-
-                  {report.materialShortage && (
-                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium">
-                      <span className="font-bold block mb-1">⚠️ Vật tư phát sinh / thiếu hụt:</span>
-                      {report.materialShortage}
-                    </div>
-                  )}
-
-                  {reportImages.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      <span className="font-bold text-slate-700 block">
-                        📸 Hình ảnh thi công thực tế ({reportImages.length} ảnh):
-                      </span>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                        {reportImages.map((imgUrl, imgIdx) => (
-                          <div
-                            key={imgIdx}
-                            onClick={() => setPreviewImage(imgUrl)}
-                            className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white hover:opacity-90 hover:scale-105 transition cursor-pointer shadow-xs relative group"
-                          >
-                            <img
-                              src={imgUrl}
-                              alt={`Tiến độ ${imgIdx + 1}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = "https://placehold.co/150x150?text=Anh+TD";
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-bold">
-                              🔍 Xem
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-
-          <div className="pt-2 border-t border-slate-200 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setReportsModalOpen(false)}
-              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal Thanh toán thù lao cho Nhân viên qua VietQR */}
-      <Modal
-        isOpen={Boolean(payoutModalData)}
-        onClose={() => setPayoutModalData(null)}
-        title="Thanh Toán Thù Lao Nhân Sự (VietQR)"
-        size="md"
-      >
-        {payoutModalData && (
-          <div className="space-y-4">
-            <div className="p-3.5 bg-emerald-50 text-emerald-950 border border-emerald-200 rounded-2xl text-xs space-y-1.5">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Nhân sự nhận thù lao:</span>
-                <span className="font-bold text-slate-900">
-                  {payoutModalData.staffName} (
-                  {payoutModalData.role === "SURVEYOR" ? "Giám sát viên" : "Đội thợ thi công"})
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Ngân hàng của nhân viên:</span>
-                <span className="font-bold text-slate-900">{payoutModalData.bankName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Số tài khoản:</span>
-                <span className="font-bold font-mono text-slate-900">{payoutModalData.bankAccountNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Chủ tài khoản:</span>
-                <span className="font-bold uppercase text-slate-900">{payoutModalData.bankAccountName}</span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-emerald-200/80">
-                <span className="text-slate-600">Số tiền quyết toán:</span>
-                <span className="text-emerald-700 font-black text-sm">{formatMoney(payoutModalData.amount)}</span>
-              </div>
-            </div>
-
-            <QRCodePayment
-              amount={payoutModalData.amount}
-              orderId={payoutModalData.orderId}
-              bankId={payoutModalData.bankCode}
-              bankName={payoutModalData.bankName}
-              accountNo={payoutModalData.bankAccountNumber}
-              accountName={payoutModalData.bankAccountName}
-              addInfo={`THU LAO DH${payoutModalData.orderId} ${payoutModalData.role === "SURVEYOR" ? "GS" : "THO"}`}
-              title={`Quét mã VietQR trả thù lao cho ${payoutModalData.staffName}`}
-              subTitle="Admin dùng App Ngân hàng quét mã để thanh toán thù lao trực tiếp về tài khoản nhân viên"
-              confirmText={submittingPayout ? "Đang xác nhận..." : `Xác Nhận Đã Chuyển ${formatMoney(payoutModalData.amount)}`}
-              onConfirm={handleConfirmStaffPayout}
-              onClose={() => setPayoutModalData(null)}
-              loading={submittingPayout}
-            />
-          </div>
-        )}
-      </Modal>
 
       {/* Shared Image Lightbox */}
       <ImageLightboxModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />

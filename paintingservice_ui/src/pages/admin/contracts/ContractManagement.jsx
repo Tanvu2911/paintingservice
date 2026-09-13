@@ -7,7 +7,7 @@ import DashboardHeader from "../../../components/layout/DashboardHeader";
 import StatusBadge from "../../../components/common/StatusBadge";
 import LoadingState from "../../../components/common/LoadingState";
 import Modal from "../../../components/common/Modal";
-import ContractPreview from "../../../components/contract/ContractPreview";
+import ContractModal from "../../../components/common/ContractModal";
 import Pagination from "../../../components/common/Pagination";
 import { Search, Eye, FileText } from "lucide-react";
 
@@ -309,22 +309,21 @@ export default function ContractManagement() {
         </div>
       )}
 
-      {/* Shared Modal + Reusable ContractPreview */}
-      <Modal isOpen={detailOpen} onClose={closeDetail} title="Chi tiết hợp đồng điện tử" size="lg">
-        {loadingDetail ? (
+      {/* Modal Hợp đồng điện tử dùng chung toàn hệ thống */}
+      {loadingDetail ? (
+        <Modal isOpen={detailOpen} onClose={closeDetail} title="Chi tiết hợp đồng điện tử">
           <LoadingState message="Đang tải chi tiết hợp đồng..." />
-        ) : (
-          <ContractPreview
-            contract={selectedContract}
-            bookingDetail={bookingDetail}
-            onClose={closeDetail}
-            onViewBooking={(bookingId) => {
-              closeDetail();
-              navigate(`/admin/bookings/${bookingId}`);
-            }}
-          />
-        )}
-      </Modal>
+        </Modal>
+      ) : (
+        <ContractModal
+          isOpen={detailOpen}
+          onClose={closeDetail}
+          contract={selectedContract}
+          booking={bookingDetail}
+          role="admin"
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 }

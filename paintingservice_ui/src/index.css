@@ -15,6 +15,9 @@
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   * {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
@@ -55,78 +58,34 @@
   background-color: #F7F9FB !important;
 }
 
-/* ==========================================================================
-   UNIVERSAL THEME OVERRIDES (ALL PAGES, ALL BUTTONS, ALL MODALS & BADGES)
-   ========================================================================== */
-
-/* 1. Primary Action Buttons across all pages (Submit, Confirm, Main Action CTAs) */
-button[type="submit"],
-.btn-primary,
-.cta-btn {
-  background-color: #F59E0B !important;
-  color: #ffffff !important;
+/* Theme Utility Classes */
+.bg-navy-primary {
+  background-color: #1E3A8A;
 }
 
-button[type="submit"]:hover,
-.btn-primary:hover,
-.cta-btn:hover {
-  background-color: #D97706 !important;
+.text-navy-primary {
+  color: #1E3A8A;
 }
 
-/* 2. Primary Navigation & Header Elements (Navy #1E3A8A) */
-button.bg-emerald-600,
-button.bg-emerald-700,
-a.bg-emerald-600,
-a.bg-emerald-700,
-div.bg-emerald-600,
-span.bg-emerald-600 {
-  background-color: #1E3A8A !important;
+.border-navy-primary {
+  border-color: #1E3A8A;
 }
 
-button.bg-emerald-600:hover,
-button.bg-emerald-700:hover,
-a.bg-emerald-600:hover,
-a.bg-emerald-700:hover {
-  background-color: #1e40af !important;
+.bg-amber-cta {
+  background-color: #F59E0B;
+  color: #ffffff;
 }
 
-/* 3. Text Color Accents */
-.text-emerald-600,
-.text-emerald-700,
-.text-emerald-800,
-.text-emerald-900 {
-  color: #1E3A8A !important;
+.bg-amber-cta:hover {
+  background-color: #D97706;
 }
 
-/* 4. Border Color Accents */
-.border-emerald-500,
-.border-emerald-600 {
-  border-color: #1E3A8A !important;
+.text-amber-cta {
+  color: #D97706;
 }
 
-/* 5. Light Background Badges & Container Boxes */
-.bg-emerald-50,
-.bg-emerald-50\/40,
-.bg-emerald-50\/50,
-.bg-emerald-50\/60,
-.bg-emerald-50\/70,
-.bg-emerald-50\/80 {
-  background-color: #eff6ff !important;
-}
-
-.border-emerald-100,
-.border-emerald-200,
-.border-emerald-300 {
-  border-color: #bfdbfe !important;
-}
-
-/* 6. Form Input Focus Rings */
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: #1E3A8A !important;
-  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.15) !important;
+.bg-surface-light {
+  background-color: #F7F9FB;
 }
 
 /* Custom Scrollbar */
@@ -144,3 +103,193 @@ textarea:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Animations & Micro-interactions */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoomFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-zoom-in {
+  animation: zoomFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.btn-press {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+.card-zoom {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+}
+.card-zoom:hover {
+  transform: translateY(-4px) scale(1.015);
+}
+
+.arrow-slide {
+  transition: transform 0.2s ease;
+}
+.group:hover .arrow-slide {
+  transform: translateX(4px);
+}
+
+/* Text Zoom & Breathing Effect */
+@keyframes textPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.25));
+  }
+  50% {
+    transform: scale(1.035);
+    filter: drop-shadow(0 0 24px rgba(245, 158, 11, 0.35));
+  }
+}
+
+.animate-text-pulse {
+  animation: textPulse 4s ease-in-out infinite;
+  display: inline-block;
+  will-change: transform, filter;
+}
+
+/* Floating Animation */
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-float {
+  animation: floatSlow 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes orbPulse {
+  0%, 100% {
+    transform: scale(1) translate(0, 0);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.1) translate(15px, -15px);
+    opacity: 0.35;
+  }
+}
+
+.animate-orb {
+  animation: orbPulse 8s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+/* Dynamic Rotating Word Zoom (Smooth & Elegant, No Jitter) */
+@keyframes wordZoomIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-word-zoom {
+  animation: wordZoomIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+/* Continuous Text Breathing Zoom with Glow */
+@keyframes textZoomPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.3));
+  }
+  50% {
+    transform: scale(1.065);
+    filter: drop-shadow(0 0 26px rgba(245, 158, 11, 0.65));
+  }
+}
+
+.animate-text-zoom-pulse {
+  animation: textZoomPulse 3.5s ease-in-out infinite;
+  display: inline-block;
+  will-change: transform, filter;
+}
+
+/* Continuous Gradient Shimmer Effect */
+@keyframes gradientShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient-shimmer {
+  background-size: 200% 200%;
+  animation: gradientShimmer 4.5s ease infinite;
+}
+
+/* Micro Hover Zoom Utilities */
+.hover-zoom-sm {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+.hover-zoom-sm:hover {
+  transform: scale(1.035);
+}
+
+.hover-zoom-md {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+}
+.hover-zoom-md:hover {
+  transform: scale(1.07);
+}
+
+.hover-zoom-lg {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+}
+.hover-zoom-lg:hover {
+  transform: scale(1.12);
+}

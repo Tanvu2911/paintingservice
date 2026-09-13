@@ -105,19 +105,13 @@ export default function JobCard({
           )}
 
           {job.totalAmount && Number(job.totalAmount) > 0 && (
-            <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Giá trị công trình:</span>
-                <span className="font-bold text-slate-700 text-xs">
-                  {formatMoney(job.totalAmount)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between bg-emerald-50/80 px-3 py-2 rounded-xl border border-emerald-100">
                 <span className="text-emerald-800 font-bold text-xs flex items-center gap-1.5">
-                  <Wallet className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Thù lao thợ (60%):</span>
+                  <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Thù lao nhận được:</span>
                 </span>
-                <span className="font-black text-emerald-700 text-sm">
+                <span className="font-black text-emerald-700 text-sm font-mono">
                   {formatMoney(Number(job.totalAmount) * 0.60)}
                 </span>
               </div>
@@ -125,7 +119,7 @@ export default function JobCard({
           )}
 
           {job.description && (
-            <div className="pt-2 border-t border-slate-200/60 text-slate-500 line-clamp-2 italic text-[11px]">
+            <div className="pt-2 border-t border-slate-100 text-slate-500 line-clamp-2 italic text-[11px]">
               &ldquo;{job.description}&rdquo;
             </div>
           )}

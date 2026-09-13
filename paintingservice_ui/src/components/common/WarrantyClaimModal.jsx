@@ -155,11 +155,10 @@ export default function WarrantyClaimModal({
                     key={t.id}
                     type="button"
                     onClick={() => setIssueType(t.id)}
-                    className={`p-3 rounded-xl text-left border transition flex items-start gap-2.5 cursor-pointer ${
-                      isSelected
+                    className={`p-3 rounded-xl text-left border transition flex items-start gap-2.5 cursor-pointer ${isSelected
                         ? "bg-blue-50/80 border-blue-600 ring-2 ring-blue-500/30 text-blue-950 shadow-xs"
                         : "bg-slate-50 hover:bg-slate-100/80 border-slate-200 text-slate-700"
-                    }`}
+                      }`}
                   >
                     <span className="text-base shrink-0 mt-0.5">{t.icon}</span>
                     <div className="min-w-0 flex-1">

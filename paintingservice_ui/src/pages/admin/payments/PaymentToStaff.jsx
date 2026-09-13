@@ -170,8 +170,16 @@ export default function PaymentToStaff() {
     });
   };
 
-  const openWarrantyPayoutQR = (claim, staffId, staffName, role, amount) => {
+  const openWarrantyPayoutQR = (claim, staffId, staffName, role, amount, extra = {}) => {
     const sp = getStaffProfile(staffId, staffName);
+    const isCustomerFault = claim.faultType === "CUSTOMER_FAULT" || Number(claim.finalSupportPrice) > 0;
+    const isOldWorker = Boolean(
+      role === "TECHNICIAN" &&
+      claim.technicianId &&
+      claim.previousTechnicianId &&
+      String(claim.technicianId) === String(claim.previousTechnicianId)
+    );
+
     setPayoutModal({
       isWarranty: true,
       claimId: claim.id,
@@ -179,11 +187,16 @@ export default function PaymentToStaff() {
       staffId,
       staffName,
       role,
-      amount,
+      amount: amount !== undefined ? amount : (role === "SURVEYOR" ? 100000 : 200000),
+      isCustomerFault,
+      customerPaid: Boolean(claim.customerPaid),
+      finalSupportPrice: Number(claim.finalSupportPrice) || 0,
+      isOldWorker,
       bankName: sp?.bankName || "MB Bank",
       bankCode: getVietQRBankCode(sp?.bankName || "MB Bank"),
       bankAccountNumber: sp?.bankAccountNumber || sp?.phoneNumber || "—",
       bankAccountName: sp?.bankAccountName || staffName,
+      ...extra,
     });
   };
 
@@ -192,8 +205,9 @@ export default function PaymentToStaff() {
     try {
       setSubmitting(true);
       if (payoutModal.isWarranty) {
+        const payAmount = payoutModal.amount !== undefined ? payoutModal.amount : 0;
         const res = await AxiosConfig.post(
-          `/payments/warranty-staff-payout?claimId=${payoutModal.claimId}&staffId=${payoutModal.staffId}&role=${payoutModal.role}`
+          `/payments/warranty-staff-payout?claimId=${payoutModal.claimId}&staffId=${payoutModal.staffId}&role=${payoutModal.role}&amount=${payAmount}`
         );
         showToast?.(res.data?.message || "Đã quyết toán thù lao bảo hành thành công!", "success");
       } else {
@@ -262,7 +276,7 @@ export default function PaymentToStaff() {
     let warrantyCustomerPendingTotal = 0;
 
     warrantyClaims.forEach((c) => {
-      const price = Number(c.finalSupportPrice) || 0;
+      const price = Number(c.finalSupportPrice) || Number(c.suggestedPrice) || 0;
       if (price > 0) {
         if (c.customerPaid || c.customerAccepted) {
           warrantyCustomerPaidTotal += price;
@@ -271,8 +285,27 @@ export default function PaymentToStaff() {
         }
       }
 
-      const surAmt = Number(c.surveyorSalary) || 100000;
-      const worAmt = Number(c.workerSalary) || 200000;
+      const isCustomerFault = c.faultType === "CUSTOMER_FAULT" || price > 0;
+      const isOldWorker = Boolean(
+        c.technicianId &&
+        c.previousTechnicianId &&
+        String(c.technicianId) === String(c.previousTechnicianId)
+      );
+
+      let defaultWorkerAmt = 200000;
+      if (isCustomerFault) {
+        defaultWorkerAmt = price > 0 ? Math.round(price * 0.60) : 200000;
+      } else if (isOldWorker) {
+        defaultWorkerAmt = 0;
+      }
+
+      const defaultSurveyorAmt = isCustomerFault
+        ? (price > 0 ? Math.round(price * 0.10) : 100000)
+        : 100000;
+
+      const surAmt = c.surveyorSalary != null ? Number(c.surveyorSalary) : defaultSurveyorAmt;
+      const worAmt = c.workerSalary != null ? Number(c.workerSalary) : defaultWorkerAmt;
+
       if (c.surveyorId) {
         if (c.surveyorPaid) warrantyStaffPaidTotal += surAmt;
         else warrantyStaffPendingTotal += surAmt;
@@ -452,7 +485,7 @@ export default function PaymentToStaff() {
 
     // 3. Dòng tiền VÀO (+) từ Khách hàng đóng phí hỗ trợ Bảo hành
     warrantyClaims.forEach((c) => {
-      const price = Number(c.finalSupportPrice) || 0;
+      const price = Number(c.finalSupportPrice) || Number(c.suggestedPrice) || 0;
       if (price > 0) {
         const isPaid = Boolean(c.customerPaid || c.customerAccepted);
         list.push({
@@ -472,7 +505,40 @@ export default function PaymentToStaff() {
       }
 
       // 4. Dòng tiền RA (-) Chi trả thù lao bảo hành
+      const isCustomerFault = c.faultType === "CUSTOMER_FAULT" || price > 0;
+      const isOldWorker = Boolean(
+        c.technicianId &&
+        c.previousTechnicianId &&
+        String(c.technicianId) === String(c.previousTechnicianId)
+      );
+
+      let defaultWorkerAmt = 200000;
+      let workerDesc = "Thợ mới (Công ty chi)";
+      if (isCustomerFault) {
+        defaultWorkerAmt = price > 0 ? Math.round(price * 0.60) : 200000;
+        workerDesc = "Hưởng 60% tiền khách";
+      } else if (isOldWorker) {
+        defaultWorkerAmt = 0;
+        workerDesc = "Thợ cũ (0đ - Trách nhiệm)";
+      }
+
+      const defaultSurveyorAmt = isCustomerFault
+        ? (price > 0 ? Math.round(price * 0.10) : 100000)
+        : 100000;
+      let surveyorDesc = isCustomerFault ? "Hưởng 10% tiền khách" : "Định mức công ty";
+
+      const surAmt = c.surveyorSalary != null ? Number(c.surveyorSalary) : defaultSurveyorAmt;
+      const worAmt = c.workerSalary != null ? Number(c.workerSalary) : defaultWorkerAmt;
+
+      if (c.workerSalary != null) {
+        workerDesc = "Thù lao do Admin ấn định";
+      }
+      if (c.surveyorSalary != null) {
+        surveyorDesc = "Thù lao do Admin ấn định";
+      }
+
       if (c.surveyorId) {
+        const isCompleted = c.surveyorPaid || surAmt === 0;
         list.push({
           id: `OUT-WAR-SUP-${c.id}-${c.surveyorId}`,
           bookingId: c.bookingId,
@@ -482,19 +548,22 @@ export default function PaymentToStaff() {
           category: `Thù lao Giám sát BH #${c.id}`,
           party: c.surveyorName || "Giám sát viên",
           partyRole: "Giám sát viên",
-          amount: Number(c.surveyorSalary) || 100000,
-          status: c.surveyorPaid ? "COMPLETED" : "PENDING",
-          statusText: c.surveyorPaid ? "Đã quyết toán" : "Chờ quyết toán",
+          amount: surAmt,
+          status: isCompleted ? "COMPLETED" : "PENDING",
+          statusText: c.surveyorPaid ? "Đã quyết toán" : surAmt === 0 ? "Trách nhiệm (0đ)" : "Chờ quyết toán",
           date: c.surveyorPaidAt || c.createdAt,
           rawDate: parseDate(c.surveyorPaidAt || c.createdAt),
           order: { id: c.bookingId, customerName: c.customerName, address: c.address },
-          canPayout: !c.surveyorPaid,
+          canPayout: !c.surveyorPaid && surAmt > 0,
           isWarranty: true,
           claimId: c.id,
+          claim: c,
+          payoutNote: surveyorDesc,
         });
       }
 
       if (c.technicianId) {
+        const isCompleted = c.workerPaid || worAmt === 0;
         list.push({
           id: `OUT-WAR-WOR-${c.id}-${c.technicianId}`,
           bookingId: c.bookingId,
@@ -504,15 +573,17 @@ export default function PaymentToStaff() {
           category: `Thù lao Thợ BH #${c.id}`,
           party: c.technicianName || "Kỹ thuật viên",
           partyRole: "Đội thợ thi công",
-          amount: Number(c.workerSalary) || 200000,
-          status: c.workerPaid ? "COMPLETED" : "PENDING",
-          statusText: c.workerPaid ? "Đã quyết toán" : "Chờ quyết toán",
+          amount: worAmt,
+          status: isCompleted ? "COMPLETED" : "PENDING",
+          statusText: c.workerPaid ? "Đã quyết toán" : worAmt === 0 ? "Trách nhiệm (0đ)" : "Chờ quyết toán",
           date: c.workerPaidAt || c.createdAt,
           rawDate: parseDate(c.workerPaidAt || c.createdAt),
           order: { id: c.bookingId, customerName: c.customerName, address: c.address },
-          canPayout: !c.workerPaid,
+          canPayout: !c.workerPaid && worAmt > 0,
           isWarranty: true,
           claimId: c.id,
+          claim: c,
+          payoutNote: workerDesc,
         });
       }
     });
@@ -1122,7 +1193,13 @@ export default function PaymentToStaff() {
                                 {item.canPayout && (
                                   <button
                                     type="button"
-                                    onClick={() => openPayoutQR(item.order, item.staffId, item.party, item.role, item.amount)}
+                                    onClick={() => {
+                                      if (item.isWarranty) {
+                                        openWarrantyPayoutQR(item.claim, item.staffId, item.party, item.role, item.amount, { payoutNote: item.payoutNote });
+                                      } else {
+                                        openPayoutQR(item.order, item.staffId, item.party, item.role, item.amount);
+                                      }
+                                    }}
                                     className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition cursor-pointer"
                                   >
                                     <QrCode className="w-3 h-3" /> Quyết toán

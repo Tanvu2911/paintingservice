@@ -85,6 +85,7 @@ export default function TechnicianJobs() {
   // Dialogs
   const [confirmAction, setConfirmAction] = useState(null);
   const [promptReject, setPromptReject] = useState(null);
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
 
   const fetchJobs = useCallback(
     async (isRefresh = false) => {
@@ -176,22 +177,26 @@ export default function TechnicianJobs() {
 
   const submitReject = async (reason) => {
     if (!promptReject) return;
-    if (!reason.trim()) {
+    const trimmed = (reason || "").trim();
+    if (!trimmed) {
       showToast?.("Vui lòng nhập lý do từ chối", "error");
       return;
     }
     try {
+      setIsSubmittingReject(true);
       await AxiosConfig.post(`/bookings/${promptReject.jobId}/reject-job`, {
-        reason: reason.trim(),
+        reason: trimmed,
       });
       showToast?.("Đã từ chối tiếp nhận công trình.", "success");
       setPromptReject(null);
       await fetchJobs();
     } catch (err) {
       showToast?.(
-        err.response?.data?.message || "Không thể từ chối",
+        err.response?.data?.message || "Không thể từ chối công trình này",
         "error"
       );
+    } finally {
+      setIsSubmittingReject(false);
     }
   };
 
@@ -490,12 +495,12 @@ export default function TechnicianJobs() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 text-slate-400 uppercase text-[10px] font-black tracking-wider border-b border-slate-100">
-                  <th className="py-3.5 px-5">Công trình &amp; Dịch vụ</th>
-                  <th className="py-3.5 px-5">Khách hàng</th>
-                  <th className="py-3.5 px-5">Địa chỉ &amp; Khu vực</th>
-                  <th className="py-3.5 px-5">Giá trị &amp; Thù lao</th>
-                  <th className="py-3.5 px-5">Trạng thái</th>
-                  <th className="py-3.5 px-5 text-right">Thao tác</th>
+                  <th className="py-3 px-4">Công trình &amp; Dịch vụ</th>
+                  <th className="py-3 px-4">Khách hàng</th>
+                  <th className="py-3 px-4">Địa chỉ thi công</th>
+                  <th className="py-3 px-4">Thù lao nhận được</th>
+                  <th className="py-3 px-4">Trạng thái</th>
+                  <th className="py-3 px-4 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -509,6 +514,7 @@ export default function TechnicianJobs() {
                   const isDone = ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(status);
                   const isCancelled = status === "CANCELLED" || status === "WORKER_REJECTED";
                   const parsed = parseHanoiAddress(job.address);
+                  const workerPayout = Number(job.totalAmount || 0) * 0.60;
 
                   return (
                     <tr
@@ -517,39 +523,34 @@ export default function TechnicianJobs() {
                       className="hover:bg-slate-50/80 transition group cursor-pointer"
                     >
                       {/* 1. Mã & Dịch vụ */}
-                      <td className="py-3.5 px-5 align-top">
+                      <td className="py-3.5 px-4 align-middle">
                         <div className="flex items-center gap-1.5 font-bold">
                           <span className="font-mono text-emerald-700 group-hover:text-emerald-800 transition">
                             #{job.id}
                           </span>
-                          <span className="text-slate-400">·</span>
-                          <span className="text-slate-800 truncate max-w-[150px]">
+                          <span className="text-slate-300">·</span>
+                          <span className="text-slate-800 truncate max-w-[140px]">
                             {job.serviceName || job.service?.name || "Sơn sửa nhà"}
                           </span>
                         </div>
                         {(job.expectedStartDate || job.appointmentDate) && (
-                          <div className="text-[10.5px] text-slate-400 mt-1 flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-slate-400" />
+                          <div className="text-[10.5px] text-slate-400 mt-0.5 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
                             <span>Ngày hẹn: {formatDate(job.expectedStartDate || job.appointmentDate)}</span>
-                          </div>
-                        )}
-                        {job.description && (
-                          <div className="text-[10px] text-slate-400 italic mt-0.5 line-clamp-1">
-                            &ldquo;{job.description}&rdquo;
                           </div>
                         )}
                       </td>
 
                       {/* 2. Khách hàng */}
-                      <td className="py-3.5 px-5 align-top">
-                        <div className="font-bold text-slate-900 truncate">
+                      <td className="py-3.5 px-4 align-middle">
+                        <div className="font-bold text-slate-900 truncate max-w-[130px]">
                           {job.customerName || job.customer?.username || "Khách hàng"}
                         </div>
                         {job.customerPhone ? (
                           <a
                             href={`tel:${job.customerPhone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-[11px] text-slate-500 hover:text-blue-600 flex items-center gap-1 mt-0.5"
+                            className="text-[11px] text-slate-500 hover:text-emerald-700 flex items-center gap-1 mt-0.5"
                           >
                             <Phone className="w-3 h-3 text-slate-400" />
                             <span>{job.customerPhone}</span>
@@ -560,13 +561,13 @@ export default function TechnicianJobs() {
                       </td>
 
                       {/* 3. Địa chỉ & Khu vực */}
-                      <td className="py-3.5 px-5 align-top max-w-xs">
+                      <td className="py-3.5 px-4 align-middle max-w-[200px]">
                         <div className="text-slate-700 font-medium text-xs truncate" title={job.address}>
                           {job.address || "Địa chỉ công trình"}
                         </div>
                         {parsed.district && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                          <div className="mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
                               <MapPin className="w-2.5 h-2.5 text-emerald-600" />
                               <span>{parsed.district}</span>
                             </span>
@@ -574,28 +575,25 @@ export default function TechnicianJobs() {
                         )}
                       </td>
 
-                      {/* 4. Giá trị & Thù lao thợ */}
-                      <td className="py-3.5 px-5 align-top">
-                        <div className="font-black text-slate-900 text-xs">
-                          {Number(job.totalAmount) > 0 ? (
-                            <span className="font-mono text-slate-900">{formatMoney(job.totalAmount)}</span>
-                          ) : (
-                            <span className="text-slate-400 italic font-normal text-[11px]">Chưa xác định</span>
-                          )}
-                        </div>
-                        <div className="text-[10.5px] text-emerald-700 font-mono mt-0.5 flex items-center gap-1">
-                          <Wallet className="w-3 h-3 text-emerald-600" />
-                          <span>Thù lao (60%): <strong>{formatMoney(Number(job.totalAmount || 0) * 0.60)}</strong></span>
-                        </div>
+                      {/* 4. Thù lao nhận được */}
+                      <td className="py-3.5 px-4 align-middle">
+                        {workerPayout > 0 ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 font-bold text-xs font-mono border border-emerald-100">
+                            <Wallet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>{formatMoney(workerPayout)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic text-[11px]">Chưa có dự toán</span>
+                        )}
                       </td>
 
                       {/* 5. Trạng thái */}
-                      <td className="py-3.5 px-5 align-top">
+                      <td className="py-3.5 px-4 align-middle">
                         <StatusBadge status={status} />
                       </td>
 
                       {/* 6. Thao tác */}
-                      <td className="py-3.5 px-5 align-top text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3.5 px-4 align-middle text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {canAccept && (
                             <>
@@ -611,24 +609,38 @@ export default function TechnicianJobs() {
                                 <button
                                   type="button"
                                   onClick={() => handleReject(job.id)}
-                                  className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer"
+                                  className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer flex items-center gap-1 text-xs"
                                   title="Từ chối nhận việc"
                                 >
                                   <X className="w-3.5 h-3.5" />
+                                  <span>Từ chối</span>
                                 </button>
                               )}
                             </>
                           )}
 
                           {canStart && (
-                            <button
-                              type="button"
-                              onClick={() => handleStart(job)}
-                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 text-xs"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              <span>Bắt đầu thi công</span>
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleStart(job)}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 text-xs"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                <span>Bắt đầu làm</span>
+                              </button>
+                              {canReject && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleReject(job.id)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer flex items-center gap-1 text-xs"
+                                  title="Từ chối nhận việc"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  <span>Từ chối</span>
+                                </button>
+                              )}
+                            </>
                           )}
 
                           {canComplete && (
@@ -652,7 +664,7 @@ export default function TechnicianJobs() {
                           {isDone && (
                             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
                               <Sparkles className="w-3 h-3 text-emerald-600" />
-                              <span>Hoàn tất 100%</span>
+                              <span>Hoàn tất</span>
                             </span>
                           )}
 
@@ -766,7 +778,11 @@ export default function TechnicianJobs() {
         title="Từ chối nhận công trình"
         message="Vui lòng nhập lý do từ chối để Admin có thể phân công đội thợ khác:"
         placeholder="Ví dụ: Đội thợ đang bận công trình khác, địa điểm quá xa..."
+        onSubmit={submitReject}
         onConfirm={submitReject}
+        submitting={isSubmittingReject}
+        submitText="Xác nhận từ chối"
+        submitColor="bg-rose-600 hover:bg-rose-700 text-white"
         onClose={() => setPromptReject(null)}
       />
     </div>

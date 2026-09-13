@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import Modal from "../../../../components/common/Modal";
 import { formatMoney } from "../../../../util/formatters";
 
@@ -7,12 +7,15 @@ export default function AdminSignConfirmModal({
   setConfirmDepositModal,
   isDepositPaid,
   order,
+  contract,
   adminSigCanvasRef,
   hasAdminSignature,
   clearAdminSignature,
   handleConfirmDeposit,
 }) {
   if (!confirmDepositModal) return null;
+
+  const hasExistingSig = Boolean(contract?.adminSignatureImg);
 
   return (
     <Modal
@@ -31,18 +34,38 @@ export default function AdminSignConfirmModal({
               {order?.depositAmount ? formatMoney(order.depositAmount) : "—"}
             </strong>.
             <br />
-            Admin tiến hành ký chữ ký điện tử đại diện Công ty vào khung bên dưới để hợp đồng có đầy đủ pháp lý và kích hoạt quyền phân công thợ.
+            Hệ thống sẽ ghi nhận cọc và phân công đội thợ thi công tối ưu nhất cho công trình.
           </div>
         ) : (
           <p className="text-xs text-slate-500 leading-relaxed">
-            Khách hàng thực hiện nộp cọc 30% trực tuyến qua cổng VNPay Sandbox. Sau khi xác nhận tiền cọc, Admin tiến hành ký chữ ký điện tử đóng dấu hợp đồng.
+            Khách hàng thực hiện nộp cọc 30% trực tuyến qua cổng VNPay Sandbox hoặc tiền mặt. Sau khi xác nhận tiền cọc, hợp đồng có đầy đủ hiệu lực và hệ thống sẽ tự động phân công đội thợ thi công phù hợp.
           </p>
+        )}
+
+        {hasExistingSig && (
+          <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1.5">
+            <span className="font-bold flex items-center gap-1.5 text-blue-900">
+              ✓ Chữ ký đại diện Công ty đã có từ bước gửi báo giá:
+            </span>
+            <div className="flex items-center gap-3">
+              <div className="bg-white p-1.5 rounded-lg border border-blue-200 max-w-[160px]">
+                <img
+                  src={contract.adminSignatureImg}
+                  alt="Chữ ký đã lưu"
+                  className="max-h-12 object-contain mx-auto"
+                />
+              </div>
+              <span className="text-[11px] text-blue-700 leading-tight">
+                (Bạn có thể giữ chữ ký này hoặc vẽ nét mới vào khung bên dưới để cập nhật lại)
+              </span>
+            </div>
+          </div>
         )}
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <label className="block text-xs font-semibold text-slate-900">
-              Chữ ký Admin (Đại diện công ty) <span className="text-slate-500">*</span>
+              Chữ ký Admin (Đại diện công ty) {hasExistingSig ? "(Tùy chọn ký lại)" : <span className="text-rose-500">*</span>}
             </label>
             <button
               type="button"
@@ -56,16 +79,20 @@ export default function AdminSignConfirmModal({
             <canvas
               ref={adminSigCanvasRef}
               width={500}
-              height={150}
+              height={130}
               className="w-full cursor-crosshair block bg-slate-50"
               style={{ touchAction: "none" }}
             />
           </div>
           <p className="text-[11px] text-slate-500">
             {hasAdminSignature ? (
-              <span className="text-slate-900 font-semibold">✓ Đã ký tên xác nhận</span>
+              <span className="text-emerald-700 font-semibold">✓ Đã ký nét mới xác nhận</span>
+            ) : hasExistingSig ? (
+              <span className="text-blue-700 font-semibold">
+                ✓ Sẽ sử dụng chữ ký đã có từ bước gửi báo giá
+              </span>
             ) : (
-              <span className="text-slate-900 font-semibold">
+              <span className="text-amber-700 font-semibold">
                 ⚠️ Vui lòng ký tên vào khung trước khi xác nhận
               </span>
             )}
@@ -85,7 +112,7 @@ export default function AdminSignConfirmModal({
             onClick={handleConfirmDeposit}
             className="flex-1 py-2 bg-blue-600 hover:bg-blue-600 text-white font-semibold rounded-lg text-xs transition cursor-pointer shadow-xs"
           >
-            Ký Hợp Đồng &amp; Xác Nhận Cọc
+            Xác Nhận Cọc &amp; Ký Hợp Đồng
           </button>
         </div>
       </div>

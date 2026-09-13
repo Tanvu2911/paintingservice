@@ -190,14 +190,43 @@ public class WarrantyClaimController {
         try {
             Long technicianId = Long.parseLong(body.get("technicianId").toString());
             String adminNote = (String) body.get("adminNote");
+            BigDecimal workerSalary = body.get("workerSalary") != null && !body.get("workerSalary").toString().isBlank()
+                    ? new BigDecimal(body.get("workerSalary").toString())
+                    : null;
 
-            WarrantyClaimDto updated = warrantyClaimService.assignTechnician(id, technicianId, adminNote);
+            WarrantyClaimDto updated = warrantyClaimService.assignTechnician(id, technicianId, adminNote, workerSalary);
             return ResponseEntity.ok(Map.of(
                     "message", "Đã phân công Đội thợ khắc phục bảo hành thành công!",
                     "claim", updated));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "message", e.getMessage() != null ? e.getMessage() : "Phân công thợ thất bại"));
+        }
+    }
+
+    /**
+     * 3b. Admin chủ động cập nhật tiền công thợ / giám sát cho phiếu bảo hành
+     */
+    @PutMapping("/{id}/update-salaries")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateSalaries(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body) {
+        try {
+            BigDecimal workerSalary = body.get("workerSalary") != null && !body.get("workerSalary").toString().isBlank()
+                    ? new BigDecimal(body.get("workerSalary").toString())
+                    : null;
+            BigDecimal surveyorSalary = body.get("surveyorSalary") != null && !body.get("surveyorSalary").toString().isBlank()
+                    ? new BigDecimal(body.get("surveyorSalary").toString())
+                    : null;
+
+            WarrantyClaimDto updated = warrantyClaimService.updateSalaries(id, workerSalary, surveyorSalary);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Đã cập nhật tiền công nhân sự thành công!",
+                    "claim", updated));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "message", e.getMessage() != null ? e.getMessage() : "Cập nhật tiền công thất bại"));
         }
     }
 

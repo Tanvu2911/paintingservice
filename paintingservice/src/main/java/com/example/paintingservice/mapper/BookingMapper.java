@@ -46,6 +46,8 @@ public class BookingMapper {
             dto.setCustomerId(customer.getId());
             dto.setCustomerName(getUserDisplayName(customer));
             dto.setCustomerPhone(customer.getPhoneNumber());
+            dto.setCustomerEmail(customer.getEmail());
+            dto.setCustomerAddress(customer.getAddress());
         }
 
         if (booking.getSurveyor() != null) {
@@ -73,6 +75,13 @@ public class BookingMapper {
         if (booking.getPreferredTechnician() != null) {
             dto.setPreferredTechnicianId(booking.getPreferredTechnician().getId());
             dto.setPreferredTechnicianName(getUserDisplayName(booking.getPreferredTechnician()));
+        }
+
+        if (booking.getPreferredSupervisor() != null) {
+            dto.setPreferredSupervisorId(booking.getPreferredSupervisor().getId());
+            dto.setPreferredSupervisorName(getUserDisplayName(booking.getPreferredSupervisor()));
+            dto.setPreferredSupervisorPhone(booking.getPreferredSupervisor().getPhoneNumber());
+            dto.setPreferredSupervisorAvatar(booking.getPreferredSupervisor().getAvatar());
         }
 
         if (booking.getService() != null) {
@@ -125,6 +134,10 @@ public class BookingMapper {
             booking.setPreferredTechnician(User.builder().id(dto.getPreferredTechnicianId()).build());
         }
 
+        if (dto.getPreferredSupervisorId() != null) {
+            booking.setPreferredSupervisor(User.builder().id(dto.getPreferredSupervisorId()).build());
+        }
+
         if (dto.getServiceId() != null) {
             booking.setService(ServiceEntity.builder().id(dto.getServiceId()).build());
         }
@@ -157,6 +170,9 @@ public class BookingMapper {
         booking.setSurveyor(surveyorId == null ? null : User.builder().id(surveyorId).build());
         booking.setTechnician(dto.getTechnicianId() == null ? null : User.builder().id(dto.getTechnicianId()).build());
         booking.setPreferredTechnician(dto.getPreferredTechnicianId() == null ? null : User.builder().id(dto.getPreferredTechnicianId()).build());
+        if (dto.getPreferredSupervisorId() != null) {
+            booking.setPreferredSupervisor(User.builder().id(dto.getPreferredSupervisorId()).build());
+        }
         if (dto.getServiceId() != null) booking.setService(ServiceEntity.builder().id(dto.getServiceId()).build());
     }
 

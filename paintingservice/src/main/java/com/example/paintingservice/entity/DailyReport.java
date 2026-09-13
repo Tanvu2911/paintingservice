@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDateTime;
+// import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "daily_reports", indexes = {

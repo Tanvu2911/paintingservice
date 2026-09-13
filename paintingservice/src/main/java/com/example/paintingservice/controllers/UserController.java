@@ -1,6 +1,6 @@
 package com.example.paintingservice.controllers;
 
-import com.example.paintingservice.dto.StaffProfileDto;
+// import com.example.paintingservice.dto.StaffProfileDto;
 import com.example.paintingservice.dto.UserDto;
 import com.example.paintingservice.entity.Role;
 import com.example.paintingservice.entity.User;
@@ -156,9 +156,12 @@ public class UserController {
         }
 
         // Cập nhật thông tin được phép
-        if (dto.getEmail() != null) existingUser.setEmail(dto.getEmail());
-        if (dto.getPhoneNumber() != null) existingUser.setPhoneNumber(dto.getPhoneNumber());
-        if (dto.getAddress() != null) existingUser.setAddress(dto.getAddress());
+        if (dto.getEmail() != null)
+            existingUser.setEmail(dto.getEmail());
+        if (dto.getPhoneNumber() != null)
+            existingUser.setPhoneNumber(dto.getPhoneNumber());
+        if (dto.getAddress() != null)
+            existingUser.setAddress(dto.getAddress());
 
         // Logic kiểm tra mật khẩu:
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {

@@ -15,6 +15,9 @@ import com.example.paintingservice.repository.ContractRepository;
 import com.example.paintingservice.repository.PaymentRepository;
 import com.example.paintingservice.repository.UserRepository;
 import com.example.paintingservice.repository.WarrantyClaimRepository;
+import com.example.paintingservice.entity.User;
+import com.example.paintingservice.entity.Contract;
+import com.example.paintingservice.service.BookingService;
 import com.example.paintingservice.service.NotificationService;
 import com.example.paintingservice.service.VNPayService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +45,7 @@ public class VNPayServiceImpl implements VNPayService {
     private final UserRepository userRepository;
     private final WarrantyClaimRepository warrantyClaimRepository;
     private final NotificationService notificationService;
+    private final BookingService bookingService;
 
     @Override
     @Transactional
@@ -159,7 +163,26 @@ public class VNPayServiceImpl implements VNPayService {
         vnp_Params.put("vnp_OrderInfo", orderInfo);
         vnp_Params.put("vnp_OrderType", "other");
         vnp_Params.put("vnp_Locale", "vn");
-        vnp_Params.put("vnp_ReturnUrl", vnPayConfig.getVnp_ReturnUrl());
+
+        String returnUrl = vnPayConfig.getVnp_ReturnUrl();
+        if (request != null) {
+            String origin = request.getHeader("Origin");
+            if (origin == null || origin.isBlank()) {
+                String referer = request.getHeader("Referer");
+                if (referer != null && !referer.isBlank()) {
+                    try {
+                        java.net.URI uri = new java.net.URI(referer);
+                        origin = uri.getScheme() + "://" + uri.getAuthority();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+            if (origin != null && !origin.isBlank() && !origin.equalsIgnoreCase("null")) {
+                returnUrl = origin + "/customer/payment-callback";
+            }
+        }
+
+        vnp_Params.put("vnp_ReturnUrl", returnUrl);
         vnp_Params.put("vnp_IpAddr", VNPayConfig.getIpAddress(request));
 
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
@@ -212,8 +235,39 @@ public class VNPayServiceImpl implements VNPayService {
                 .build();
         paymentRepository.save(payment);
 
+        Map<String, String> simParams = new HashMap<>();
+        simParams.put("vnp_Amount", String.valueOf(amount.multiply(new BigDecimal(100)).longValue()));
+        simParams.put("vnp_BankCode", "NCB");
+        simParams.put("vnp_CardType", "ATM");
+        simParams.put("vnp_OrderInfo", orderInfo);
+        simParams.put("vnp_PayDate", new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+        simParams.put("vnp_ResponseCode", "00");
+        simParams.put("vnp_TmnCode", vnPayConfig.getVnp_TmnCode());
+        simParams.put("vnp_TransactionNo", String.valueOf(System.currentTimeMillis()));
+        simParams.put("vnp_TransactionStatus", "00");
+        simParams.put("vnp_TxnRef", vnp_TxnRef);
+
+        StringBuilder simQuery = new StringBuilder();
+        List<String> simFieldNames = new ArrayList<>(simParams.keySet());
+        Collections.sort(simFieldNames);
+        for (Iterator<String> simItr = simFieldNames.iterator(); simItr.hasNext(); ) {
+            String fieldName = simItr.next();
+            String fieldValue = simParams.get(fieldName);
+            if (fieldValue != null && !fieldValue.isEmpty()) {
+                simQuery.append(fieldName).append("=")
+                        .append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                if (simItr.hasNext()) {
+                    simQuery.append("&");
+                }
+            }
+        }
+        String simHash = VNPayConfig.hashAllFields(simParams, vnPayConfig.getSecretKey());
+        simQuery.append("&vnp_SecureHash=").append(simHash);
+        String simulationUrl = returnUrl + "?" + simQuery.toString();
+
         Map<String, Object> result = new HashMap<>();
         result.put("paymentUrl", paymentUrl);
+        result.put("simulationUrl", simulationUrl);
         result.put("transactionCode", vnp_TxnRef);
         result.put("amount", amount);
         result.put("paymentType", type);
@@ -354,23 +408,27 @@ public class VNPayServiceImpl implements VNPayService {
                 payment.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
                 booking.setPaymentStatus(PaymentStatus.DEPOSIT_PAID);
                 booking.setDepositPaidAt(LocalDateTime.now());
-
-                if (booking.getStatus() == BookingStatus.WAITING_CUSTOMER_SIGNATURE
-                        || booking.getStatus() == BookingStatus.PENDING) {
-                    booking.setStatus(BookingStatus.WAITING_DEPOSIT);
-                }
-
                 payment.setPaidAt(LocalDateTime.now());
                 payment.setNote(String.format("VNPay GD: %s, Ngân hàng: %s", vnp_TransactionNo, vnp_BankCode));
                 paymentRepository.save(payment);
-                bookingRepository.save(booking);
 
-                if (booking.getCustomer() != null) {
+                // Tự động ký duyệt hợp đồng nếu chưa ký
+                Contract contract = contractRepository.findByBookingId(booking.getId()).orElse(null);
+                if (contract != null && !Boolean.TRUE.equals(contract.getAdminSigned())) {
+                    contract.setAdminSigned(true);
+                    contract.setAdminSignedAt(LocalDateTime.now());
+                    contractRepository.save(contract);
+                }
+
+                // Tự động phân công thợ thi công thông minh (Smart Auto-Dispatch)
+                User autoWorker = bookingService.handleWorkerAutoAssignmentAfterDeposit(booking);
+
+                if (autoWorker == null && booking.getCustomer() != null) {
                     notificationService.save(Notification.builder()
                             .user(booking.getCustomer())
-                            .title("Thanh toán VNPay thành công #" + booking.getId())
+                            .title("Thanh toán cọc VNPay thành công #" + booking.getId())
                             .content(String.format(
-                                    "Giao dịch đặt cọc 30%% cho đơn hàng #%d qua VNPay đã thành công. Đang chờ Admin ký duyệt hợp đồng điện tử.",
+                                    "Giao dịch đặt cọc 30%% cho đơn hàng #%d qua VNPay đã thành công. Hệ thống đang tìm kiếm và phân công đội thợ thi công phù hợp nhất.",
                                     booking.getId()))
                             .createdAt(LocalDateTime.now())
                             .isRead(false)
@@ -427,5 +485,31 @@ public class VNPayServiceImpl implements VNPayService {
         }
 
         return response;
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> simulateVNPayPayment(Long bookingId, String paymentType, Long claimId, HttpServletRequest request)
+            throws Exception {
+        Map<String, Object> orderData = createVNPayPaymentUrl(bookingId, paymentType, claimId, request);
+        String vnp_TxnRef = (String) orderData.get("transactionCode");
+        BigDecimal amount = (BigDecimal) orderData.get("amount");
+
+        Map<String, String> simFields = new HashMap<>();
+        simFields.put("vnp_Amount", String.valueOf(amount.multiply(new BigDecimal(100)).longValue()));
+        simFields.put("vnp_BankCode", "NCB");
+        simFields.put("vnp_CardType", "ATM");
+        simFields.put("vnp_OrderInfo", "Thanh toan thu nghiem Sandbox cho don #" + bookingId);
+        simFields.put("vnp_PayDate", new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
+        simFields.put("vnp_ResponseCode", "00");
+        simFields.put("vnp_TmnCode", vnPayConfig.getVnp_TmnCode());
+        simFields.put("vnp_TransactionNo", String.valueOf(System.currentTimeMillis()));
+        simFields.put("vnp_TransactionStatus", "00");
+        simFields.put("vnp_TxnRef", vnp_TxnRef);
+
+        String secureHash = VNPayConfig.hashAllFields(simFields, vnPayConfig.getSecretKey());
+        simFields.put("vnp_SecureHash", secureHash);
+
+        return processVNPayCallback(simFields);
     }
 }

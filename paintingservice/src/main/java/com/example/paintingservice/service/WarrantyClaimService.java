@@ -32,6 +32,10 @@ public interface WarrantyClaimService {
     // 3. Admin duyệt Lỗi bên mình & phân Đội thợ khắc phục (ưu tiên thợ cũ)
     WarrantyClaimDto assignTechnician(Long claimId, Long technicianId, String adminNote);
 
+    WarrantyClaimDto assignTechnician(Long claimId, Long technicianId, String adminNote, BigDecimal workerSalary);
+
+    WarrantyClaimDto updateSalaries(Long claimId, BigDecimal workerSalary, BigDecimal surveyorSalary);
+
     // 4. Admin Từ chối bảo hành (lỗi khách quan) & gửi báo giá hỗ trợ
     WarrantyClaimDto rejectWithSupportPrice(Long claimId, String adminNote, BigDecimal supportPrice);
 

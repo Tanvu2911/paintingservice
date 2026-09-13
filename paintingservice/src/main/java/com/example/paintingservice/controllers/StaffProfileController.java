@@ -1,5 +1,6 @@
 package com.example.paintingservice.controllers;
 
+import com.example.paintingservice.dto.FormerStaffDto;
 import com.example.paintingservice.dto.StaffProfileDto;
 import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.Notification;
@@ -20,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,36 @@ public class StaffProfileController {
             staffs = staffProfileService.findAll();
         }
         return staffs.stream().map(StaffProfileMapper::toDto).collect(Collectors.toList());
+    }
+
+    // 1.1 READ: Lấy danh sách Giám sát viên cũ của khách hàng
+    @GetMapping("/former-supervisors")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<FormerStaffDto>> getFormerSupervisors(
+            @RequestParam(required = false) String customerUsername,
+            Authentication authentication) {
+        String targetUsername = (customerUsername != null && !customerUsername.isBlank())
+                ? customerUsername
+                : (authentication != null ? authentication.getName() : null);
+        if (targetUsername == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        return ResponseEntity.ok(staffProfileService.getFormerSupervisorsForCustomer(targetUsername));
+    }
+
+    // 1.2 READ: Lấy danh sách Đội thợ thi công cũ của khách hàng
+    @GetMapping("/former-technicians")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<FormerStaffDto>> getFormerTechnicians(
+            @RequestParam(required = false) String customerUsername,
+            Authentication authentication) {
+        String targetUsername = (customerUsername != null && !customerUsername.isBlank())
+                ? customerUsername
+                : (authentication != null ? authentication.getName() : null);
+        if (targetUsername == null) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+        return ResponseEntity.ok(staffProfileService.getFormerTechniciansForCustomer(targetUsername));
     }
 
     // 2. READ: Lấy thông tin Staff theo ID
@@ -127,12 +159,18 @@ public class StaffProfileController {
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
     public ResponseEntity<?> getSurveyDashboardStats(Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
-        List<Booking> myJobs = bookingService.findAllBySurveyor_Id(currentUser.getId());
+        boolean isAdmin = currentUser.getRole() != null &&
+                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName())
+                        || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
+
+        List<Booking> myJobs = isAdmin
+                ? bookingService.findAllOrderByIdDesc()
+                : bookingService.findSurveyJobsForStaff(currentUser.getId());
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalJobs", myJobs.size());
         stats.put("pendingJobs", myJobs.stream()
-                .filter(b -> b.getStatus() == BookingStatus.SURVEY_ASSIGNED)
+                .filter(b -> b.getStatus() == BookingStatus.SURVEY_ASSIGNED || b.getStatus() == BookingStatus.PENDING)
                 .count());
         stats.put("processingJobs", myJobs.stream()
                 .filter(b -> b.getStatus() == BookingStatus.ACCEPTED
@@ -156,7 +194,13 @@ public class StaffProfileController {
     @PreAuthorize("hasAnyRole('STAFF', 'TECHNICIAN', 'ADMIN')")
     public ResponseEntity<?> getMySurveyJobs(Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
-        List<Booking> jobs = bookingService.findAllBySurveyor_Id(currentUser.getId());
+        boolean isAdmin = currentUser.getRole() != null &&
+                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName())
+                        || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
+
+        List<Booking> jobs = isAdmin
+                ? bookingService.findAllOrderByIdDesc()
+                : bookingService.findSurveyJobsForStaff(currentUser.getId());
 
         List<Map<String, Object>> result = jobs.stream().map(b -> {
             Map<String, Object> map = new HashMap<>();
@@ -164,17 +208,38 @@ public class StaffProfileController {
             map.put("status", b.getStatus() != null ? b.getStatus().name() : null);
             map.put("address", b.getAddress());
             map.put("appointmentDate", b.getAppointmentDate());
+            map.put("appointmentTime", b.getAppointmentTime());
             map.put("description", b.getDescription());
+            map.put("serviceId", b.getService() != null ? b.getService().getId() : null);
             map.put("serviceName", b.getService() != null ? b.getService().getName() : null);
+            map.put("customerId", b.getCustomer() != null ? b.getCustomer().getId() : null);
             map.put("customerName", b.getCustomer() != null ? b.getCustomer().getUsername() : null);
+            map.put("customerPhone", b.getCustomer() != null ? b.getCustomer().getPhoneNumber() : null);
+            map.put("customerEmail", b.getCustomer() != null ? b.getCustomer().getEmail() : null);
+            map.put("customerAddress", b.getCustomer() != null ? b.getCustomer().getAddress() : null);
+            map.put("technicianId", b.getTechnician() != null ? b.getTechnician().getId() : null);
             map.put("technicianName", b.getTechnician() != null ? b.getTechnician().getUsername() : null);
             map.put("technicianPhone", b.getTechnician() != null ? b.getTechnician().getPhoneNumber() : null);
+            map.put("preferredTechnicianId", b.getPreferredTechnician() != null ? b.getPreferredTechnician().getId() : null);
+            map.put("preferredTechnicianName",
+                    b.getPreferredTechnician() != null ? b.getPreferredTechnician().getUsername() : null);
+            map.put("preferredSupervisorId", b.getPreferredSupervisor() != null ? b.getPreferredSupervisor().getId() : null);
+            map.put("preferredSupervisorName",
+                    b.getPreferredSupervisor() != null ? b.getPreferredSupervisor().getUsername() : null);
+            map.put("preferredSupervisorPhone",
+                    b.getPreferredSupervisor() != null ? b.getPreferredSupervisor().getPhoneNumber() : null);
+            map.put("surveyorId", b.getSurveyor() != null ? b.getSurveyor().getId() : null);
+            map.put("surveyorName", b.getSurveyor() != null ? b.getSurveyor().getUsername() : null);
+            map.put("surveyorPhone", b.getSurveyor() != null ? b.getSurveyor().getPhoneNumber() : null);
+            map.put("surveyFee", b.getSurveyFee());
             map.put("totalAmount", b.getTotalAmount());
             map.put("depositAmount", b.getDepositAmount());
             map.put("remainingAmount", b.getRemainingAmount());
             map.put("paymentStatus", b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null);
-            map.put("preferredTechnicianName",
-                    b.getPreferredTechnician() != null ? b.getPreferredTechnician().getUsername() : null);
+            map.put("estimatedDays", b.getEstimatedDays());
+            map.put("warrantyYears", b.getWarrantyYears());
+            map.put("expectedStartDate", b.getExpectedStartDate());
+            map.put("createdAt", b.getCreatedAt());
             return map;
         }).collect(Collectors.toList());
 
@@ -188,11 +253,19 @@ public class StaffProfileController {
         Booking booking = bookingService.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-        if (booking.getSurveyor() == null || !booking.getSurveyor().getId().equals(currentUser.getId())) {
+        boolean canAccept = false;
+        if (booking.getSurveyor() != null && booking.getSurveyor().getId().equals(currentUser.getId())) {
+            canAccept = true;
+        } else if (booking.getSurveyor() == null) {
+            canAccept = true;
+            booking.setSurveyor(currentUser);
+        }
+
+        if (!canAccept) {
             return ResponseEntity.status(403).body(Map.of("message", "Bạn không có quyền nhận đơn này"));
         }
 
-        if (booking.getStatus() != BookingStatus.SURVEY_ASSIGNED) {
+        if (booking.getStatus() != BookingStatus.SURVEY_ASSIGNED && booking.getStatus() != BookingStatus.PENDING) {
             return ResponseEntity.badRequest().body(Map.of(
                     "message", "Đơn hàng không ở trạng thái có thể nhận việc (hiện tại: " + booking.getStatus() + ")"));
         }

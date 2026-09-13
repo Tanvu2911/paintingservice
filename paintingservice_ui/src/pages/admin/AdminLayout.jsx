@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -66,6 +66,17 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     }
   };
 
+  const handleMarkSingleRead = async (id) => {
+    try {
+      await AxiosConfig.put(`/notifications/me/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDeleteAll = async () => {
     if (!window.confirm("Xóa tất cả thông báo?")) return;
     try {
@@ -99,16 +110,52 @@ export default function AdminLayout({ user, onLogout, showToast }) {
     navigate("/login");
   };
 
+  const unreadCategories = useMemo(() => {
+    const unread = notifications.filter((n) => !n.isRead);
+    const hasCategory = {
+      bookings: false,
+      contracts: false,
+      payments: false,
+      warranties: false,
+      reviews: false,
+    };
+    unread.forEach((n) => {
+      const text = `${n.title || ""} ${n.content || n.message || ""}`.toLowerCase();
+      if (
+        text.includes("yêu cầu") ||
+        text.includes("khảo sát") ||
+        text.includes("báo giá") ||
+        text.includes("đơn hàng") ||
+        text.includes("booking")
+      ) {
+        hasCategory.bookings = true;
+      }
+      if (text.includes("hợp đồng") || text.includes("ký duyệt") || text.includes("contract")) {
+        hasCategory.contracts = true;
+      }
+      if (text.includes("thanh toán") || text.includes("cọc") || text.includes("vnpay") || text.includes("payment")) {
+        hasCategory.payments = true;
+      }
+      if (text.includes("bảo hành") || text.includes("warranty")) {
+        hasCategory.warranties = true;
+      }
+      if (text.includes("đánh giá") || text.includes("review") || text.includes("sao")) {
+        hasCategory.reviews = true;
+      }
+    });
+    return hasCategory;
+  }, [notifications]);
+
   const adminMenuItems = [
     { label: "Tổng quan", icon: <LayoutDashboard className="w-4 h-4" />, value: "dashboard" },
     { label: "Quản Lý Nhân Viên", icon: <Users className="w-4 h-4" />, value: "employees" },
     { label: "Quản Lý Khách Hàng", icon: <UserCheck className="w-4 h-4" />, value: "customers" },
-    { label: "Quản Lý Yêu Cầu", icon: <ClipboardList className="w-4 h-4" />, value: "bookings" },
-    { label: "Hợp Đồng", icon: <FileText className="w-4 h-4" />, value: "contracts" },
-    { label: "Quản Lý Thanh Toán", icon: <CreditCard className="w-4 h-4" />, value: "payments" },
-    { label: "Quản Lý Bảo Hành", icon: <ShieldAlert className="w-4 h-4" />, value: "warranties" },
+    { label: "Quản Lý Yêu Cầu", icon: <ClipboardList className="w-4 h-4" />, value: "bookings", hasPing: unreadCategories.bookings },
+    { label: "Hợp Đồng", icon: <FileText className="w-4 h-4" />, value: "contracts", hasPing: unreadCategories.contracts },
+    { label: "Quản Lý Thanh Toán", icon: <CreditCard className="w-4 h-4" />, value: "payments", hasPing: unreadCategories.payments },
+    { label: "Quản Lý Bảo Hành", icon: <ShieldAlert className="w-4 h-4" />, value: "warranties", hasPing: unreadCategories.warranties },
     { label: "Quản Lý Dịch Vụ", icon: <Paintbrush className="w-4 h-4" />, value: "services" },
-    { label: "Quản Lý Đánh Giá", icon: <Star className="w-4 h-4" />, value: "reviews" },
+    { label: "Quản Lý Đánh Giá", icon: <Star className="w-4 h-4" />, value: "reviews", hasPing: unreadCategories.reviews },
   ];
 
   return (
@@ -126,8 +173,11 @@ export default function AdminLayout({ user, onLogout, showToast }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-8 py-3 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-900"></span>
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Trung Tâm Quản Trị Hệ Thống Sơn Sửa 247
             </span>
@@ -138,6 +188,8 @@ export default function AdminLayout({ user, onLogout, showToast }) {
               user={profile || user}
               notifications={notifications}
               onMarkRead={handleMarkRead}
+              onMarkAllRead={handleMarkRead}
+              onMarkSingleRead={handleMarkSingleRead}
               onDeleteAll={handleDeleteAll}
               onDeleteOne={handleDeleteOne}
               color="blue"

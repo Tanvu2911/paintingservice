@@ -4,6 +4,7 @@ import com.example.paintingservice.entity.StaffProfile;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.enums.StaffType;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -15,6 +16,7 @@ public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long
     Optional<StaffProfile> findByUser_Id(Long userId);
     Optional<StaffProfile> findByUser(User user);
 
+    @EntityGraph(attributePaths = {"user", "user.role"})
     List<StaffProfile> findByStaffTypeAndAvailableTrue(StaffType staffType);
 
     boolean existsByUserId(Long userId);

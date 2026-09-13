@@ -72,6 +72,17 @@ export default function StaffLayout({ user, onLogout, showToast }) {
     }
   };
 
+  const handleMarkSingleRead = async (id) => {
+    try {
+      await AxiosConfig.put(`/notifications/me/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDeleteAll = async () => {
     if (!window.confirm("Xóa tất cả thông báo?")) return;
     try {
@@ -169,6 +180,8 @@ export default function StaffLayout({ user, onLogout, showToast }) {
               user={profile || user}
               notifications={notifications}
               onMarkRead={handleMarkRead}
+              onMarkAllRead={handleMarkRead}
+              onMarkSingleRead={handleMarkSingleRead}
               onDeleteAll={handleDeleteAll}
               onDeleteOne={handleDeleteOne}
               color={isTechnician ? "amber" : "blue"}

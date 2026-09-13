@@ -14,6 +14,7 @@ const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
 const SurveyRoutes = lazy(() => import("./routes/SurveyRoutes"));
 const TechnicianRoutes = lazy(() => import("./routes/TechnicianRoutes"));
 const CustomerRoutes = lazy(() => import("./routes/CustomerRoutes"));
+const VNPayCallback = lazy(() => import("./pages/customer/VNPayCallback"));
 
 function AppRoutes() {
   const { user, login, logout, getRedirectPath, isAdmin, isSurveyStaff, isTechnicianStaff, isCustomer } = useAuth();
@@ -22,6 +23,10 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageLoadingFallback />}>
       <Routes>
+      {/* Route phản hồi thanh toán VNPay độc lập - công khai, không bị chặn bởi Auth/Role guard */}
+      <Route path="/customer/payment-callback" element={<VNPayCallback />} />
+      <Route path="/payment-callback" element={<VNPayCallback />} />
+
       <Route
         path="/login"
         element={

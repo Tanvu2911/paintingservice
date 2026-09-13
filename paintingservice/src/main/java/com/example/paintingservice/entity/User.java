@@ -4,7 +4,7 @@ import com.example.paintingservice.enums.*;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import java.time.LocalDateTime;
+// import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
@@ -41,7 +41,6 @@ public class User extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
-
 
     @Column(columnDefinition = "TEXT")
     private String avatar;

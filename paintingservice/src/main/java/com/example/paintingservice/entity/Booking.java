@@ -91,7 +91,11 @@ public class Booking extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "preferred_technician_id")
-    private User preferredTechnician; // Đội thợ mà khách hàng chọn khi tạo đơn
+    private User preferredTechnician; // Đội thợ mà khách hàng chọn khi tạo đơn hoặc chốt báo giá
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "preferred_supervisor_id")
+    private User preferredSupervisor; // Giám sát viên cũ mà khách hàng chọn khi tạo đơn
 
     @Column(name = "estimated_days")
     private Integer estimatedDays;

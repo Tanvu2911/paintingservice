@@ -60,7 +60,7 @@ export default function Home({ user, onLogout, showToast }) {
     if (user) {
       AxiosConfig.get("/notifications/me")
         .then((res) => setNotifications(Array.isArray(res.data) ? res.data : []))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [user]);
 
@@ -72,6 +72,17 @@ export default function Home({ user, onLogout, showToast }) {
       } catch (e) {
         console.error(e);
       }
+    }
+  };
+
+  const handleMarkSingleRead = async (id) => {
+    try {
+      await AxiosConfig.put(`/notifications/me/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -134,6 +145,8 @@ export default function Home({ user, onLogout, showToast }) {
         onLogout={() => setShowLogoutConfirm(true)}
         notifications={notifications}
         onMarkRead={handleMarkRead}
+        onMarkAllRead={handleMarkRead}
+        onMarkSingleRead={handleMarkSingleRead}
         onDeleteAll={handleDeleteAll}
         onDeleteOne={handleDeleteOne}
         onBookingCTA={handleBookingCTA}

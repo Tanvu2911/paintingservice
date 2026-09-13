@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Star, MessageSquareQuote, CheckCircle, Clock } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
+import ScrollReveal from "../common/ScrollReveal";
 
 // Fallback mẫu khi cơ sở dữ liệu chưa có bài đánh giá nào
 const DEFAULT_TESTIMONIALS = [
@@ -73,6 +74,44 @@ function formatDate(dateStr) {
   }
 }
 
+// Hàm tách bình luận và các thẻ nổi bật (nếu có)
+function parseCommentData(rawComment = "", rating = 5) {
+  let text = "";
+  let tags = [];
+
+  if (rawComment && typeof rawComment === "string") {
+    if (rawComment.includes("[Điểm nổi bật]:")) {
+      const parts = rawComment.split("[Điểm nổi bật]:");
+      text = parts[0].trim();
+      const tagStr = parts[1] || "";
+      tags = tagStr
+        .split("•")
+        .map((t) => t.trim())
+        .filter(Boolean);
+    } else {
+      text = rawComment.trim();
+    }
+  }
+
+  // Nếu khách hàng chỉ chấm điểm sao mà không nhập lời bình
+  if (!text) {
+    if (tags.length > 0) {
+      text = "Khách hàng rất hài lòng với chất lượng thi công và dịch vụ của đội ngũ.";
+    } else if (rating >= 5) {
+      text =
+        "Đội thợ thi công rất có tâm, che chắn nội thất cẩn thận và hoàn thành đúng tiến độ. Màu sơn lên đều và rất ưng ý!";
+    } else if (rating === 4) {
+      text =
+        "Chất lượng thi công tốt, thợ nhiệt tình hỗ trợ và dọn dẹp gọn gàng sau khi hoàn tất công trình.";
+    } else {
+      text =
+        "Dịch vụ đáp ứng cơ bản yêu cầu, bàn giao công trình đúng thời gian cam kết.";
+    }
+  }
+
+  return { text, tags };
+}
+
 export default function TestimonialsSection() {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,19 +121,32 @@ export default function TestimonialsSection() {
     AxiosConfig.get("/reviews")
       .then((res) => {
         if (Array.isArray(res.data) && res.data.length > 0) {
-          // Lọc các đánh giá hợp lệ, sắp xếp theo rating cao nhất (5 sao) rồi đến ngày mới nhất
+          // Lọc danh sách đánh giá hợp lệ từ cơ sở dữ liệu (từ 1 đến 5 sao)
           const validReviews = res.data
-            .filter((r) => r.rating && r.comment && r.comment.trim() !== "")
+            .filter((r) => r.rating && r.rating >= 1 && r.rating <= 5)
             .sort((a, b) => {
+              // 1. Ưu tiên các bài khách hàng có viết lời bình luận thực tế
+              const hasCommentA = Boolean(a.comment && a.comment.trim());
+              const hasCommentB = Boolean(b.comment && b.comment.trim());
+              if (hasCommentA !== hasCommentB) {
+                return hasCommentB ? 1 : -1;
+              }
+              // 2. Tiếp theo ưu tiên số sao cao nhất (5 sao -> 4 sao)
               if ((b.rating || 0) !== (a.rating || 0)) {
                 return (b.rating || 0) - (a.rating || 0);
               }
+              // 3. Ưu tiên ngày mới nhất
               return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-            })
-            .slice(0, 3); // Lấy đúng 3 đánh giá tốt nhất
+            });
 
           if (validReviews.length > 0) {
-            setReviews(validReviews);
+            let displayList = validReviews.slice(0, 3);
+            // Nếu đánh giá thật ít hơn 3 bài, bổ sung thêm bài mẫu để giao diện luôn đủ 3 cột cân đối
+            if (displayList.length < 3) {
+              const needed = 3 - displayList.length;
+              displayList = [...displayList, ...DEFAULT_TESTIMONIALS.slice(0, needed)];
+            }
+            setReviews(displayList);
           } else {
             setReviews(DEFAULT_TESTIMONIALS.slice(0, 3));
           }
@@ -119,7 +171,7 @@ export default function TestimonialsSection() {
       <div className="absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:32px_32px] opacity-10 pointer-events-none" />
 
       <div className="relative max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <ScrollReveal animation="fade-up" className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-xs font-bold uppercase tracking-wider text-indigo-800 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-200 shadow-xs">
             Khách Hàng Nói Gì
           </span>
@@ -129,7 +181,7 @@ export default function TestimonialsSection() {
           <p className="text-sm text-slate-500 mt-2.5">
             Tổng hợp phản hồi chân thực từ những khách hàng đã nghiệm thu công trình sơn sửa nhà.
           </p>
-        </div>
+        </ScrollReveal>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -153,17 +205,29 @@ export default function TestimonialsSection() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
-            {reviews.map((r) => {
-              const customerName = r.customerUsername || "Khách hàng";
+            {reviews.map((r, idx) => {
+              const rawName = r.customerUsername || "Khách hàng";
+              const customerName = !rawName.includes(" ")
+                ? rawName.charAt(0).toUpperCase() + rawName.slice(1)
+                : rawName;
               const avatarGradient = getAvatarColor(customerName);
               const initials = getInitials(customerName);
               const displayDate = formatDate(r.createdAt);
+              const { text: commentText, tags: highlightTags } = parseCommentData(
+                r.comment,
+                r.rating
+              );
 
               return (
-                <div
+                <ScrollReveal
                   key={r.id}
-                  className="bg-white/95 backdrop-blur-xs rounded-3xl p-7 border border-slate-200/90 flex flex-col justify-between hover:shadow-xl hover:border-indigo-300 transition-all duration-300 relative group hover:-translate-y-1"
+                  animation="fade-up"
+                  delay={(idx % 3) * 120}
+                  className="h-full"
                 >
+                  <div
+                    className="h-full bg-white/95 backdrop-blur-xs rounded-3xl p-7 border border-slate-200/90 flex flex-col justify-between hover:shadow-xl hover:border-indigo-300 transition-all duration-300 relative group hover:-translate-y-1"
+                  >
                   <MessageSquareQuote className="w-10 h-10 text-indigo-100 absolute top-5 right-5 -z-0 pointer-events-none group-hover:text-indigo-200 transition-colors" />
 
                   <div className="relative z-10">
@@ -178,9 +242,23 @@ export default function TestimonialsSection() {
                     </div>
 
                     {/* Comment */}
-                    <p className="text-xs text-slate-600 leading-relaxed italic mb-6 line-clamp-4">
-                      &ldquo;{r.comment}&rdquo;
+                    <p className="text-xs text-slate-600 leading-relaxed italic mb-4 line-clamp-4">
+                      &ldquo;{commentText}&rdquo;
                     </p>
+
+                    {/* Highlight Tags */}
+                    {highlightTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {highlightTags.map((tag, tIdx) => (
+                          <span
+                            key={tIdx}
+                            className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-lg"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Customer Info */}
@@ -211,6 +289,7 @@ export default function TestimonialsSection() {
                     </div>
                   </div>
                 </div>
+              </ScrollReveal>
               );
             })}
           </div>

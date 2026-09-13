@@ -42,6 +42,20 @@ public class PaymentController {
         }
     }
 
+    @PostMapping("/vnpay/simulate")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> simulateVNPayPayment(
+            @RequestParam Long bookingId,
+            @RequestParam(defaultValue = "DEPOSIT") String paymentType,
+            @RequestParam(required = false) Long claimId,
+            jakarta.servlet.http.HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(vnPayService.simulateVNPayPayment(bookingId, paymentType, claimId, request));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage(), "success", false));
+        }
+    }
+
     @GetMapping("/vnpay/return")
     public ResponseEntity<?> vnPayReturn(@RequestParam Map<String, String> allParams) {
         try {

@@ -5,6 +5,7 @@ import AxiosConfig from "../../../util/AxiosConfig";
 import DashboardHeader from "../../../components/layout/DashboardHeader";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import ImageLightboxModal from "../../../components/common/ImageLightboxModal";
+import Modal from "../../../components/common/Modal";
 import { formatMoney } from "../../../util/formatters";
 
 // Subcomponents
@@ -40,6 +41,7 @@ import {
   Layers,
   Award,
   RefreshCw,
+  Pencil,
 } from "lucide-react";
 
 export default function WarrantyDetail() {
@@ -65,6 +67,7 @@ export default function WarrantyDetail() {
   const [assignTechnicianModal, setAssignTechnicianModal] = useState(false);
   const [selectedTechnicianId, setSelectedTechnicianId] = useState("");
   const [technicianNote, setTechnicianNote] = useState("");
+  const [workerSalary, setWorkerSalary] = useState("");
   const [techTab, setTechTab] = useState("all");
   const [techSearch, setTechSearch] = useState("");
   const [submittingTechnician, setSubmittingTechnician] = useState(false);
@@ -74,6 +77,12 @@ export default function WarrantyDetail() {
   const [supportPrice, setSupportPrice] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [submittingReject, setSubmittingReject] = useState(false);
+
+  // Modal 4: Chỉnh sửa tiền công thợ / giám sát trực tiếp
+  const [editSalaryModal, setEditSalaryModal] = useState(false);
+  const [editWorkerSalary, setEditWorkerSalary] = useState("");
+  const [editSurveyorSalary, setEditSurveyorSalary] = useState("");
+  const [submittingEditSalary, setSubmittingEditSalary] = useState(false);
 
   const fetchClaimDetail = async () => {
     try {
@@ -154,6 +163,22 @@ export default function WarrantyDetail() {
     }
   };
 
+  const openAssignTechnicianModal = (techId = "", note = "") => {
+    setSelectedTechnicianId(techId);
+    setTechnicianNote(note);
+    if (claim?.workerSalary != null) {
+      setWorkerSalary(String(claim.workerSalary));
+    } else if (claim?.faultType === "CUSTOMER_FAULT" || Number(claim?.finalSupportPrice) > 0 || Number(claim?.suggestedPrice) > 0) {
+      const sp = Number(claim?.finalSupportPrice) || Number(claim?.suggestedPrice) || 0;
+      setWorkerSalary(sp > 0 ? String(Math.round(sp * 0.6)) : "200000");
+    } else if (techId && claim?.previousTechnicianId && String(techId) === String(claim.previousTechnicianId)) {
+      setWorkerSalary("0");
+    } else {
+      setWorkerSalary("200000");
+    }
+    setAssignTechnicianModal(true);
+  };
+
   const handleAssignTechnicianSubmit = async (e) => {
     e.preventDefault();
     if (!selectedTechnicianId) {
@@ -165,14 +190,33 @@ export default function WarrantyDetail() {
       await AxiosConfig.put(`/warranty-claims/${id}/assign-technician`, {
         technicianId: Number(selectedTechnicianId),
         adminNote: technicianNote,
+        workerSalary: workerSalary !== "" ? Number(workerSalary) : undefined,
       });
-      showToast?.("Đã duyệt phân Đội Thợ khắc phục thành công!", "success");
+      showToast?.("Đã duyệt phân Đội Thợ & thiết lập tiền công thành công!", "success");
       setAssignTechnicianModal(false);
       fetchClaimDetail();
     } catch (err) {
       showToast?.(err.response?.data?.message || "Phân thợ thất bại!", "error");
     } finally {
       setSubmittingTechnician(false);
+    }
+  };
+
+  const handleUpdateSalariesSubmit = async (e) => {
+    e.preventDefault();
+    setSubmittingEditSalary(true);
+    try {
+      await AxiosConfig.put(`/warranty-claims/${id}/update-salaries`, {
+        workerSalary: editWorkerSalary !== "" ? Number(editWorkerSalary) : undefined,
+        surveyorSalary: editSurveyorSalary !== "" ? Number(editSurveyorSalary) : undefined,
+      });
+      showToast?.("Đã cập nhật tiền công nhân sự thành công!", "success");
+      setEditSalaryModal(false);
+      fetchClaimDetail();
+    } catch (err) {
+      showToast?.(err.response?.data?.message || "Cập nhật tiền công thất bại!", "error");
+    } finally {
+      setSubmittingEditSalary(false);
     }
   };
 
@@ -374,188 +418,218 @@ export default function WarrantyDetail() {
   const resolvedImages = claim.resolvedImageUrls ? claim.resolvedImageUrls.split(",").filter(Boolean) : [];
   const stepCurrent = getStepProgress(claim.status);
 
+  // Tính thù lao thông minh cho Thợ & Giám sát
+  const isCustomerFault = claim.faultType === "CUSTOMER_FAULT" || Number(claim.finalSupportPrice) > 0 || Number(claim.suggestedPrice) > 0;
+  const claimSupportPrice = Number(claim.finalSupportPrice) || Number(claim.suggestedPrice) || 0;
+  const isOldWorker = Boolean(
+    claim.technicianId &&
+    claim.previousTechnicianId &&
+    String(claim.technicianId) === String(claim.previousTechnicianId)
+  );
+
+  let defaultWorkerAmt = 200000;
+  let workerDesc = "Thợ mới (Công ty chi)";
+  if (claim.workerSalary != null) {
+    defaultWorkerAmt = Number(claim.workerSalary);
+    workerDesc = "Admin đã ấn định";
+  } else if (isCustomerFault) {
+    defaultWorkerAmt = claimSupportPrice > 0 ? Math.round(claimSupportPrice * 0.60) : 200000;
+    workerDesc = claimSupportPrice > 0 ? `Hưởng 60% tiền khách (${formatMoney(defaultWorkerAmt)})` : "Lỗi khách quan";
+  } else if (isOldWorker) {
+    defaultWorkerAmt = 0;
+    workerDesc = "Thợ cũ (0đ - Trách nhiệm)";
+  }
+
+  let defaultSurveyorAmt = 100000;
+  let surveyorDesc = "Định mức công ty";
+  if (claim.surveyorSalary != null) {
+    defaultSurveyorAmt = Number(claim.surveyorSalary);
+    surveyorDesc = "Admin đã ấn định";
+  } else if (isCustomerFault) {
+    defaultSurveyorAmt = claimSupportPrice > 0 ? Math.round(claimSupportPrice * 0.10) : 100000;
+    surveyorDesc = claimSupportPrice > 0 ? `Hưởng 10% tiền khách (${formatMoney(defaultSurveyorAmt)})` : "Lỗi khách quan";
+  }
+
+  const surAmt = claim.surveyorSalary != null ? Number(claim.surveyorSalary) : defaultSurveyorAmt;
+  const worAmt = claim.workerSalary != null ? Number(claim.workerSalary) : defaultWorkerAmt;
+
   return (
-    <div className="space-y-4 sm:space-y-6 pb-16">
-      {/* Top Breadcrumbs & Back */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3 sm:pb-4">
-        <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
-          <button
-            onClick={() => navigate("/admin/warranties")}
-            className="flex items-center gap-1 hover:text-slate-900 font-semibold transition cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-900" />
-            <span>Quản Lý Bảo Hành</span>
-          </button>
-          <span>/</span>
-          <span className="text-slate-900 font-bold font-mono">Phiếu #{claim.id}</span>
-          <span>/</span>
-          <Link
-            to={`/admin/bookings/${claim.bookingId}`}
-            className="text-slate-900 font-semibold hover:underline flex items-center gap-0.5"
-          >
-            <span>Đơn hàng #{claim.bookingId}</span>
-            <ExternalLink className="w-2.5 h-2.5" />
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {getStatusBadge(claim.status)}
-        </div>
-      </div>
-
-      {/* Header Banner */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="p-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 shrink-0 mt-0.5 sm:mt-0">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div className="space-y-0.5">
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-              Phiếu Bảo Hành #{claim.id} &bull; Đơn #{claim.bookingId}
-            </h1>
-            <p className="text-xs text-slate-500">
-              Gửi yêu cầu lúc: {new Date(claim.createdAt).toLocaleString("vi-VN")}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-            <span className="text-slate-500 block text-[10px] font-semibold uppercase">Thời hạn:</span>
-            <strong className="text-slate-900 font-bold text-xs">
-              {claim.warrantyYears ? `${claim.warrantyYears} Năm Chính Hãng` : "2 Năm Chính Hãng"}
-            </strong>
-          </div>
-          <Link
-            to={`/admin/bookings/${claim.bookingId}`}
-            className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-50 text-slate-900 font-semibold rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <span>Xem Đơn Hàng Gốc</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Stepper Timeline */}
+    <div className="space-y-4 pb-16">
+      {/* Top Header: Unified Navigation, Title, Badges & Actions */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs">
-        <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-3">
-          Tiến Trình Xử Lý Sự Cố Bảo Hành
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
-          {[
-            { step: 1, title: "1. Tiếp Nhận", desc: "Phân Giám sát", active: stepCurrent >= 1 },
-            { step: 2, title: "2. Khảo Sát", desc: "Thẩm định nguyên nhân", active: stepCurrent >= 2 },
-            { step: 3, title: "3. Duyệt & Phân Thợ", desc: "Giao việc thợ dặm vá", active: stepCurrent >= 3 },
-            { step: 4, title: "4. Thi Công", desc: "Thợ dặm vá bột & sơn", active: stepCurrent >= 4 },
-            { step: 5, title: "5. Nghiệm Thu", desc: "Khách duyệt & Quét VietQR", active: stepCurrent >= 6 },
-          ].map((item) => (
-            <div
-              key={item.step}
-              className={`p-2.5 sm:p-3 rounded-lg border transition ${item.active
-                  ? "bg-slate-50 border-slate-200 text-slate-900"
-                  : "bg-slate-50 border-slate-200 text-slate-500 opacity-60"
-                }`}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3">
+            <button
+              onClick={() => navigate("/admin/warranties")}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition cursor-pointer shrink-0 mt-0.5 sm:mt-0"
+              title="Quay lại danh sách"
             >
-              <div className="flex items-center gap-1.5 font-semibold text-xs">
-                {item.active ? (
-                  <CheckCircle2 className="w-4 h-4 text-slate-900 shrink-0" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-slate-200 text-center text-[10px] leading-3.5 text-slate-500 font-bold shrink-0">
-                    {item.step}
-                  </div>
-                )}
-                <span className="truncate">{item.title}</span>
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-none">
+                  Phiếu Bảo Hành #{claim.id}
+                </h1>
+                <Link
+                  to={`/admin/bookings/${claim.bookingId}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition"
+                  title="Mở đơn hàng gốc"
+                >
+                  <span>Đơn #{claim.bookingId}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">
+                  {claim.warrantyYears ? `${claim.warrantyYears} năm BH` : "2 năm BH"}
+                </span>
               </div>
-              <div className="text-[10.5px] text-slate-500 mt-1 line-clamp-1">{item.desc}</div>
+              <p className="text-xs text-slate-500">
+                Gửi lúc: {new Date(claim.createdAt).toLocaleString("vi-VN")}
+              </p>
             </div>
-          ))}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
+            {getStatusBadge(claim.status)}
+            <Link
+              to={`/admin/bookings/${claim.bookingId}`}
+              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg text-xs transition flex items-center gap-1.5 border border-slate-200"
+            >
+              <span>Xem Đơn Hàng</span>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Compact Stepper Timeline */}
+        <div className="mt-4 pt-3.5 border-t border-slate-100">
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+            {[
+              { step: 1, label: "Tiếp Nhận" },
+              { step: 2, label: "Khảo Sát" },
+              { step: 3, label: "Duyệt & Phân Thợ" },
+              { step: 4, label: "Thi Công" },
+              { step: 5, label: "Nghiệm Thu" },
+            ].map((item) => {
+              const isDone = stepCurrent > item.step;
+              const isCurrent = stepCurrent === item.step;
+              return (
+                <div
+                  key={item.step}
+                  className={`flex items-center gap-1.5 p-2 rounded-lg text-xs font-medium transition ${
+                    isDone
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : isCurrent
+                      ? "bg-blue-50 text-blue-800 font-bold border border-blue-200 shadow-2xs"
+                      : "bg-slate-50 text-slate-400 border border-slate-200/60"
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                      isDone
+                        ? "bg-emerald-600 text-white"
+                        : isCurrent
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {isDone ? <Check className="w-2.5 h-2.5 stroke-3" /> : item.step}
+                  </div>
+                  <span className="truncate">{item.label}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* Main Grid: 2 Cột */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6 items-start">
-        {/* CỘT TRÁI (2/3): THÔNG TIN KHÁCH HÀNG & BÁO CÁO HIỆN TRƯỜNG */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-          {/* Card 1: Khách hàng & Công trình */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 items-start">
+        {/* CỘT TRÁI (2/3): YÊU CẦU KHÁCH HÀNG & BÁO CÁO KHẢO SÁT */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Card 1: Yêu Cầu Của Khách Hàng */}
           <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-3">
-              <User className="w-4 h-4 text-slate-900" />
-              <span>Thông Tin Khách Hàng &amp; Địa Chỉ Công Trình</span>
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <User className="w-4 h-4 text-slate-700" />
+                <span>Yêu Cầu Của Khách Hàng</span>
+              </h3>
+              {claim.issueType && (
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  {claim.issueType === "BONG_TROC"
+                    ? "Bong tróc màng sơn"
+                    : claim.issueType === "THAM_NUOC"
+                    ? "Thấm ố / Ẩm mốc"
+                    : claim.issueType === "NUT_NE"
+                    ? "Nứt nẻ chân chim"
+                    : claim.issueType || "Sự cố kỹ thuật"}
+                </span>
+              )}
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1">
-                <span className="text-slate-500 block text-[11px]">Họ tên khách hàng:</span>
-                <strong className="text-slate-900 text-sm font-bold block">{claim.customerName || "Khách hàng"}</strong>
+            {/* Thông tin liên hệ & Công trình (Gọn gàng trong 1 khối) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-slate-500">Khách hàng:</span>
+                <div className="flex items-center gap-2">
+                  <strong className="text-slate-900 font-bold">{claim.customerName || "Khách hàng"}</strong>
+                  {claim.customerPhone && (
+                    <a
+                      href={`tel:${claim.customerPhone}`}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>{claim.customerPhone}</span>
+                    </a>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <span className="text-slate-500 block text-[11px]">Số điện thoại liên hệ:</span>
-                <a
-                  href={`tel:${claim.customerPhone}`}
-                  className="text-slate-900 font-semibold text-sm hover:underline flex items-center gap-1"
-                >
-                  <Phone className="w-3.5 h-3.5 text-slate-900" />
-                  <span>{claim.customerPhone || "Chưa có SĐT"}</span>
-                </a>
-              </div>
-
-              <div className="sm:col-span-2 space-y-1">
-                <span className="text-slate-500 block text-[11px]">Địa chỉ công trình:</span>
-                <div className="flex items-start gap-1.5 text-slate-900 font-medium">
-                  <MapPin className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-slate-500">Địa chỉ công trình:</span>
+                <div className="flex items-start gap-1 text-slate-800 font-medium line-clamp-2">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
                   <span>{claim.address || "Chưa cập nhật địa chỉ"}</span>
                 </div>
               </div>
 
               {claim.preferredDate && (
-                <div className="sm:col-span-2 p-3 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-900 shrink-0" />
+                <div className="sm:col-span-2 pt-1.5 border-t border-slate-200 flex items-center gap-2 text-slate-700">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span>
-                    Thời gian khách hẹn thuận tiện:{" "}
-                    <strong>{new Date(claim.preferredDate).toLocaleDateString("vi-VN")}</strong>{" "}
-                    {claim.preferredTime ? `(Khung giờ: ${claim.preferredTime})` : ""}
+                    Lịch hẹn mong muốn: <strong>{new Date(claim.preferredDate).toLocaleDateString("vi-VN")}</strong> {claim.preferredTime ? `(${claim.preferredTime})` : ""}
                   </span>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Card 2: Sự cố khách báo & Album ảnh khách gửi */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-3">
-              <ShieldAlert className="w-4 h-4 text-slate-900" />
-              <span>Hiện Trạng Sự Cố Khách Hàng Yêu Cầu Bảo Hành</span>
-            </h3>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-slate-500 block text-[11px]">Tiêu đề sự cố:</span>
-                <div className="text-slate-900 font-bold text-sm mt-0.5">
-                  {claim.issueTitle || "Yêu cầu kiểm tra & dặm vá sơn"}
-                </div>
-              </div>
-
-              <div>
-                <span className="text-slate-500 block text-[11px]">Mô tả chi tiết từ khách hàng:</span>
-                <p className="text-slate-900 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs mt-1">
-                  {claim.description}
+            {/* Chi tiết sự cố */}
+            <div className="space-y-2 text-xs">
+              <h4 className="font-bold text-slate-900 text-sm">
+                {claim.issueTitle || "Yêu cầu kiểm tra & dặm vá sơn"}
+              </h4>
+              {claim.description ? (
+                <p className="text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200 italic">
+                  "{claim.description}"
                 </p>
-              </div>
+              ) : (
+                <p className="text-slate-400 italic">Khách hàng không cung cấp thêm mô tả chi tiết.</p>
+              )}
 
+              {/* Ảnh sự cố */}
               {customerImages.length > 0 && (
-                <div className="space-y-1.5 pt-2">
-                  <span className="text-slate-500 font-semibold block text-xs">
-                    Ảnh chụp sự cố khách gửi ({customerImages.length} ảnh):
+                <div className="pt-2">
+                  <span className="text-slate-500 font-semibold block text-[11px] mb-1.5">
+                    Ảnh sự cố do khách gửi ({customerImages.length} ảnh):
                   </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                     {customerImages.map((img, i) => (
                       <img
                         key={i}
                         src={img}
                         alt={`Khách gửi ${i + 1}`}
                         onClick={() => setPreviewImage(img)}
-                        className="w-full h-24 sm:h-28 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition shadow-2xs"
+                        className="w-full h-20 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-85 transition shadow-2xs"
                       />
                     ))}
                   </div>
@@ -564,65 +638,58 @@ export default function WarrantyDetail() {
             </div>
           </div>
 
-          {/* Card 3: Báo cáo khảo sát thẩm định của Giám Sát */}
+          {/* Card 2: Báo Cáo Khảo Sát Hiện Trường */}
           {claim.surveyNote ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <ClipboardCheck className="w-4 h-4 text-slate-900" />
-                  <span>Báo Cáo Thẩm Định Của Giám Sát Hiện Trường</span>
+                  <ClipboardCheck className="w-4 h-4 text-slate-700" />
+                  <span>Báo Cáo Khảo Sát Thẩm Định</span>
                 </h3>
                 {claim.faultType === "COMPANY_FAULT" ? (
-                  <span className="px-2.5 py-0.5 rounded bg-slate-50 text-slate-900 font-semibold text-xs border border-slate-200">
-                    ✓ Lỗi Kỹ Thuật (Bảo Hành 0đ)
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold text-xs border border-emerald-200 flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Lỗi Kỹ Thuật (Bảo hành 0đ)
                   </span>
                 ) : (
-                  <span className="px-2.5 py-0.5 rounded bg-slate-50 text-slate-900 font-semibold text-xs border border-slate-200">
-                    ⚠ Lỗi Khách Quan Ngoại Lực
+                  <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 font-bold text-xs border border-purple-200 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Lỗi Khách Quan ({claimSupportPrice > 0 ? `Báo giá: ${formatMoney(claimSupportPrice)}` : "Chờ chốt giá"})
                   </span>
                 )}
               </div>
 
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center gap-2 text-slate-900">
-                  <UserCheck className="w-4 h-4 text-slate-900" />
-                  <span>
-                    Giám sát thẩm định: <strong>{claim.surveyorName}</strong> ({claim.surveyorPhone || "Chưa có SĐT"})
-                  </span>
-                </div>
-
+              <div className="space-y-2.5 text-xs">
                 <div>
-                  <span className="text-slate-500 block text-[11px]">Nội dung khảo sát &amp; đánh giá kỹ thuật:</span>
-                  <p className="text-slate-900 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs mt-1">
+                  <span className="text-[11px] text-slate-500 block mb-1">Đánh giá nguyên nhân hiện trường:</span>
+                  <p className="text-slate-800 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200">
                     {claim.surveyNote}
                   </p>
                 </div>
 
                 {claim.materialNote && (
-                  <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 space-y-1">
-                    <strong className="flex items-center gap-1.5 text-slate-900 text-xs">
-                      <Package className="w-4 h-4 text-slate-900" />
-                      <span>Vật tư &amp; Sơn dặm vá Giám sát trực tiếp chuẩn bị cho Thợ:</span>
+                  <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-200 text-xs space-y-1">
+                    <strong className="flex items-center gap-1.5 text-blue-900 text-[11px]">
+                      <Package className="w-3.5 h-3.5 text-blue-700" />
+                      <span>Vật tư &amp; Sơn chuẩn bị cho Thợ:</span>
                     </strong>
-                    <p className="text-slate-900 text-xs pl-5 leading-relaxed font-medium">
+                    <p className="text-slate-800 pl-5 leading-relaxed">
                       {claim.materialNote}
                     </p>
                   </div>
                 )}
 
                 {surveyImages.length > 0 && (
-                  <div className="space-y-1.5 pt-2">
-                    <span className="text-slate-500 font-semibold block text-xs">
-                      Ảnh hiện trường Giám sát đo đạc &amp; chụp ({surveyImages.length} ảnh):
+                  <div className="pt-1">
+                    <span className="text-slate-500 font-semibold block text-[11px] mb-1.5">
+                      Ảnh khảo sát đo đạc ({surveyImages.length} ảnh):
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                       {surveyImages.map((img, i) => (
                         <img
                           key={i}
                           src={img}
                           alt={`Khảo sát ${i + 1}`}
                           onClick={() => setPreviewImage(img)}
-                          className="w-full h-24 sm:h-28 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition shadow-2xs"
+                          className="w-full h-20 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-85 transition shadow-2xs"
                         />
                       ))}
                     </div>
@@ -631,36 +698,33 @@ export default function WarrantyDetail() {
               </div>
             </div>
           ) : (
-            <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 p-6 text-center space-y-2 text-slate-500">
-              <ClipboardCheck className="w-8 h-8 mx-auto text-slate-500 stroke-1" />
-              <p className="text-xs font-bold">Chưa có báo cáo khảo sát hiện trường từ Giám Sát</p>
-              <p className="text-[11px] text-slate-500">
-                Sau khi Admin phân Giám Sát, Giám sát sẽ đến hiện trường thẩm định nguyên nhân và gửi báo cáo về hệ thống.
-              </p>
+            <div className="bg-slate-50 rounded-xl border border-dashed border-slate-200 p-5 text-center text-xs text-slate-500 space-y-1">
+              <ClipboardCheck className="w-6 h-6 mx-auto text-slate-400 stroke-1" />
+              <p className="font-semibold text-slate-700">Chưa có biên bản khảo sát hiện trường</p>
+              <p className="text-[11px] text-slate-400">Giám Sát sẽ kiểm tra và lập báo cáo nguyên nhân sau khi được phân công.</p>
             </div>
           )}
 
-          {/* Card 4: Kết quả nghiệm thu hoàn thành của Giám Sát */}
+          {/* Card 3: Ảnh Nghiệm Thu Sau Thi Công */}
           {resolvedImages.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-slate-500" />
-                  <span>Bộ Ảnh Nghiệm Thu Hoàn Tất Sau Sửa Chữa (Giám Sát Chụp)</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Hình Ảnh Nghiệm Thu Sau Khi Hoàn Tất</span>
                 </h3>
-                <span className="px-2.5 py-0.5 rounded bg-slate-50 text-slate-900 font-semibold text-xs border border-slate-200">
-                  ✓ Đạt Chuẩn Kỹ Thuật
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[11px] border border-emerald-200">
+                  ✓ Đạt chuẩn
                 </span>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                 {resolvedImages.map((img, i) => (
                   <img
                     key={i}
                     src={img}
                     alt={`Nghiệm thu ${i + 1}`}
                     onClick={() => setPreviewImage(img)}
-                    className="w-full h-24 sm:h-28 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-90 transition shadow-2xs"
+                    className="w-full h-20 rounded-lg object-cover border border-slate-200 cursor-pointer hover:opacity-85 transition shadow-2xs"
                   />
                 ))}
               </div>
@@ -668,195 +732,21 @@ export default function WarrantyDetail() {
           )}
         </div>
 
-        {/* CỘT PHẢI (1/3): BẢNG ĐIỀU KHIỂN THAO TÁC & QUYẾT TOÁN VIETQR */}
-        <div className="space-y-4 sm:space-y-6 lg:sticky lg:top-4">
-          {/* Card Nhân sự phụ trách */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
+        {/* CỘT PHẢI (1/3): HÀNH ĐỘNG TIẾP THEO & NHÂN SỰ/THÙ LAO */}
+        <div className="space-y-4 lg:sticky lg:top-4">
+          {/* Card 1: Hành Động Tiếp Theo */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-3.5">
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-3">
-              <Layers className="w-4 h-4 text-slate-900" />
-              <span>Nhân Sự Phụ Trách Phiếu</span>
-            </h3>
-
-            {/* Giám sát */}
-            <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10.5px] font-semibold text-slate-900 uppercase">Giám sát khảo sát</span>
-                {claim.surveyorId ? (
-                  <span className="text-[10px] font-semibold bg-slate-50 text-slate-900 px-2 py-0.5 rounded">
-                    Đã phân công
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-semibold bg-slate-50 text-slate-900 px-2 py-0.5 rounded">
-                    Chưa phân
-                  </span>
-                )}
-              </div>
-              <div className="font-bold text-slate-900 text-xs">
-                {claim.surveyorName || "Chưa gán Giám Sát"}
-              </div>
-              {claim.surveyorPhone && (
-                <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-slate-500" />
-                  <span>{claim.surveyorPhone}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Đội thợ */}
-            <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10.5px] font-semibold text-slate-900 uppercase">Đội thợ thi công</span>
-                {claim.technicianId ? (
-                  <span className="text-[10px] font-semibold bg-slate-50 text-slate-900 px-2 py-0.5 rounded">
-                    Đã phân công
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-semibold bg-slate-50 text-slate-900 px-2 py-0.5 rounded">
-                    Chưa gán
-                  </span>
-                )}
-              </div>
-              <div className="font-bold text-slate-900 text-xs">
-                {claim.technicianName || "Chưa gán Đội Thợ"}
-              </div>
-              {claim.technicianPhone && (
-                <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-slate-500" />
-                  <span>{claim.technicianPhone}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Card Quyết toán Thù Lao Nhân Sự (Thiết kế đồng bộ với Chi tiết yêu cầu) */}
-          {claim.status === "COMPLETED" && (claim.surveyorId || claim.technicianId) && (
-            <div id="staff-payout-section" className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-slate-500 shrink-0" />
-                  <span>Quyết Toán Thù Lao Nhân Sự</span>
-                </h4>
-                {((!claim.surveyorId || claim.surveyorPaid) && (!claim.technicianId || claim.workerPaid)) ? (
-                  <span className="text-[10px] font-semibold text-slate-900 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 leading-none">
-                    ✓ Đã quyết toán 100%
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-semibold text-slate-900 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 leading-none">
-                    Chờ quyết toán
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-2.5 text-xs">
-                {/* Giám sát viên */}
-                {claim.surveyorId && (
-                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {claim.surveyorAvatar ? (
-                        <img
-                          src={claim.surveyorAvatar}
-                          alt="Supervisor"
-                          className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-md bg-slate-50 text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200">
-                          {(claim.surveyorName || "S").charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-semibold text-slate-900 truncate">
-                          Giám sát: @{claim.surveyorName || "Giám sát"}
-                        </div>
-                        <div className="text-[10.5px] text-slate-500 font-mono">
-                          Thù lao: <strong className="text-slate-900">{formatMoney(claim.surveyorSalary || 100000)}</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      {claim.surveyorPaid ? (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-emerald-200 leading-none">
-                          <Check className="w-3 h-3 shrink-0" />
-                          <span>Đã quyết toán</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-amber-200 leading-none">
-                          <Clock className="w-3 h-3 shrink-0" />
-                          <span>Chưa quyết toán</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Đội thợ thi công */}
-                {claim.technicianId && (
-                  <div className="p-2.5 bg-emerald-50/40 rounded-lg border border-emerald-100 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {claim.technicianAvatar ? (
-                        <img
-                          src={claim.technicianAvatar}
-                          alt="Technician"
-                          className="w-7 h-7 rounded-md object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-md bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 border border-emerald-200">
-                          {(claim.technicianName || "T").charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-semibold text-emerald-900 truncate">
-                          Đội thợ: @{claim.technicianName || "Đội thợ"}
-                        </div>
-                        <div className="text-[10.5px] text-slate-500 font-mono">
-                          Thù lao: <strong className="text-slate-900">{formatMoney(claim.workerSalary || 200000)}</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      {claim.workerPaid ? (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-emerald-200 leading-none">
-                          <Check className="w-3 h-3 shrink-0" />
-                          <span>Đã quyết toán</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 font-semibold rounded text-[11px] flex items-center gap-1 border border-amber-200 leading-none">
-                          <Clock className="w-3 h-3 shrink-0" />
-                          <span>Chưa quyết toán</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Nút điều hướng sang Quản lý thanh toán */}
-                {(!claim.surveyorPaid || !claim.workerPaid) && (
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/admin/payments?tab=WARRANTY&search=${claim.id}`, { state: { tab: "WARRANTY", search: String(claim.id) } })}
-                    className="w-full mt-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2 text-center leading-normal"
-                  >
-                    <CreditCard className="w-4 h-4 shrink-0" />
-                    <span>Đi Đến Quản Lý Thanh Toán Để Quyết Toán VietQR</span>
-                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Card Bảng Thao Tác Bước Tiếp Theo */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 border-b border-slate-200 pb-3">
-              <Sparkles className="w-4 h-4 text-slate-900" />
-              <span>Thao Tác Xử Lý Bước Tiếp Theo</span>
+              <Sparkles className="w-4 h-4 text-slate-700" />
+              <span>Hành Động Tiếp Theo</span>
             </h3>
 
             {/* 1. Trạng thái PENDING: Phân Giám sát */}
             {claim.status === "PENDING" && (
               <div className="space-y-3">
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Khách hàng vừa gửi yêu cầu bảo hành. Admin vui lòng phân công 1 Giám Sát đến tận nơi kiểm tra hiện trường.
-                </p>
+                <div className="p-2.5 bg-amber-50 text-amber-900 rounded-lg border border-amber-200 text-xs">
+                  Khách mới gửi yêu cầu. Vui lòng gán 1 Giám Sát đến khảo sát.
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -864,7 +754,7 @@ export default function WarrantyDetail() {
                     setSurveyorNote("");
                     setAssignSurveyorModal(true);
                   }}
-                  className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-600 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs text-center leading-normal"
+                  className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <UserCheck className="w-4 h-4 shrink-0" />
                   <span>Phân Công Giám Sát Khảo Sát</span>
@@ -875,13 +765,12 @@ export default function WarrantyDetail() {
             {/* 2. Trạng thái SURVEY_ASSIGNED: Đang chờ khảo sát */}
             {claim.status === "SURVEY_ASSIGNED" && (
               <div className="space-y-3">
-                <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-1.5">
-                  <div className="font-bold flex items-center gap-1 text-slate-900">
-                    <Clock className="w-4 h-4 text-slate-900 shrink-0" />
-                    <span>Giám Sát đang đi khảo sát</span>
+                <div className="p-2.5 bg-blue-50 text-blue-900 rounded-lg border border-blue-200 text-xs space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" /> Giám sát đang thẩm định
                   </div>
-                  <p className="text-[11px] leading-relaxed text-slate-900">
-                    Giám sát <strong>{claim.surveyorName}</strong> đang đến công trình đo đạc và lập biên bản thẩm định.
+                  <p className="text-[11px] text-blue-800">
+                    Phụ trách: <strong>{claim.surveyorName}</strong>
                   </p>
                 </div>
                 <button
@@ -891,9 +780,9 @@ export default function WarrantyDetail() {
                     setSurveyorNote(claim.adminNote || "");
                     setAssignSurveyorModal(true);
                   }}
-                  className="w-full py-2 px-3 bg-slate-50 hover:bg-slate-50 text-slate-900 font-semibold rounded-lg text-xs transition cursor-pointer text-center leading-normal"
+                  className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg text-xs transition cursor-pointer"
                 >
-                  <span>Đổi Giám Sát Khác</span>
+                  Đổi Giám Sát Khác
                 </button>
               </div>
             )}
@@ -902,34 +791,26 @@ export default function WarrantyDetail() {
             {claim.status === "SURVEYED" && (
               <div className="space-y-3">
                 {claim.faultType === "COMPANY_FAULT" ? (
-                  <div className="space-y-3">
-                    <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-1">
-                      <div className="font-bold text-slate-900">✓ Giám sát xác nhận Lỗi Kỹ Thuật (0đ)</div>
-                      <p className="text-[11px] text-slate-900">
-                        Vật tư dặm vá đã được Giám sát chuẩn bị. Admin duyệt và phân Đội Thợ đến khắc phục.
-                      </p>
+                  <>
+                    <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-lg border border-emerald-200 text-xs">
+                      ✓ Đã xác nhận <strong>Lỗi Kỹ Thuật (0đ)</strong>. Duyệt phân thợ dặm vá.
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedTechnicianId("");
-                        setTechnicianNote("");
-                        setAssignTechnicianModal(true);
-                      }}
-                      className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-600 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs text-center leading-normal"
+                      onClick={() => openAssignTechnicianModal("", "")}
+                      className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                     >
                       <Wrench className="w-4 h-4 shrink-0" />
                       <span>Duyệt &amp; Phân Đội Thợ Khắc Phục</span>
                     </button>
-                  </div>
+                  </>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-1">
-                      <div className="font-bold text-slate-900">⚠ Giám sát thẩm định Lỗi Khách Quan</div>
-                      <p className="text-[11px] text-slate-900">
-                        Sự cố do ngoại lực / thấm tường ngoài phạm vi bảo hành. Giá đề xuất hỗ trợ:{" "}
-                        <strong>{formatMoney(claim.suggestedPrice || 0)}</strong>.
-                      </p>
+                  <>
+                    <div className="p-2.5 bg-purple-50 text-purple-900 rounded-lg border border-purple-200 text-xs space-y-1">
+                      <div>⚠ Thẩm định <strong>Lỗi Khách Quan</strong></div>
+                      <div className="text-[11px] text-purple-800">
+                        Giá đề xuất: <strong>{formatMoney(claim.suggestedPrice || 0)}</strong>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -938,143 +819,115 @@ export default function WarrantyDetail() {
                         setRejectReason(claim.surveyNote || "");
                         setRejectModal(true);
                       }}
-                      className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-600 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs text-center leading-normal"
+                      className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                     >
                       <Send className="w-4 h-4 shrink-0" />
-                      <span>Gửi Báo Giá Hỗ Trợ &amp; Từ Chối Bảo Hành</span>
+                      <span>Gửi Báo Giá Sửa Chữa Hỗ Trợ</span>
                     </button>
-                  </div>
+                  </>
                 )}
               </div>
             )}
 
             {/* 3b. Trạng thái CUSTOMER_ACCEPTED_SUPPORT */}
             {claim.status === "CUSTOMER_ACCEPTED_SUPPORT" && (
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-3 shadow-xs">
-                <div className="font-bold flex items-center gap-1.5 text-slate-900 text-xs uppercase">
-                  <Sparkles className="w-4 h-4 text-slate-900 shrink-0" />
-                  <span>Khách Hàng Đã Đồng Ý Giá Sửa Chữa Hỗ Trợ</span>
-                </div>
-                <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5 text-[11px]">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Mức giá hỗ trợ đã chốt:</span>
-                    <strong className="text-slate-900 font-bold text-xs font-mono">{formatMoney(claim.finalSupportPrice || 0)}</strong>
+              <div className="space-y-3">
+                <div className="p-2.5 bg-emerald-50 text-emerald-900 rounded-lg border border-emerald-200 text-xs space-y-1">
+                  <div className="font-bold flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" /> Khách đã đồng ý báo giá hỗ trợ
                   </div>
-                  {claim.preferredDate && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Lịch khách chọn thi công:</span>
-                      <strong className="text-slate-900 font-bold">{claim.preferredDate} {claim.preferredTime ? `(${claim.preferredTime})` : ""}</strong>
-                    </div>
-                  )}
-                  <p className="text-slate-500 italic pt-1 border-t border-slate-200">
-                    Vui lòng phân công Đội thợ (ưu tiên thợ cũ) đến khắc phục theo lịch hẹn của khách.
-                  </p>
+                  <div className="text-[11px] text-emerald-800 font-mono">
+                    Giá chốt: <strong>{formatMoney(claim.finalSupportPrice || 0)}</strong>
+                  </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedTechnicianId(claim.technicianId ? String(claim.technicianId) : "");
-                    setTechnicianNote(claim.materialNote || "");
-                    setAssignTechnicianModal(true);
-                  }}
-                  className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-600 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs text-center leading-normal"
+                  onClick={() => openAssignTechnicianModal(claim.technicianId ? String(claim.technicianId) : "", claim.materialNote || "")}
+                  className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Wrench className="w-4 h-4 shrink-0" />
-                  <span>Phân Công Đội Thợ Khắc Phục Ngay</span>
+                  <span>Phân Công Đội Thợ Khắc Phục</span>
                 </button>
               </div>
             )}
 
             {/* 3c. Trạng thái TECHNICIAN_REJECTED */}
             {claim.status === "TECHNICIAN_REJECTED" && (
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-3 shadow-xs">
-                <div className="font-bold flex items-center gap-1.5 text-slate-900 text-xs uppercase">
-                  <AlertTriangle className="w-4 h-4 text-slate-500 shrink-0" />
-                  <span>Thợ Thi Công Đã Từ Chối Nhận Việc</span>
-                </div>
-                <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5 text-[11px]">
-                  <p className="text-slate-900 leading-relaxed font-medium">
-                    {claim.adminNote || "Thợ được phân công trước đó đã từ chối nhận việc do bận lịch hoặc lý do đột xuất."}
-                  </p>
-                  <p className="text-slate-500 italic pt-1 border-t border-slate-200">
-                    Vui lòng chọn Đội thợ khác để tiếp tục tiến trình xử lý cho khách.
+              <div className="space-y-3">
+                <div className="p-2.5 bg-red-50 text-red-900 rounded-lg border border-red-200 text-xs">
+                  <div className="font-bold flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Thợ đã từ chối việc
+                  </div>
+                  <p className="text-[11px] text-red-700 mt-0.5">
+                    {claim.adminNote || "Thợ bận lịch đột xuất. Vui lòng phân thợ khác."}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedTechnicianId("");
-                    setTechnicianNote(claim.materialNote || "");
-                    setAssignTechnicianModal(true);
-                  }}
-                  className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-600 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs text-center leading-normal"
+                  onClick={() => openAssignTechnicianModal("", claim.materialNote || "")}
+                  className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Wrench className="w-4 h-4 shrink-0" />
-                  <span>Phân Công Đội Thợ Khác Ngay</span>
+                  <span>Phân Công Đội Thợ Khác</span>
                 </button>
               </div>
             )}
 
             {/* 4. Trạng thái WORKER_ASSIGNED / IN_PROGRESS / ACCEPTED */}
             {(claim.status === "WORKER_ASSIGNED" || claim.status === "IN_PROGRESS" || claim.status === "ACCEPTED") && (
-              <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="font-bold flex items-center gap-1.5 text-slate-900">
-                    <Wrench className="w-4 h-4 text-slate-900 animate-spin shrink-0" />
-                    <span>{claim.status === "ACCEPTED" ? "Đã Giao Việc Cho Thợ" : "Đội Thợ Đang Thi Công"}</span>
+              <div className="space-y-3">
+                <div className="p-2.5 bg-blue-50 text-blue-900 rounded-lg border border-blue-200 text-xs space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Wrench className="w-3.5 h-3.5 text-blue-600" />
+                    <span>{claim.status === "ACCEPTED" ? "Đã giao việc cho thợ" : "Đang thi công dặm vá"}</span>
                   </div>
-                  {claim.status === "ACCEPTED" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTechnicianId(claim.technicianId ? String(claim.technicianId) : "");
-                        setTechnicianNote(claim.materialNote || "");
-                        setAssignTechnicianModal(true);
-                      }}
-                      className="text-[11px] text-slate-900 font-semibold hover:underline cursor-pointer flex items-center gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3 shrink-0" />
-                      <span>Đổi thợ khác</span>
-                    </button>
-                  )}
+                  <p className="text-[11px] text-blue-800">
+                    Đội thợ: <strong>{claim.technicianName}</strong>
+                  </p>
                 </div>
-                <p className="text-[11px] leading-relaxed text-slate-900">
-                  Thợ (<strong>{claim.technicianName}</strong>) đang chuẩn bị / thi công dặm vá hoàn thiện. Thợ xong sẽ bấm 1-click báo hoàn thành.
-                </p>
+                {claim.status === "ACCEPTED" && (
+                  <button
+                    type="button"
+                    onClick={() => openAssignTechnicianModal(claim.technicianId ? String(claim.technicianId) : "", claim.materialNote || "")}
+                    className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg text-xs transition cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Đổi Đội Thợ Khác</span>
+                  </button>
+                )}
               </div>
             )}
 
             {/* 5. Trạng thái WORKER_COMPLETED */}
             {claim.status === "WORKER_COMPLETED" && (
-              <div className="p-3.5 bg-orange-50 rounded-lg border border-orange-200 text-orange-950 text-xs space-y-2">
-                <div className="font-bold flex items-center gap-1.5 text-orange-900">
-                  <Award className="w-4 h-4 text-orange-600 shrink-0" />
-                  <span>Thợ Đã Làm Xong - Chờ Giám Sát Nghiệm Thu</span>
+              <div className="p-3 bg-orange-50 text-orange-950 rounded-lg border border-orange-200 text-xs space-y-1">
+                <div className="font-bold flex items-center gap-1 text-orange-900">
+                  <Award className="w-4 h-4 text-orange-600" />
+                  <span>Thợ đã báo xong — Chờ nghiệm thu</span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-orange-800">
-                  Giám sát (<strong>{claim.surveyorName}</strong>) đang đến hiện trường kiểm tra chất lượng màng sơn cùng khách hàng và chụp ảnh nghiệm thu.
+                <p className="text-[11px] text-orange-800">
+                  Giám sát {claim.surveyorName} sẽ kiểm tra hiện trường và nghiệm thu cùng khách.
                 </p>
               </div>
             )}
 
             {/* 6. Trạng thái COMPLETED */}
             {claim.status === "COMPLETED" && (
-              <div className="p-3.5 bg-slate-50 text-slate-900 rounded-lg border border-slate-200 text-xs font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-slate-500 shrink-0" />
-                <span>Công trình bảo hành đã nghiệm thu hoàn tất đạt chuẩn chất lượng</span>
+              <div className="p-3 bg-emerald-50 text-emerald-900 rounded-lg border border-emerald-200 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Đã nghiệm thu hoàn tất đạt chuẩn</span>
               </div>
             )}
 
             {/* 7. Trạng thái REJECTED */}
             {claim.status === "REJECTED" && (
-              <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-2">
-                <div className="font-bold flex items-center gap-1.5 text-slate-900">
-                  <XCircle className="w-4 h-4 text-slate-500" />
-                  <span>Đã Gửi Báo Giá Hỗ Trợ (Chờ Khách Phản Hồi)</span>
+              <div className="p-3 bg-slate-50 text-slate-800 rounded-lg border border-slate-200 text-xs space-y-1">
+                <div className="font-bold flex items-center gap-1">
+                  <XCircle className="w-4 h-4 text-slate-500" /> Đã gửi báo giá hỗ trợ
                 </div>
                 {claim.finalSupportPrice && Number(claim.finalSupportPrice) > 0 && (
-                  <p className="text-[11px] text-slate-900 leading-relaxed">
-                    Mức giá hỗ trợ đã báo khách: <strong>{formatMoney(claim.finalSupportPrice)}</strong>. Đang chờ khách hàng bấm Đồng ý hoặc Từ chối trên ứng dụng.
+                  <p className="text-[11px] text-slate-600">
+                    Mức giá: <strong>{formatMoney(claim.finalSupportPrice)}</strong> (Chờ khách phản hồi)
                   </p>
                 )}
               </div>
@@ -1082,13 +935,140 @@ export default function WarrantyDetail() {
 
             {/* 8. Trạng thái CANCELLED */}
             {claim.status === "CANCELLED" && (
-              <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-900 text-xs space-y-1">
-                <div className="font-bold text-slate-900">Đã Hủy / Đóng Phiếu Bảo Hành</div>
-                <p className="text-[11px] text-slate-500">
-                  Khách hàng đã từ chối báo giá sửa chữa hỗ trợ hoặc đơn bị hủy bởi ban quản trị.
-                </p>
+              <div className="p-3 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 text-xs font-semibold">
+                Phiếu bảo hành đã hủy / đóng.
               </div>
             )}
+          </div>
+
+          {/* Card 2: HỢP NHẤT Nhân Sự & Quyết Toán Thù Lao (Không bị lặp) */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-3.5">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Layers className="w-4 h-4 text-slate-700" />
+                <span>Nhân Sự &amp; Thù Lao</span>
+              </h3>
+              {(claim.surveyorId || claim.technicianId) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditWorkerSalary(String(worAmt));
+                    setEditSurveyorSalary(String(surAmt));
+                    setEditSalaryModal(true);
+                  }}
+                  className="px-2 py-0.5 text-[10.5px] font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition cursor-pointer flex items-center gap-1 leading-none"
+                  title="Chỉnh sửa số tiền công thợ / giám sát"
+                >
+                  <Pencil className="w-2.5 h-2.5" />
+                  <span>Sửa tiền công</span>
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              {/* Giám sát */}
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10.5px] font-bold text-slate-500 uppercase">Giám Sát Khảo Sát</span>
+                  {claim.surveyorId ? (
+                    claim.surveyorPaid || surAmt === 0 ? (
+                      <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-800 font-bold rounded text-[10px] border border-emerald-200">
+                        {surAmt === 0 ? "Trách nhiệm (0đ)" : "✓ Đã chi"}
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.2 bg-amber-50 text-amber-800 font-bold rounded text-[10px] border border-amber-200">
+                        Chờ quyết toán
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[10px] text-slate-400 italic">Chưa phân</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-0.5">
+                  <div className="font-bold text-slate-900 text-xs">
+                    {claim.surveyorName || "Chưa phân công"}
+                  </div>
+                  {claim.surveyorPhone && (
+                    <a
+                      href={`tel:${claim.surveyorPhone}`}
+                      className="text-[11px] text-blue-700 hover:underline flex items-center gap-0.5"
+                    >
+                      <Phone className="w-2.5 h-2.5" />
+                      <span>{claim.surveyorPhone}</span>
+                    </a>
+                  )}
+                </div>
+
+                {claim.surveyorId && (
+                  <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-200/80 font-mono">
+                    <span className="text-slate-500 font-sans">Thù lao:</span>
+                    <span className="font-bold text-slate-900">
+                      {formatMoney(surAmt)}
+                      <span className="text-[10px] text-slate-500 font-sans font-normal ml-1">({surveyorDesc})</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Đội thợ */}
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10.5px] font-bold text-slate-500 uppercase">Đội Thợ Thi Công</span>
+                  {claim.technicianId ? (
+                    claim.workerPaid || worAmt === 0 ? (
+                      <span className="px-1.5 py-0.2 bg-emerald-50 text-emerald-800 font-bold rounded text-[10px] border border-emerald-200">
+                        {worAmt === 0 ? "Trách nhiệm (0đ)" : "✓ Đã chi"}
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.2 bg-amber-50 text-amber-800 font-bold rounded text-[10px] border border-amber-200">
+                        Chờ quyết toán
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[10px] text-slate-400 italic">Chưa phân</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-0.5">
+                  <div className="font-bold text-slate-900 text-xs">
+                    {claim.technicianName || "Chưa phân công"}
+                  </div>
+                  {claim.technicianPhone && (
+                    <a
+                      href={`tel:${claim.technicianPhone}`}
+                      className="text-[11px] text-blue-700 hover:underline flex items-center gap-0.5"
+                    >
+                      <Phone className="w-2.5 h-2.5" />
+                      <span>{claim.technicianPhone}</span>
+                    </a>
+                  )}
+                </div>
+
+                {claim.technicianId && (
+                  <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-slate-200/80 font-mono">
+                    <span className="text-slate-500 font-sans">Tiền công:</span>
+                    <span className="font-bold text-slate-900">
+                      {formatMoney(worAmt)}
+                      <span className="text-[10px] text-slate-500 font-sans font-normal ml-1">({workerDesc})</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Nút VietQR Payout (chỉ khi hoàn tất và còn người chưa nhận > 0đ) */}
+              {claim.status === "COMPLETED" && ((claim.surveyorId && !claim.surveyorPaid && surAmt > 0) || (claim.technicianId && !claim.workerPaid && worAmt > 0)) && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/payments?tab=WARRANTY&search=${claim.id}`, { state: { tab: "WARRANTY", search: String(claim.id) } })}
+                  className="w-full mt-2 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-2"
+                >
+                  <CreditCard className="w-4 h-4 shrink-0" />
+                  <span>Quyết Toán VietQR Cho Nhân Sự</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1127,6 +1107,8 @@ export default function WarrantyDetail() {
         setSelectedTechnicianId={setSelectedTechnicianId}
         technicianNote={technicianNote}
         setTechnicianNote={setTechnicianNote}
+        workerSalary={workerSalary}
+        setWorkerSalary={setWorkerSalary}
         techTab={techTab}
         setTechTab={setTechTab}
         techSearch={techSearch}
@@ -1149,6 +1131,115 @@ export default function WarrantyDetail() {
         submittingReject={submittingReject}
         handleRejectSubmit={handleRejectSubmit}
       />
+
+      {/* Modal Chỉnh Sửa Tiền Công Nhân Sự */}
+      {editSalaryModal && (
+        <Modal
+          isOpen={editSalaryModal}
+          onClose={() => setEditSalaryModal(false)}
+          title={`Chỉnh Sửa Tiền Công Bảo Hành #${claim.id}`}
+          maxWidth="max-w-md"
+        >
+          <form onSubmit={handleUpdateSalariesSubmit} className="space-y-4 text-xs">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+              <div className="font-bold text-slate-900">Điều Chỉnh Mức Thù Lao Trực Tiếp</div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Số tiền bạn nhập dưới đây sẽ được lưu chính thức vào hồ sơ bảo hành và áp dụng cho việc đối soát, quét mã VietQR.
+              </p>
+            </div>
+
+            {claim.technicianId && (
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-900">
+                  Tiền công Đội thợ (@{claim.technicianName || "Đội thợ"}) (VNĐ):
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    step="10000"
+                    value={editWorkerSalary}
+                    onChange={(e) => setEditWorkerSalary(e.target.value)}
+                    className="w-full pl-3 pr-12 py-2 bg-white rounded-lg border border-slate-300 font-bold font-mono text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">
+                    VNĐ
+                  </span>
+                </div>
+                {claimSupportPrice > 0 && (
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <span className="text-[10.5px] text-slate-500">Gợi ý từ phí khách ({formatMoney(claimSupportPrice)}):</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditWorkerSalary(String(Math.round(claimSupportPrice * 0.6)))}
+                      className="px-2 py-0.5 text-[10.5px] font-semibold bg-slate-100 hover:bg-slate-200 rounded text-slate-700"
+                    >
+                      60% ({formatMoney(Math.round(claimSupportPrice * 0.6))})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditWorkerSalary(String(Math.round(claimSupportPrice * 0.7)))}
+                      className="px-2 py-0.5 text-[10.5px] font-semibold bg-slate-100 hover:bg-slate-200 rounded text-slate-700"
+                    >
+                      70%
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {claim.surveyorId && (
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-900">
+                  Thù lao Giám sát (@{claim.surveyorName || "Giám sát"}) (VNĐ):
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    step="10000"
+                    value={editSurveyorSalary}
+                    onChange={(e) => setEditSurveyorSalary(e.target.value)}
+                    className="w-full pl-3 pr-12 py-2 bg-white rounded-lg border border-slate-300 font-bold font-mono text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">
+                    VNĐ
+                  </span>
+                </div>
+                {claimSupportPrice > 0 && (
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <span className="text-[10.5px] text-slate-500">Gợi ý từ phí khách ({formatMoney(claimSupportPrice)}):</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditSurveyorSalary(String(Math.round(claimSupportPrice * 0.1)))}
+                      className="px-2 py-0.5 text-[10.5px] font-semibold bg-slate-100 hover:bg-slate-200 rounded text-slate-700"
+                    >
+                      10% ({formatMoney(Math.round(claimSupportPrice * 0.1))})
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setEditSalaryModal(false)}
+                className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg transition cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submittingEditSalary}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {submittingEditSalary ? "Đang lưu..." : "Lưu Tiền Công"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Lightbox Preview */}
       {previewImage && (

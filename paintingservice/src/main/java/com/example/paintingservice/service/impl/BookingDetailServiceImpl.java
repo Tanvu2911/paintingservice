@@ -6,6 +6,7 @@ import com.example.paintingservice.entity.BookingDetail;
 import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.User;
 import com.example.paintingservice.enums.BookingStatus;
+import com.example.paintingservice.enums.PaymentStatus;
 import com.example.paintingservice.mapper.BookingDetailMapper;
 import com.example.paintingservice.repository.BookingDetailRepository;
 import com.example.paintingservice.repository.BookingRepository;
@@ -187,9 +188,13 @@ public class BookingDetailServiceImpl implements BookingDetailService {
     private void completeBookingWhenAllDetailsAccepted(Booking booking) {
         List<BookingDetail> details = bookingDetailRepository.findByBookingIdOrderByCreatedAtAsc(booking.getId());
         if (!details.isEmpty() && details.stream().allMatch(detail -> Boolean.TRUE.equals(detail.getSupervisorAccepted()) && Boolean.TRUE.equals(detail.getCustomerAccepted()))) {
-            booking.setStatus(BookingStatus.COMPLETED);
-            if (booking.getCompletedAt() == null) {
-                booking.setCompletedAt(LocalDateTime.now());
+            if (booking.getPaymentStatus() == PaymentStatus.FULLY_PAID) {
+                booking.setStatus(BookingStatus.COMPLETED);
+                if (booking.getCompletedAt() == null) {
+                    booking.setCompletedAt(LocalDateTime.now());
+                }
+            } else {
+                booking.setStatus(BookingStatus.WAITING_FINAL_PAYMENT);
             }
             bookingRepository.save(booking);
         }

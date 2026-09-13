@@ -52,19 +52,12 @@ export default function OrderActionBanner({
   if (role === "customer") {
     if (s === "SURVEY_REJECTED") {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-rose-500/30">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0">
-              <RotateCcw className="w-6 h-6 text-rose-400" />
-            </div>
+        <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <RotateCcw className="w-5 h-5 text-rose-600 shrink-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-rose-500/30 text-rose-200 px-2.5 py-0.5 rounded-full border border-rose-400/30">
-                Đang điều phối lại
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Hệ thống đang sắp xếp chuyên viên khảo sát mới cho bạn
-              </h3>
-              <p className="text-xs text-rose-200/80 mt-1 leading-relaxed max-w-2xl">
+              <h4 className="font-bold text-slate-900 text-sm">Đang phân công chuyên viên khảo sát mới</h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
                 Chuyên viên khảo sát trước đó bận lịch đột xuất. Đội ngũ quản trị đang phân công chuyên viên khác để đảm bảo đúng lịch hẹn của bạn.
               </p>
             </div>
@@ -75,20 +68,13 @@ export default function OrderActionBanner({
 
     if (s === "WORKER_REJECTED") {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-rose-500/30">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0">
-              <RotateCcw className="w-6 h-6 text-rose-400" />
-            </div>
+        <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <RotateCcw className="w-5 h-5 text-rose-600 shrink-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-rose-500/30 text-rose-200 px-2.5 py-0.5 rounded-full border border-rose-400/30">
-                Đang điều phối thợ
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Hệ thống đang phân công đội thợ thi công mới
-              </h3>
-              <p className="text-xs text-rose-200/80 mt-1 leading-relaxed max-w-2xl">
-                Đơn vị thi công đang phân bổ đội thợ tay nghề cao khác để kịp tiến độ công trình cho bạn.
+              <h4 className="font-bold text-slate-900 text-sm">Đang phân bổ đội thợ thi công mới</h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Đơn vị thi công đang phân bổ đội thợ tay nghề cao khác để đảm bảo tiến độ công trình cho bạn.
               </p>
             </div>
           </div>
@@ -98,53 +84,36 @@ export default function OrderActionBanner({
 
     if (["PENDING", "SURVEY_ASSIGNED", "ACCEPTED"].includes(s)) {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-800">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-              <Search className="w-6 h-6 text-slate-300" />
-            </div>
+        <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <Search className="w-5 h-5 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-blue-500/30 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-400/30">
-                Bước 1: Khảo sát hiện trạng
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Giám sát viên đang chuẩn bị khảo sát tại công trình
-              </h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
-                Chuyên viên khảo sát sẽ liên hệ số điện thoại của bạn và đến đo đạc thực tế vào lúc{" "}
-                <strong className="text-white font-bold">{booking.appointmentTime || "08:00"} ngày {formatDate(booking.appointmentDate)}</strong>.
+              <h4 className="font-bold text-slate-900 text-sm">Chuyên viên đang chuẩn bị khảo sát tại công trình</h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Lịch hẹn: <strong className="text-slate-900 font-semibold">{booking.appointmentTime || "08:00"} ngày {formatDate(booking.appointmentDate)}</strong>. Khảo sát và tư vấn phương án hoàn toàn miễn phí.
               </p>
             </div>
           </div>
-          <div className="shrink-0 flex items-center gap-2">
-            <a
-              href="tel:19006868"
-              className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs transition border border-white/20 flex items-center gap-1.5"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Tổng đài 1900 6868</span>
-            </a>
-          </div>
+          <a
+            href="tel:19006868"
+            className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs transition border border-slate-200 flex items-center gap-1.5 shrink-0"
+          >
+            <Phone className="w-3.5 h-3.5 text-slate-500" />
+            <span>Tổng đài 1900 6868</span>
+          </a>
         </div>
       );
     }
 
     if (s === "WAITING_ADMIN_QUOTE") {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-800">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-              <FileText className="w-6 h-6 text-slate-300" />
-            </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-blue-600 shrink-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-sky-500/30 text-sky-200 px-2.5 py-0.5 rounded-full border border-sky-400/30">
-                Bước 2: Chờ lập báo giá
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Giám sát đã nộp báo cáo khảo sát - Admin đang lập dự toán
-              </h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
-                Báo cáo đo đạc thực tế đã được tiếp nhận. Đội ngũ kỹ thuật đang bóc tách khối lượng và thiết lập bảng giá ưu đãi kèm hợp đồng cho bạn.
+              <h4 className="font-bold text-slate-900 text-sm">Đã tiếp nhận số liệu đo đạc - Admin đang lập dự toán</h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Báo cáo hiện trường đã được nộp. Đội ngũ kỹ thuật đang bóc tách khối lượng và thiết lập bảng giá kèm hợp đồng điện tử cho bạn.
               </p>
             </div>
           </div>
@@ -154,31 +123,15 @@ export default function OrderActionBanner({
 
     if (s === "CANCELLED") {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-rose-500/30">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-6 h-6 text-rose-400" />
-            </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-slate-400 shrink-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-rose-500/30 text-rose-200 px-2.5 py-0.5 rounded-full border border-rose-400/30">
-                Đơn hàng đã hủy
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Yêu cầu này đã được hủy bỏ
-              </h3>
-              <p className="text-xs text-rose-200/80 mt-1 leading-relaxed max-w-2xl">
-                Đơn hàng đã kết thúc quy trình do hủy yêu cầu hoặc từ chối báo giá. Nếu bạn cần hỗ trợ hoặc muốn đặt dịch vụ mới, vui lòng liên hệ hotline hoặc tạo yêu cầu mới.
+              <h4 className="font-bold text-slate-800 text-sm">Yêu cầu công trình này đã kết thúc / Hủy bỏ</h4>
+              <p className="text-slate-500 mt-0.5 leading-relaxed">
+                Nếu bạn cần hỗ trợ hoặc muốn đặt dịch vụ mới, vui lòng liên hệ hotline hoặc tạo yêu cầu mới.
               </p>
             </div>
-          </div>
-          <div className="shrink-0 flex items-center gap-2">
-            <a
-              href="tel:19006868"
-              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs transition border border-white/20 flex items-center gap-1.5"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Hotline 1900 6868</span>
-            </a>
           </div>
         </div>
       );
@@ -190,179 +143,83 @@ export default function OrderActionBanner({
 
       if (hasNegotiation) {
         return (
-          <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md space-y-4 ring-2 ring-amber-500/50">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-400/30">
-                  <MessageSquare className="w-6 h-6 text-amber-400" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                      ⏳ Đang Chờ Admin Phản Hồi
-                    </span>
-                    {negInfo.proposedPrice && (
-                      <span className="text-xs text-emerald-300 font-bold bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-md">
-                        Đề xuất: {negInfo.proposedPrice}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-base sm:text-lg font-black mt-1 text-white">
-                    Bạn Đã Gửi Đề Xuất Thương Lượng Giá
-                  </h3>
-                  <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
-                    Yêu cầu thương lượng lại mức giá của bạn đã được gửi tới Quản trị viên. Bạn có thể bấm nút bên dưới để xem lại, chỉnh sửa hoặc hủy đề xuất.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onAction?.("respond_quote")}
-                className="w-full sm:w-auto px-5 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:scale-105 duration-150"
-              >
-                <MessageSquare className="w-4 h-4 text-slate-950" />
-                <span>Xem / Sửa / Hủy Đề Xuất</span>
-              </button>
-            </div>
-
-            {/* Bảng thông số Dự Toán Thi Công gộp trực tiếp vào ô báo giá */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-800 text-xs">
-              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">Báo giá gốc từ Admin</span>
-                <span className="text-base font-black text-amber-300 block leading-tight mt-0.5">
-                  {formatMoney(total)}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Đang thương lượng</span>
-              </div>
-
-              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-                <span className="text-emerald-400 font-bold block text-[10px] uppercase">Giá bạn đề xuất</span>
-                <span className="text-base font-black text-emerald-300 block leading-tight mt-0.5">
-                  {negInfo.proposedPrice || "Chưa ghi số tiền"}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Chờ Admin phản hồi</span>
-              </div>
-
-              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">Tiền cọc (30%)</span>
-                <span className="text-base font-black text-slate-200 block leading-tight mt-0.5">
-                  {formatMoney(deposit)}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Sau khi chốt HĐ</span>
-              </div>
-
-              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">Thời gian thi công</span>
-                <span className="text-base font-black text-slate-200 block leading-tight mt-0.5 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>{booking.estimatedDays || 3} ngày</span>
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">Dự kiến</span>
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md space-y-4 ring-2 ring-amber-500/50">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-400/30">
-                <FileSignature className="w-6 h-6 text-amber-400" />
-              </div>
+          <div className="bg-slate-50 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+            <div className="flex items-start sm:items-center gap-3">
+              <MessageSquare className="w-5 h-5 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                    Hành động cần làm ngay
-                  </span>
-                  <span className="text-xs text-amber-300 font-bold">
-                    {booking.warrantyYears || 2} năm bảo hành chính hãng
-                  </span>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    Đề xuất thương lượng giá đang chờ Admin phản hồi
+                  </h4>
+                  {negInfo.proposedPrice && (
+                    <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
+                      Đề xuất: {negInfo.proposedPrice}
+                    </span>
+                  )}
                 </div>
-                <h3 className="text-base sm:text-lg font-black mt-1 text-white">
-                  Báo Giá Dịch Vụ &amp; Dự Toán Thi Công Đã Sẵn Sàng Ký Kết!
-                </h3>
-                <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
-                  Admin đã gửi bảng dự toán. Quý khách vui lòng kiểm tra các hạng mục bên dưới và bấm nút <strong className="text-amber-300 font-bold">"Phản Hồi Báo Giá"</strong> để chọn phương án (Ký HĐ / Thương lượng / Từ chối).
+                <p className="text-slate-600 mt-0.5 leading-relaxed">
+                  Báo giá gốc: <strong className="text-slate-900">{formatMoney(total)}</strong>. Bạn có thể bấm nút để xem lại, chỉnh sửa hoặc hủy đề xuất bất kỳ lúc nào.
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => onAction?.("respond_quote")}
-              className="w-full sm:w-auto px-5 py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 hover:scale-105 duration-150"
+              className="px-4 py-2.5 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
             >
-              <FileSignature className="w-4 h-4 text-slate-950" />
-              <span>Phản Hồi Báo Giá</span>
+              <MessageSquare className="w-4 h-4" />
+              <span>Xem / Sửa / Hủy Đề Xuất</span>
             </button>
           </div>
+        );
+      }
 
-          {/* Bảng thông số Dự Toán Thi Công gộp trực tiếp vào ô báo giá */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-800 text-xs">
-            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-              <span className="text-slate-400 font-bold block text-[10px] uppercase">Tổng chi phí dự toán</span>
-              <span className="text-base font-black text-amber-300 block leading-tight mt-0.5">
-                {formatMoney(total)}
-              </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">Trọn gói thi công</span>
-            </div>
-
-            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-              <span className="text-emerald-400 font-bold block text-[10px] uppercase">Tiền cọc (30%)</span>
-              <span className="text-base font-black text-emerald-300 block leading-tight mt-0.5">
-                {formatMoney(deposit)}
-              </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">Sau khi ký HĐ</span>
-            </div>
-
-            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-              <span className="text-slate-400 font-bold block text-[10px] uppercase">Còn lại (70%)</span>
-              <span className="text-base font-black text-slate-200 block leading-tight mt-0.5">
-                {formatMoney(remaining)}
-              </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">Sau nghiệm thu</span>
-            </div>
-
-            <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
-              <span className="text-slate-400 font-bold block text-[10px] uppercase">Thời gian thi công</span>
-              <span className="text-base font-black text-slate-200 block leading-tight mt-0.5 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>{booking.estimatedDays || 3} ngày</span>
-              </span>
-              <span className="text-[10px] text-slate-400 block mt-0.5">Dự kiến hoàn thành</span>
+      return (
+        <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <FileSignature className="w-5 h-5 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm">
+                Báo giá dịch vụ &amp; Dự toán thi công đã sẵn sàng ({formatMoney(total)})
+              </h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Thời gian thi công dự kiến: <strong className="text-slate-900 font-semibold">{booking.estimatedDays || 3} ngày</strong>. Bấm nút bên phải để ký hợp đồng hoặc đề xuất thương lượng.
+              </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => onAction?.("respond_quote")}
+            className="px-4 py-2.5 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+          >
+            <FileSignature className="w-4 h-4" />
+            <span>Phản Hồi Báo Giá</span>
+          </button>
         </div>
       );
     }
 
     if (s === "WAITING_DEPOSIT" && !booking.depositPaid && booking.paymentStatus !== "DEPOSIT_PAID") {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ring-2 ring-blue-500/40">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0">
-              <CreditCard className="w-6 h-6 text-blue-400" />
-            </div>
+        <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <CreditCard className="w-5 h-5 text-amber-700 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-blue-500/30 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-400/30">
-                Bước 3: Đặt cọc 30%
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Hợp đồng đã ký! Quý khách vui lòng thanh toán 30% tiền cọc
-              </h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
-                Số tiền đặt cọc cần thanh toán: <strong className="text-emerald-400 font-bold text-sm">{formatMoney(deposit)}</strong>. Sau khi hoàn tất cọc qua VNPay Sandbox, công ty sẽ phân công đội thợ thi công đúng ngày {formatDate(booking.expectedStartDate)}.
+              <h4 className="font-bold text-slate-900 text-sm">
+                Hợp đồng đã ký! Quý khách vui lòng đặt cọc 30% ({formatMoney(deposit)})
+              </h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Sau khi thanh toán cọc qua VNPay Sandbox, công ty sẽ chỉ định đội thợ thi công đúng ngày {formatDate(booking.expectedStartDate)}.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onAction?.("pay_deposit")}
-            className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl text-xs transition shrink-0 shadow-md flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
           >
-            <CreditCard className="w-4 h-4 text-white" />
-            <span>Thanh toán Cọc qua VNPay Sandbox</span>
+            <CreditCard className="w-4 h-4" />
+            <span>Thanh toán Cọc 30% (VNPay)</span>
           </button>
         </div>
       );
@@ -370,20 +227,15 @@ export default function OrderActionBanner({
 
     if (["DEPOSIT_CONFIRMED", "ASSIGNED"].includes(s)) {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-500/30">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
-              <UserCheck className="w-6 h-6 text-emerald-400" />
-            </div>
+        <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <UserCheck className="w-5 h-5 text-emerald-700 shrink-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-200 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-                Bước 4: Sẵn sàng thi công
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
+              <h4 className="font-bold text-slate-900 text-sm">
                 Đã xác nhận cọc 30% - Đội thợ đang chuẩn bị thi công
-              </h3>
-              <p className="text-xs text-emerald-100/80 mt-1 leading-relaxed max-w-2xl">
-                Hệ thống đã phân công đội thợ chuyên nghiệp {booking.technicianName ? `@${booking.technicianName}` : ""}. Đội thợ sẽ có mặt đúng ngày <strong className="text-white font-bold">{formatDate(booking.expectedStartDate)}</strong> để bắt đầu công trình.
+              </h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Đội thợ {booking.technicianName ? `@${booking.technicianName}` : ""} sẽ có mặt lúc 08:00 sáng ngày {formatDate(booking.expectedStartDate)} để bắt đầu công trình.
               </p>
             </div>
           </div>
@@ -393,20 +245,13 @@ export default function OrderActionBanner({
 
     if (s === "PROCESSING") {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-orange-500/30">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/20 text-orange-300 flex items-center justify-center shrink-0">
-              <Paintbrush className="w-6 h-6 text-orange-400" />
-            </div>
+        <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3">
+            <Paintbrush className="w-5 h-5 text-blue-600 shrink-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-orange-500/30 text-orange-200 px-2.5 py-0.5 rounded-full border border-orange-400/30">
-                Bước 4: Đang thi công sơn sửa
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Công trình đang được đội thợ tích cực triển khai
-              </h3>
-              <p className="text-xs text-orange-100/80 mt-1 leading-relaxed max-w-2xl">
-                Giám sát và đội thợ sẽ cập nhật nhật ký, tỷ lệ % hoàn thành và hình ảnh thực tế mỗi ngày bên dưới.
+              <h4 className="font-bold text-slate-900 text-sm">Công trình đang trong quá trình thi công sơn sửa</h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Giám sát và đội thợ sẽ cập nhật nhật ký, tỷ lệ % hoàn thành và hình ảnh thực tế mỗi ngày tại tab bên dưới.
               </p>
             </div>
           </div>
@@ -416,30 +261,23 @@ export default function OrderActionBanner({
 
     if (s === "WORKER_COMPLETED" && !booking.customerAccepted) {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ring-2 ring-emerald-500/40">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-            </div>
+        <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-200 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-                Bước 5: Cần bạn nghiệm thu
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Đội thợ đã báo hoàn thành - Mời quý khách nghiệm thu
-              </h3>
-              <p className="text-xs text-emerald-200/80 mt-1 leading-relaxed max-w-2xl">
-                Vui lòng kiểm tra thực tế chất lượng bề mặt sơn tại công trình. Khi hài lòng, hãy bấm nút Nghiệm thu bên dưới để chuyển sang bước tất toán.
+              <h4 className="font-bold text-slate-900 text-sm">Đội thợ đã báo hoàn thành - Mời quý khách nghiệm thu</h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Vui lòng kiểm tra thực tế chất lượng bề mặt sơn tại công trình và bấm nút Nghiệm thu để xác nhận bàn giao.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onAction?.("customer_accept")}
-            className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs transition shrink-0 shadow-md flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
           >
-            <Check className="w-4 h-4 text-slate-950" />
-            <span>Xác nhận Nghiệm thu công trình</span>
+            <Check className="w-4 h-4" />
+            <span>Xác nhận Nghiệm thu</span>
           </button>
         </div>
       );
@@ -447,30 +285,25 @@ export default function OrderActionBanner({
 
     if (s === "WAITING_FINAL_PAYMENT" || (booking.customerAccepted && !isFinalPaid)) {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ring-2 ring-amber-500/40">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
-              <CreditCard className="w-6 h-6 text-amber-400" />
-            </div>
+        <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <CreditCard className="w-5 h-5 text-blue-700 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/30 text-amber-200 px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                Bước 6: Tất toán 70% còn lại
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Đã nghiệm thu công trình đạt chuẩn - Mời tất toán 70%
-              </h3>
-              <p className="text-xs text-amber-200/80 mt-1 leading-relaxed max-w-2xl">
-                Số tiền cần thanh toán tất toán: <strong className="text-emerald-300 font-bold text-sm">{formatMoney(remaining)}</strong>. Sau khi tất toán qua VNPay Sandbox, đơn hàng sẽ hoàn tất và kích hoạt bảo hành điện tử {booking.warrantyYears || 2} năm.
+              <h4 className="font-bold text-slate-900 text-sm">
+                Đã nghiệm thu công trình đạt chuẩn - Mời tất toán 70% còn lại
+              </h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Số tiền cần thanh toán: <strong className="text-slate-900 font-semibold">{formatMoney(remaining)}</strong>. Sau khi tất toán qua VNPay Sandbox, hợp đồng bảo hành chính hãng {booking.warrantyYears || 2} năm sẽ được kích hoạt.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onAction?.("pay_final")}
-            className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs transition shrink-0 shadow-md flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
           >
-            <CreditCard className="w-4 h-4 text-slate-950" />
-            <span>Thanh toán Tất toán (70%) ngay</span>
+            <CreditCard className="w-4 h-4" />
+            <span>Tất toán 70% qua VNPay</span>
           </button>
         </div>
       );
@@ -478,48 +311,41 @@ export default function OrderActionBanner({
 
     if (["COMPLETED", "PAID_TO_STAFF"].includes(s) || isFinalPaid) {
       return (
-        <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-emerald-500/30">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-            </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-                Đơn hàng hoàn tất 100%
-              </span>
-              <h3 className="text-base font-bold mt-1 text-white">
-                Công trình đã hoàn thành xuất sắc &amp; Kích hoạt bảo hành
-              </h3>
-              <p className="text-xs text-emerald-200/80 mt-1 leading-relaxed max-w-2xl">
-                Cảm ơn quý khách đã tin tưởng Dịch Vụ Sơn Nhà 247! Hợp đồng bảo hành chính hãng {booking.warrantyYears || 2} năm có hiệu lực từ ngày hôm nay.
+              <h4 className="font-bold text-slate-900 text-sm">
+                Công trình đã hoàn thành xuất sắc &amp; Kích hoạt bảo hành chính hãng
+              </h4>
+              <p className="text-slate-600 mt-0.5 leading-relaxed">
+                Cảm ơn quý khách đã tin tưởng dịch vụ. Hợp đồng bảo hành {booking.warrantyYears || 2} năm có hiệu lực từ hôm nay.
               </p>
             </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 w-full sm:w-auto">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => onAction?.("open_review")}
-              className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl text-xs transition shadow-md flex items-center justify-center gap-2 cursor-pointer hover:scale-105 duration-150"
+              className="px-3.5 py-2 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
-              <Star className="w-4 h-4 fill-slate-950 text-slate-950" />
-              <span>{review ? `Đánh Giá Lại (${review.rating}★)` : "Đánh Giá & Góp Ý Thợ"}</span>
+              <Star className="w-3.5 h-3.5 fill-white text-white" />
+              <span>{review ? `Đánh Giá Lại (${review.rating}★)` : "Đánh Giá Thợ"}</span>
             </button>
             {contract && (
               <button
                 type="button"
                 onClick={() => onAction?.("export_pdf")}
-                className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl text-xs transition border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+                className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs transition border border-slate-200 flex items-center gap-1.5 cursor-pointer"
               >
-                <Printer className="w-4 h-4 text-white" />
+                <Printer className="w-3.5 h-3.5 text-slate-500" />
                 <span>Xuất File PDF</span>
               </button>
             )}
           </div>
-
         </div>
       );
     }
-
   }
 
   /* ========================================================================= */

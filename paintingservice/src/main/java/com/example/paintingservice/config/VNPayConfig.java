@@ -9,7 +9,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
+// import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Configuration
@@ -22,10 +22,10 @@ public class VNPayConfig {
     @Value("${vnpay.return-url:http://localhost:5173/customer/payment-callback}")
     private String vnp_ReturnUrl;
 
-    @Value("${vnpay.tmn-code:GMVORR6R}")
+    @Value("${vnpay.tmn-code:}")
     private String vnp_TmnCode;
 
-    @Value("${vnpay.hash-secret:BJDYNDEQQIDCYXRWYVMNPDRVCMZVSPUK}")
+    @Value("${vnpay.hash-secret:}")
     private String secretKey;
 
     public static final String vnp_Version = "2.1.0";

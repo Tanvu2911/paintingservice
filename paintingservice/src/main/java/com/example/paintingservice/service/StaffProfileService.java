@@ -1,15 +1,15 @@
 package com.example.paintingservice.service;
 
+import com.example.paintingservice.dto.FormerStaffDto;
 import com.example.paintingservice.dto.StaffProfileDto;
 import com.example.paintingservice.entity.Booking;
-import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.Role;
 import com.example.paintingservice.entity.StaffProfile;
 import com.example.paintingservice.entity.User;
-import com.example.paintingservice.enums.BookingStatus;
 import com.example.paintingservice.enums.StaffType;
 import com.example.paintingservice.enums.UserStatus;
 import com.example.paintingservice.mapper.StaffProfileMapper;
+import com.example.paintingservice.repository.BookingRepository;
 import com.example.paintingservice.repository.RoleRepository;
 import com.example.paintingservice.repository.StaffProfileRepository;
 import com.example.paintingservice.repository.UserRepository;
@@ -18,9 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +30,7 @@ public class StaffProfileService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
     private final CloudinaryService cloudinaryService;
+    private final BookingRepository bookingRepository;
 
     public List<StaffProfile> findAll() {
         return repository.findAll();
@@ -89,10 +88,14 @@ public class StaffProfileService {
         User currentUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User không tồn tại: " + username));
 
-        if (dto.getEmail() != null) currentUser.setEmail(dto.getEmail());
-        if (dto.getPhoneNumber() != null) currentUser.setPhoneNumber(dto.getPhoneNumber());
-        if (dto.getAddress() != null) currentUser.setAddress(dto.getAddress());
-        if (dto.getAvatar() != null) currentUser.setAvatar(dto.getAvatar());
+        if (dto.getEmail() != null)
+            currentUser.setEmail(dto.getEmail());
+        if (dto.getPhoneNumber() != null)
+            currentUser.setPhoneNumber(dto.getPhoneNumber());
+        if (dto.getAddress() != null)
+            currentUser.setAddress(dto.getAddress());
+        if (dto.getAvatar() != null)
+            currentUser.setAvatar(dto.getAvatar());
         userRepository.save(currentUser);
 
         StaffProfile profile = repository.findByUser_Id(currentUser.getId())
@@ -105,13 +108,20 @@ public class StaffProfileService {
                     return p;
                 });
 
-        if (dto.getSpecialty() != null) profile.setSpecialty(dto.getSpecialty());
-        if (dto.getExperienceYears() != null) profile.setExperienceYears(dto.getExperienceYears());
-        if (dto.getAvailable() != null) profile.setAvailable(dto.getAvailable());
-        if (dto.getServiceArea() != null) profile.setServiceArea(dto.getServiceArea());
-        if (dto.getBankName() != null) profile.setBankName(dto.getBankName());
-        if (dto.getBankAccountNumber() != null) profile.setBankAccountNumber(dto.getBankAccountNumber());
-        if (dto.getBankAccountName() != null) profile.setBankAccountName(dto.getBankAccountName());
+        if (dto.getSpecialty() != null)
+            profile.setSpecialty(dto.getSpecialty());
+        if (dto.getExperienceYears() != null)
+            profile.setExperienceYears(dto.getExperienceYears());
+        if (dto.getAvailable() != null)
+            profile.setAvailable(dto.getAvailable());
+        if (dto.getServiceArea() != null)
+            profile.setServiceArea(dto.getServiceArea());
+        if (dto.getBankName() != null)
+            profile.setBankName(dto.getBankName());
+        if (dto.getBankAccountNumber() != null)
+            profile.setBankAccountNumber(dto.getBankAccountNumber());
+        if (dto.getBankAccountName() != null)
+            profile.setBankAccountName(dto.getBankAccountName());
 
         StaffProfile saved = repository.save(profile);
         return StaffProfileMapper.toDto(saved);
@@ -168,28 +178,41 @@ public class StaffProfileService {
         User user = profile.getUser();
 
         if (user != null) {
-            if (dto.getEmail() != null) user.setEmail(dto.getEmail());
-            if (dto.getPhoneNumber() != null) user.setPhoneNumber(dto.getPhoneNumber());
-            if (dto.getAddress() != null) user.setAddress(dto.getAddress());
-            if (dto.getAvatar() != null) user.setAvatar(dto.getAvatar());
+            if (dto.getEmail() != null)
+                user.setEmail(dto.getEmail());
+            if (dto.getPhoneNumber() != null)
+                user.setPhoneNumber(dto.getPhoneNumber());
+            if (dto.getAddress() != null)
+                user.setAddress(dto.getAddress());
+            if (dto.getAvatar() != null)
+                user.setAvatar(dto.getAvatar());
             if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
                 user.setPassword(passwordEncoder.encode(dto.getPassword()));
             }
             userRepository.save(user);
         }
 
-        if (dto.getSpecialty() != null) profile.setSpecialty(dto.getSpecialty());
-        if (dto.getExperienceYears() != null) profile.setExperienceYears(dto.getExperienceYears());
-        if (dto.getAvailable() != null) profile.setAvailable(dto.getAvailable());
-        if (dto.getStaffType() != null) profile.setStaffType(dto.getStaffType());
-        if (dto.getServiceArea() != null) profile.setServiceArea(dto.getServiceArea());
-        if (dto.getBankName() != null) profile.setBankName(dto.getBankName());
-        if (dto.getBankAccountNumber() != null) profile.setBankAccountNumber(dto.getBankAccountNumber());
-        if (dto.getBankAccountName() != null) profile.setBankAccountName(dto.getBankAccountName());
+        if (dto.getSpecialty() != null)
+            profile.setSpecialty(dto.getSpecialty());
+        if (dto.getExperienceYears() != null)
+            profile.setExperienceYears(dto.getExperienceYears());
+        if (dto.getAvailable() != null)
+            profile.setAvailable(dto.getAvailable());
+        if (dto.getStaffType() != null)
+            profile.setStaffType(dto.getStaffType());
+        if (dto.getServiceArea() != null)
+            profile.setServiceArea(dto.getServiceArea());
+        if (dto.getBankName() != null)
+            profile.setBankName(dto.getBankName());
+        if (dto.getBankAccountNumber() != null)
+            profile.setBankAccountNumber(dto.getBankAccountNumber());
+        if (dto.getBankAccountName() != null)
+            profile.setBankAccountName(dto.getBankAccountName());
 
         StaffProfile updatedProfile = repository.save(profile);
         dto.setId(updatedProfile.getId());
-        if (user != null) dto.setUserId(user.getId());
+        if (user != null)
+            dto.setUserId(user.getId());
         dto.setPassword(null);
 
         return dto;
@@ -238,5 +261,133 @@ public class StaffProfileService {
         if (user != null) {
             userRepository.delete(user);
         }
+    }
+
+    /**
+     * Lấy danh sách Giám sát viên cũ đã từng phụ trách các đơn hàng của khách hàng này.
+     */
+    public List<FormerStaffDto> getFormerSupervisorsForCustomer(String username) {
+        User customer = userRepository.findByUsername(username).orElse(null);
+        if (customer == null) {
+            return Collections.emptyList();
+        }
+
+        List<Booking> bookings = bookingRepository.findAllByCustomer_Id(customer.getId());
+        if (bookings == null || bookings.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Nhóm các đơn theo Giám sát viên
+        Map<Long, List<Booking>> supervisorBookings = new LinkedHashMap<>();
+        Map<Long, User> supervisorMap = new LinkedHashMap<>();
+
+        for (Booking b : bookings) {
+            User surveyor = b.getSurveyor();
+            if (surveyor != null && (surveyor.getStatus() == null || surveyor.getStatus() == UserStatus.ACTIVE)) {
+                supervisorBookings.computeIfAbsent(surveyor.getId(), k -> new ArrayList<>()).add(b);
+                supervisorMap.putIfAbsent(surveyor.getId(), surveyor);
+            }
+        }
+
+        List<FormerStaffDto> result = new ArrayList<>();
+        for (Map.Entry<Long, List<Booking>> entry : supervisorBookings.entrySet()) {
+            Long supId = entry.getKey();
+            List<Booking> bList = entry.getValue();
+            User supUser = supervisorMap.get(supId);
+            Optional<StaffProfile> profileOpt = repository.findByUserId(supId);
+
+            String lastServiceName = bList.stream()
+                    .filter(b -> b.getService() != null && b.getService().getName() != null)
+                    .map(b -> b.getService().getName())
+                    .reduce((first, second) -> second)
+                    .orElse("Sơn sửa nhà");
+
+            result.add(FormerStaffDto.builder()
+                    .userId(supUser.getId())
+                    .username(supUser.getUsername())
+                    .fullName(supUser.getUsername())
+                    .phoneNumber(supUser.getPhoneNumber())
+                    .avatar(supUser.getAvatar())
+                    .staffType("SUPERVISOR")
+                    .specialty(profileOpt.map(StaffProfile::getSpecialty).orElse("Giám sát thi công"))
+                    .serviceArea(profileOpt.map(StaffProfile::getServiceArea).orElse(null))
+                    .experienceYears(profileOpt.map(StaffProfile::getExperienceYears).orElse(3))
+                    .rating(profileOpt.map(StaffProfile::getRating).orElse(5.0))
+                    .available(profileOpt.map(StaffProfile::getAvailable).orElse(true))
+                    .bookingCountWithCustomer((long) bList.size())
+                    .lastServiceName(lastServiceName)
+                    .build());
+        }
+
+        // Sắp xếp: Ai đang sẵn sàng trước -> Sau đó số lượng công trình nhiều hơn -> Đánh giá cao hơn
+        result.sort(Comparator.comparing(FormerStaffDto::getAvailable, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(FormerStaffDto::getBookingCountWithCustomer, Comparator.reverseOrder())
+                .thenComparing(FormerStaffDto::getRating, Comparator.nullsLast(Comparator.reverseOrder())));
+
+        return result;
+    }
+
+    /**
+     * Lấy danh sách Đội thợ thi công cũ đã từng làm việc trên các đơn hàng của khách hàng này.
+     */
+    public List<FormerStaffDto> getFormerTechniciansForCustomer(String username) {
+        User customer = userRepository.findByUsername(username).orElse(null);
+        if (customer == null) {
+            return Collections.emptyList();
+        }
+
+        List<Booking> bookings = bookingRepository.findAllByCustomer_Id(customer.getId());
+        if (bookings == null || bookings.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Nhóm các đơn theo Đội thợ
+        Map<Long, List<Booking>> techBookings = new LinkedHashMap<>();
+        Map<Long, User> techMap = new LinkedHashMap<>();
+
+        for (Booking b : bookings) {
+            User tech = b.getTechnician();
+            if (tech != null && (tech.getStatus() == null || tech.getStatus() == UserStatus.ACTIVE)) {
+                techBookings.computeIfAbsent(tech.getId(), k -> new ArrayList<>()).add(b);
+                techMap.putIfAbsent(tech.getId(), tech);
+            }
+        }
+
+        List<FormerStaffDto> result = new ArrayList<>();
+        for (Map.Entry<Long, List<Booking>> entry : techBookings.entrySet()) {
+            Long techId = entry.getKey();
+            List<Booking> bList = entry.getValue();
+            User techUser = techMap.get(techId);
+            Optional<StaffProfile> profileOpt = repository.findByUserId(techId);
+
+            String lastServiceName = bList.stream()
+                    .filter(b -> b.getService() != null && b.getService().getName() != null)
+                    .map(b -> b.getService().getName())
+                    .reduce((first, second) -> second)
+                    .orElse("Sơn sửa nhà");
+
+            result.add(FormerStaffDto.builder()
+                    .userId(techUser.getId())
+                    .username(techUser.getUsername())
+                    .fullName(techUser.getUsername())
+                    .phoneNumber(techUser.getPhoneNumber())
+                    .avatar(techUser.getAvatar())
+                    .staffType("WORKER")
+                    .specialty(profileOpt.map(StaffProfile::getSpecialty).orElse("Thợ sơn chuyên nghiệp"))
+                    .serviceArea(profileOpt.map(StaffProfile::getServiceArea).orElse(null))
+                    .experienceYears(profileOpt.map(StaffProfile::getExperienceYears).orElse(3))
+                    .rating(profileOpt.map(StaffProfile::getRating).orElse(5.0))
+                    .available(profileOpt.map(StaffProfile::getAvailable).orElse(true))
+                    .bookingCountWithCustomer((long) bList.size())
+                    .lastServiceName(lastServiceName)
+                    .build());
+        }
+
+        // Sắp xếp: Ai đang sẵn sàng trước -> Sau đó số lượng công trình nhiều hơn -> Đánh giá cao hơn
+        result.sort(Comparator.comparing(FormerStaffDto::getAvailable, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(FormerStaffDto::getBookingCountWithCustomer, Comparator.reverseOrder())
+                .thenComparing(FormerStaffDto::getRating, Comparator.nullsLast(Comparator.reverseOrder())));
+
+        return result;
     }
 }

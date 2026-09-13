@@ -13,6 +13,8 @@ import com.example.paintingservice.repository.BookingRepository;
 import com.example.paintingservice.repository.ContractRepository;
 import com.example.paintingservice.repository.PaymentRepository;
 import com.example.paintingservice.repository.UserRepository;
+import com.example.paintingservice.service.BookingService;
+import com.example.paintingservice.entity.User;
 import com.example.paintingservice.service.BaseServiceImpl;
 import com.example.paintingservice.service.CloudinaryService;
 import com.example.paintingservice.service.ContractService;
@@ -40,6 +42,7 @@ public class ContractServiceImpl extends BaseServiceImpl<Contract, Long> impleme
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final CloudinaryService cloudinaryService;
+    private final BookingService bookingService;
 
     public ContractServiceImpl(
             ContractRepository repository,
@@ -47,7 +50,8 @@ public class ContractServiceImpl extends BaseServiceImpl<Contract, Long> impleme
             PaymentRepository paymentRepository,
             UserRepository userRepository,
             NotificationService notificationService,
-            CloudinaryService cloudinaryService) {
+            CloudinaryService cloudinaryService,
+            BookingService bookingService) {
         super(repository);
         this.contractRepository = repository;
         this.bookingRepository = bookingRepository;
@@ -55,6 +59,7 @@ public class ContractServiceImpl extends BaseServiceImpl<Contract, Long> impleme
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.cloudinaryService = cloudinaryService;
+        this.bookingService = bookingService;
     }
 
     @Override
@@ -340,11 +345,14 @@ public class ContractServiceImpl extends BaseServiceImpl<Contract, Long> impleme
             paymentRepository.save(newPayment);
         }
 
-        if (booking.getCustomer() != null) {
+        // Tự động phân công thợ thi công thông minh (Smart Auto-Dispatch)
+        User autoWorker = bookingService.handleWorkerAutoAssignmentAfterDeposit(booking);
+
+        if (autoWorker == null && booking.getCustomer() != null) {
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
                     .title("Đã nhận tiền cọc #" + booking.getId())
-                    .content("Admin đã xác nhận nhận tiền cọc và ký hợp đồng. Đơn hàng sẽ được phân công cho đội thợ trong thời gian tới.")
+                    .content("Admin đã xác nhận nhận tiền cọc và ký hợp đồng. Hệ thống đang tìm kiếm và phân công đội thợ thi công phù hợp nhất.")
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build());

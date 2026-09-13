@@ -3,7 +3,7 @@ package com.example.paintingservice.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import java.time.LocalDateTime;
+// import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "booking_details")
@@ -40,7 +40,6 @@ public class BookingDetail extends BaseEntity {
     @Column(name = "customer_accepted", nullable = false)
     @Builder.Default
     private Boolean customerAccepted = false;
-
 
     @PrePersist
     void onCreate() {

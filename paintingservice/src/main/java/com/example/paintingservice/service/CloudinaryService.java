@@ -25,8 +25,7 @@ public class CloudinaryService {
         Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
                 "folder", folder,
                 "resource_type", "image",
-                "overwrite", false
-        ));
+                "overwrite", false));
         return (String) uploadResult.get("secure_url");
     }
 
@@ -49,8 +48,7 @@ public class CloudinaryService {
             Map<?, ?> uploadResult = cloudinary.uploader().upload(base64Data, ObjectUtils.asMap(
                     "folder", folder,
                     "resource_type", "image",
-                    "overwrite", false
-            ));
+                    "overwrite", false));
             return (String) uploadResult.get("secure_url");
         } catch (Exception e) {
             log.warn("Không thể tải ảnh Base64 lên Cloudinary: {}. Sử dụng dữ liệu gốc làm fallback.", e.getMessage());
