@@ -213,6 +213,138 @@ public class WarrantyClaimServiceImpl implements WarrantyClaimService {
         return mapToDtoWithSalaries(saved);
     }
 
+    // 1b. GIÁM SÁT TIẾP NHẬN VIỆC KHẢO SÁT
+    @Override
+    public WarrantyClaimDto surveyorAcceptJob(Long claimId, String username) {
+        WarrantyClaim claim = getClaimOrThrow(claimId);
+
+        if (claim.getSurveyor() != null && !claim.getSurveyor().getUsername().equals(username)) {
+            User currentUser = userRepository.findByUsername(username).orElse(null);
+            boolean isAdmin = currentUser != null && currentUser.getRole() != null
+                    && "ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName());
+            if (!isAdmin) {
+                throw new RuntimeException("Bạn không được phân công làm Giám sát cho phiếu bảo hành này");
+            }
+        }
+
+        claim.setStatus(WarrantyStatus.SURVEYOR_ACCEPTED);
+        WarrantyClaim saved = warrantyClaimRepository.save(claim);
+        warrantyNotificationService.notifySurveyorAcceptedJob(saved, claim.getSurveyor());
+        log.info("Giám sát @{} đã tiếp nhận việc cho phiếu bảo hành #{}", username, claimId);
+        return mapToDtoWithSalaries(saved);
+    }
+
+    // 1c. GIÁM SÁT TỪ CHỐI NHẬN VIỆC KHẢO SÁT
+    @Override
+    public WarrantyClaimDto surveyorReject(Long claimId, String reason, String username) {
+        WarrantyClaim claim = getClaimOrThrow(claimId);
+
+        if (claim.getSurveyor() != null && !claim.getSurveyor().getUsername().equals(username)) {
+            User currentUser = userRepository.findByUsername(username).orElse(null);
+            boolean isAdmin = currentUser != null && currentUser.getRole() != null
+                    && "ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName());
+            if (!isAdmin) {
+                throw new RuntimeException("Bạn không được phân công cho phiếu bảo hành này");
+            }
+        }
+
+        String surveyorName = claim.getSurveyor() != null ? claim.getSurveyor().getUsername() : username;
+        String rejectReason = (reason != null && !reason.isBlank()) ? reason.trim() : "Lý do cá nhân / Bận lịch";
+
+        WarrantyReport report = getOrCreateReport(claim);
+        claim.setStatus(WarrantyStatus.SURVEYOR_REJECTED);
+        report.setAdminNote(String.format("Giám sát @%s đã từ chối nhận việc (Lý do: %s). Vui lòng phân công Giám sát khác.",
+                surveyorName, rejectReason));
+        claim.setSurveyor(null);
+
+        WarrantyClaim saved = warrantyClaimRepository.save(claim);
+        warrantyNotificationService.notifySurveyorRejected(saved, surveyorName, rejectReason);
+        log.info("Giám sát @{} đã từ chối nhận việc phiếu bảo hành #{}", surveyorName, claimId);
+        return mapToDtoWithSalaries(saved);
+    }
+
+
+    // 1e. KHÁCH HÀNG CHỈNH SỬA YÊU CẦU BẢO HÀNH (trước khi Giám sát nhận việc)
+    @Override
+    public WarrantyClaimDto updateClaim(Long claimId, WarrantyClaimDto request,
+            List<MultipartFile> newImages, String existingImageUrls, String username) {
+        WarrantyClaim claim = getClaimOrThrow(claimId);
+
+        if (claim.getCustomer() != null && !claim.getCustomer().getUsername().equals(username)) {
+            User currentUser = userRepository.findByUsername(username).orElse(null);
+            boolean isAdmin = currentUser != null && currentUser.getRole() != null
+                    && "ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName());
+            if (!isAdmin) {
+                throw new RuntimeException("Bạn không có quyền chỉnh sửa phiếu bảo hành này");
+            }
+        }
+
+        if (claim.getStatus() != WarrantyStatus.PENDING
+                && claim.getStatus() != WarrantyStatus.SURVEY_ASSIGNED
+                && claim.getStatus() != WarrantyStatus.SURVEYOR_REJECTED) {
+            throw new RuntimeException("Không thể chỉnh sửa yêu cầu bảo hành sau khi Giám sát đã tiếp nhận việc hoặc đang xử lý.");
+        }
+
+        if (request.getIssueType() != null && !request.getIssueType().isBlank()) {
+            claim.setIssueType(request.getIssueType().trim());
+        }
+        if (request.getIssueTitle() != null && !request.getIssueTitle().isBlank()) {
+            claim.setIssueTitle(request.getIssueTitle().trim());
+        } else if (request.getIssueType() != null) {
+            claim.setIssueTitle("Yêu cầu bảo hành: " + request.getIssueType());
+        }
+        if (request.getDescription() != null) {
+            claim.setDescription(request.getDescription().trim());
+        }
+        if (request.getPreferredDate() != null) {
+            claim.setPreferredDate(request.getPreferredDate());
+        }
+        if (request.getPreferredTime() != null) {
+            claim.setPreferredTime(request.getPreferredTime().trim());
+        }
+
+        String uploadedUrls = warrantyImageService.uploadClaimImages(newImages, claim.getBooking().getId());
+        String finalImages = warrantyImageService.mergeImageUrls(existingImageUrls, uploadedUrls);
+        if (finalImages != null) {
+            claim.setImageUrls(finalImages);
+        }
+
+        WarrantyClaim saved = warrantyClaimRepository.save(claim);
+        warrantyNotificationService.notifyClaimUpdated(saved);
+        log.info("Khách hàng @{} đã cập nhật phiếu bảo hành #{}", username, claimId);
+        return mapToDtoWithSalaries(saved);
+    }
+
+    // 1f. KHÁCH HÀNG XÓA YÊU CẦU BẢO HÀNH (trước khi Giám sát nhận việc)
+    @Override
+    public void deleteClaim(Long claimId, String username) {
+        WarrantyClaim claim = getClaimOrThrow(claimId);
+
+        if (claim.getCustomer() != null && !claim.getCustomer().getUsername().equals(username)) {
+            User currentUser = userRepository.findByUsername(username).orElse(null);
+            boolean isAdmin = currentUser != null && currentUser.getRole() != null
+                    && "ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName());
+            if (!isAdmin) {
+                throw new RuntimeException("Bạn không có quyền xóa phiếu bảo hành này");
+            }
+        }
+
+        if (claim.getStatus() != WarrantyStatus.PENDING
+                && claim.getStatus() != WarrantyStatus.SURVEY_ASSIGNED
+                && claim.getStatus() != WarrantyStatus.SURVEYOR_REJECTED) {
+            throw new RuntimeException("Không thể xóa yêu cầu bảo hành sau khi Giám sát đã tiếp nhận việc hoặc đang xử lý.");
+        }
+
+        List<SalaryHistory> salaries = salaryHistoryRepository.findByWarrantyClaimId(claimId);
+        if (salaries != null && !salaries.isEmpty()) {
+            salaryHistoryRepository.deleteAll(salaries);
+        }
+
+        warrantyNotificationService.notifyClaimDeleted(claim);
+        warrantyClaimRepository.delete(claim);
+        log.info("Khách hàng @{} đã xóa phiếu bảo hành #{}", username, claimId);
+    }
+
     // 2. GIÁM SÁT GỬI BÁO CÁO KHẢO SÁT
     @Override
     public WarrantyClaimDto submitSurveyReport(Long claimId, String faultType, String surveyNote,

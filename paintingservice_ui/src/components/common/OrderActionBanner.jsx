@@ -52,7 +52,7 @@ export default function OrderActionBanner({
   if (role === "customer") {
     if (s === "SURVEY_REJECTED") {
       return (
-        <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
+        <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3">
             <RotateCcw className="w-5 h-5 text-rose-600 shrink-0" />
             <div>
@@ -61,6 +61,16 @@ export default function OrderActionBanner({
                 Chuyên viên khảo sát trước đó bận lịch đột xuất. Đội ngũ quản trị đang phân công chuyên viên khác để đảm bảo đúng lịch hẹn của bạn.
               </p>
             </div>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => onAction && onAction("cancel_survey")}
+              className="px-3.5 py-2 bg-white hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition border border-rose-200 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+              <span>Hủy yêu cầu khảo sát</span>
+            </button>
           </div>
         </div>
       );
@@ -94,13 +104,23 @@ export default function OrderActionBanner({
               </p>
             </div>
           </div>
-          <a
-            href="tel:19006868"
-            className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs transition border border-slate-200 flex items-center gap-1.5 shrink-0"
-          >
-            <Phone className="w-3.5 h-3.5 text-slate-500" />
-            <span>Tổng đài 1900 6868</span>
-          </a>
+          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => onAction && onAction("cancel_survey")}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition border border-rose-200 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+              <span>Hủy yêu cầu khảo sát</span>
+            </button>
+            <a
+              href="tel:19006868"
+              className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs transition border border-slate-200 flex items-center gap-1.5"
+            >
+              <Phone className="w-3.5 h-3.5 text-slate-500" />
+              <span>Tổng đài 1900 6868</span>
+            </a>
+          </div>
         </div>
       );
     }

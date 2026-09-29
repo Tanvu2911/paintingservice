@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   Paintbrush,
+  Mail,
   User,
   Lock,
   Eye,
@@ -18,7 +19,7 @@ import { API_ENDPOINTS } from "../util/ApiEndpoints";
 import { getRedirectPath } from "../util/roleUtils";
 
 function Login({ onLogin, showToast }) {
-  const [username, setUsername] = useState("");
+  const [loginInput, setLoginInput] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,15 +30,20 @@ function Login({ onLogin, showToast }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      showToast?.("Vui lòng điền đầy đủ tên đăng nhập và mật khẩu!", "warning");
+    if (!loginInput.trim() || !password.trim()) {
+      showToast?.("Vui lòng điền đầy đủ email và mật khẩu!", "warning");
+      return;
+    }
+
+    if (!loginInput.includes("@")) {
+      showToast?.("Vui lòng nhập đúng định dạng Email (ví dụ: admin@suachua247.com)!", "warning");
       return;
     }
 
     try {
       setLoading(true);
       const response = await AxiosConfig.post(API_ENDPOINTS.login, {
-        username: username.trim(),
+        email: loginInput.trim(),
         password: password.trim(),
       });
 
@@ -47,7 +53,7 @@ function Login({ onLogin, showToast }) {
 
       onLogin(resData);
       showToast?.(
-        `Đăng nhập thành công! Chào mừng ${resData.fullName || resData.username}`,
+        `Đăng nhập thành công! Chào mừng ${resData.fullName || resData.username || resData.email}`,
         "success"
       );
 
@@ -67,32 +73,52 @@ function Login({ onLogin, showToast }) {
         (Array.isArray(data?.messages) ? data.messages.join(", ") : null) ||
         data?.error ||
         (typeof data === "string" ? data : null) ||
-        "Đăng nhập thất bại! Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.";
+        "Đăng nhập thất bại! Vui lòng kiểm tra lại email hoặc mật khẩu.";
       showToast?.(msg, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickFill = (u, p) => {
-    setUsername(u);
+  const handleQuickFill = (identifier, p) => {
+    setLoginInput(identifier);
     setPassword(p);
-    showToast?.(`Đã điền tài khoản: ${u}`, "info");
+    showToast?.(`Đã điền tài khoản: ${identifier}`, "info");
   };
 
   const demoAccounts = [
-    { role: "Quản trị viên (Admin)", username: "admin", pass: "123456" },
-    { role: "Giám sát viên (Survey)", username: "survey1", pass: "123456" },
-    { role: "Kỹ thuật thi công (Technician)", username: "technician1", pass: "123456" },
-    { role: "Khách hàng (Customer)", username: "customer1", pass: "123456" },
+    { role: "Quản trị viên (Admin)", identifier: "admin@suachua247.com", pass: "123456" },
+    { role: "Giám sát viên (Survey)", identifier: "survey1", pass: "123456" },
+    { role: "Kỹ thuật thi công (Technician)", identifier: "technician1", pass: "123456" },
+    { role: "Khách hàng (Customer)", identifier: "customer1", pass: "123456" },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl w-full bg-white rounded-3xl shadow-2xl shadow-slate-900/10 border border-slate-200 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[620px]">
-        
+    <div className="relative min-h-screen bg-[#070B14] flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-hidden">
+      {/* 1. Atmospheric Photographic & Gradient Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        {/* Subtle architectural painting background */}
+        <img
+          src="/hero-luxury.jpg"
+          alt="Architectural Backdrop"
+          className="w-full h-full object-cover object-center filter blur-md scale-105 opacity-25"
+        />
+        {/* Deep dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#060913]/95 via-[#0A0F1D]/85 to-[#0B132B]/95" />
+
+        {/* Floating ambient glow lights */}
+        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[34rem] h-[34rem] bg-blue-600/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/3 right-1/4 translate-x-1/3 translate-y-1/3 w-[34rem] h-[34rem] bg-amber-500/10 rounded-full blur-3xl" />
+
+        {/* Micro geometric pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(#1E293B_1px,transparent_1px)] [background-size:32px_32px] opacity-35" />
+      </div>
+
+      {/* 2. Floating Card with Premium Depth */}
+      <div className="relative z-10 max-w-4xl w-full bg-white rounded-3xl shadow-2xl shadow-black/60 border border-slate-700/50 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[620px] backdrop-blur-sm">
+
         {/* Left Side: Brand Showcase (Dark Minimalist Slate) */}
-        <div className="lg:col-span-5 bg-slate-900 text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden">
+        <div className="lg:col-span-5 bg-slate-900/95 text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden border-r border-slate-800">
           {/* Ambient decorative subtle glow */}
           <div className="absolute -top-24 -left-24 w-64 h-64 bg-slate-800/80 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-emerald-950/40 rounded-full blur-3xl pointer-events-none" />
@@ -173,20 +199,20 @@ function Login({ onLogin, showToast }) {
 
             {/* Form */}
             <form onSubmit={handleLogin} className="mt-8 space-y-5">
-              {/* Username Input */}
+              {/* Email / Username Input */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tên đăng nhập
+                  Email đăng nhập
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <User className="w-4 h-4" />
+                    <Mail className="w-4 h-4" />
                   </div>
                   <input
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Nhập tên đăng nhập..."
+                    value={loginInput}
+                    onChange={(e) => setLoginInput(e.target.value)}
+                    placeholder="Nhập email của bạn (ví dụ: user@example.com)..."
                     disabled={loading}
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition disabled:bg-slate-50"
                   />
@@ -231,11 +257,10 @@ function Login({ onLogin, showToast }) {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-                  loading
+                className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${loading
                     ? "bg-slate-400 cursor-not-allowed"
                     : "bg-amber-500 hover:bg-amber-600 active:bg-amber-700 shadow-amber-500/20 active:scale-[0.99]"
-                }`}
+                  }`}
               >
                 {loading ? (
                   <>
@@ -268,14 +293,14 @@ function Login({ onLogin, showToast }) {
                     <button
                       key={acc.role}
                       type="button"
-                      onClick={() => handleQuickFill(acc.username, acc.pass)}
+                      onClick={() => handleQuickFill(acc.identifier, acc.pass)}
                       className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100 hover:border-slate-300 text-left transition cursor-pointer"
                     >
                       <span className="block text-[11px] font-bold text-slate-800 truncate">
                         {acc.role}
                       </span>
                       <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
-                        {acc.username} / {acc.pass}
+                        {acc.identifier} / {acc.pass}
                       </span>
                     </button>
                   ))}

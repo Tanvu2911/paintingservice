@@ -18,9 +18,13 @@ import {
   X,
   QrCode,
   CreditCard,
+  Edit3,
+  Trash2,
+  UserCheck,
 } from "lucide-react";
 import Modal from "./Modal";
 import QRCodePayment from "./QRCodePayment";
+import EditWarrantyClaimModal from "./EditWarrantyClaimModal";
 import AxiosConfig from "../../util/AxiosConfig";
 import { formatDate, parseImageUrls } from "../../util/orderFlowUtils";
 import { formatMoney } from "../../util/formatters";
@@ -35,6 +39,16 @@ const STATUS_CONFIG = {
     label: "2. Giám sát đang kiểm tra hiện trường",
     badge: "bg-blue-50 text-blue-800 border-blue-200",
     icon: MapPin,
+  },
+  SURVEYOR_ACCEPTED: {
+    label: "2b. Giám sát đã tiếp nhận việc",
+    badge: "bg-blue-50 text-blue-800 border-blue-200",
+    icon: UserCheck,
+  },
+  SURVEYOR_REJECTED: {
+    label: "Đang điều phối lại Giám sát",
+    badge: "bg-amber-50 text-amber-800 border-amber-200",
+    icon: Clock,
   },
   SURVEYED: {
     label: "3. Đã có kết quả khảo sát",
@@ -86,7 +100,7 @@ const ISSUE_LABELS = {
   KHAC: "Sự cố kỹ thuật khác",
 };
 
-export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaimUpdated }) {
+export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaimUpdated, showToast }) {
   const [acceptModalClaim, setAcceptModalClaim] = useState(null);
   const [preferredDate, setPreferredDate] = useState("");
   const [preferredTime, setPreferredTime] = useState("08:30");
@@ -94,12 +108,40 @@ export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaim
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState("");
 
+  // Chỉnh sửa & Xóa yêu cầu (trước khi Giám sát nhận việc)
+  const [editingClaim, setEditingClaim] = useState(null);
+  const [deletingClaim, setDeletingClaim] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Modal xác nhận từ chối sửa chữa hỗ trợ
+  const [declineModalClaim, setDeclineModalClaim] = useState(null);
+  const [decliningSupport, setDecliningSupport] = useState(false);
+
   // Modal thanh toán QR phí hỗ trợ
   const [payModalClaim, setPayModalClaim] = useState(null);
   const [paying, setPaying] = useState(false);
   const [payingVNPay, setPayingVNPay] = useState(false);
 
   if (!claims || claims.length === 0) return null;
+
+  const canEditOrDelete = (claim) => {
+    return ["PENDING", "SURVEY_ASSIGNED", "SURVEYOR_REJECTED"].includes(claim.status);
+  };
+
+  const handleDeleteClaim = async () => {
+    if (!deletingClaim) return;
+    setDeleting(true);
+    try {
+      await AxiosConfig.delete(`/warranty-claims/${deletingClaim.id}`);
+      showToast?.("Đã xóa yêu cầu bảo hành thành công!", "success");
+      setDeletingClaim(null);
+      onClaimUpdated?.();
+    } catch (err) {
+      showToast?.(err.response?.data?.message || "Không thể xóa yêu cầu bảo hành!", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Lấy ngày mai làm min date
   const tomorrow = new Date();
@@ -140,18 +182,25 @@ export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaim
     }
   };
 
-  // Từ chối sửa chữa hỗ trợ
-  const handleDeclineSupport = async (claim) => {
-    if (!window.confirm("Bạn có chắc chắn muốn từ chối phương án sửa chữa có hỗ trợ này? Phiếu yêu cầu sẽ được đóng.")) {
-      return;
-    }
+  // Từ chối sửa chữa hỗ trợ: mở Modal xác nhận (không dùng window.confirm/alert)
+  const handleOpenDeclineModal = (claim) => {
+    setDeclineModalClaim(claim);
+  };
+
+  const handleConfirmDeclineSupport = async () => {
+    if (!declineModalClaim) return;
+    setDecliningSupport(true);
     try {
-      await AxiosConfig.post(`/warranty-claims/${claim.id}/customer-response`, {
+      await AxiosConfig.post(`/warranty-claims/${declineModalClaim.id}/customer-response`, {
         accepted: false,
       });
+      showToast?.("Bạn đã từ chối phương án sửa chữa có hỗ trợ. Phiếu bảo hành đã được đóng.", "info");
+      setDeclineModalClaim(null);
       onClaimUpdated?.();
     } catch (err) {
-      alert(err.response?.data?.message || "Không thể từ chối hỗ trợ!");
+      showToast?.(err.response?.data?.message || "Không thể từ chối hỗ trợ, vui lòng thử lại!", "error");
+    } finally {
+      setDecliningSupport(false);
     }
   };
 
@@ -165,10 +214,10 @@ export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaim
       if (res.data?.paymentUrl) {
         window.location.href = res.data.paymentUrl;
       } else {
-        alert("Không thể khởi tạo cổng thanh toán VNPay Sandbox, vui lòng thử lại!");
+        showToast?.("Không thể khởi tạo cổng thanh toán VNPay Sandbox, vui lòng thử lại!", "error");
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Lỗi kết nối cổng thanh toán VNPay Sandbox!");
+      showToast?.(err.response?.data?.message || "Lỗi kết nối cổng thanh toán VNPay Sandbox!", "error");
     } finally {
       setPayingVNPay(false);
     }
@@ -180,10 +229,11 @@ export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaim
     setPaying(true);
     try {
       await AxiosConfig.post(`/warranty-claims/${payModalClaim.id}/customer-pay`);
+      showToast?.("Đã xác nhận thanh toán thành công!", "success");
       setPayModalClaim(null);
       onClaimUpdated?.();
     } catch (err) {
-      alert(err.response?.data?.message || "Thanh toán thất bại, vui lòng thử lại!");
+      showToast?.(err.response?.data?.message || "Thanh toán thất bại, vui lòng thử lại!", "error");
     } finally {
       setPaying(false);
     }
@@ -398,7 +448,7 @@ export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaim
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDeclineSupport(claim)}
+                      onClick={() => handleOpenDeclineModal(claim)}
                       className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-xl text-xs transition cursor-pointer border border-slate-300 flex items-center gap-1.5 shadow-xs"
                     >
                       <X className="w-4 h-4" />
@@ -472,6 +522,33 @@ export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaim
                   </div>
                 )}
               </div>
+
+              {/* NÚT SỬA & XÓA TRƯỚC KHI GIÁM SÁT NHẬN VIỆC */}
+              {canEditOrDelete(claim) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-200">
+                  <span className="text-[11px] text-amber-700 font-medium bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                    ⚡ Bạn có thể sửa hoặc xóa trước khi Giám sát tiếp nhận việc
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingClaim(claim)}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-50 text-blue-600 font-bold rounded-xl text-xs transition border border-blue-200 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Sửa yêu cầu</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingClaim(claim)}
+                      className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 font-bold rounded-xl text-xs transition border border-rose-200 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -583,6 +660,111 @@ export default function WarrantyClaimList({ claims = [], onPreviewImage, onClaim
               onClose={() => setPayModalClaim(null)}
               loading={paying}
             />
+          </div>
+        </Modal>
+      )}
+
+      {/* MODAL SỬA YÊU CẦU BẢO HÀNH */}
+      {editingClaim && (
+        <EditWarrantyClaimModal
+          isOpen={Boolean(editingClaim)}
+          onClose={() => setEditingClaim(null)}
+          claim={editingClaim}
+          showToast={showToast}
+          onSuccess={() => {
+            setEditingClaim(null);
+            onClaimUpdated?.();
+          }}
+        />
+      )}
+
+      {/* MODAL XÁC NHẬN XÓA YÊU CẦU BẢO HÀNH */}
+      {deletingClaim && (
+        <Modal
+          isOpen={Boolean(deletingClaim)}
+          onClose={() => setDeletingClaim(null)}
+          title={`Xác Nhận Xóa Yêu Cầu Bảo Hành #${deletingClaim.id}`}
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <p className="text-slate-700 leading-relaxed">
+              Bạn có chắc chắn muốn xóa yêu cầu bảo hành <strong>#{deletingClaim.id}</strong> ({ISSUE_LABELS[deletingClaim.issueType] || deletingClaim.issueType}) không?
+              <br />
+              <span className="text-rose-600 font-medium mt-1 block">
+                Thao tác này sẽ hủy yêu cầu và xóa khỏi hệ thống.
+              </span>
+            </p>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingClaim(null)}
+                disabled={deleting}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleDeleteClaim}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{deleting ? "Đang xóa..." : "Xác Nhận Xóa"}</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* MODAL XÁC NHẬN TỪ CHỐI SỬA CHỮA HỖ TRỢ */}
+      {declineModalClaim && (
+        <Modal
+          isOpen={Boolean(declineModalClaim)}
+          onClose={() => setDeclineModalClaim(null)}
+          title={`Từ Chối Phương Án Hỗ Trợ #${declineModalClaim.id}`}
+          size="sm"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 leading-relaxed flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                Bạn có chắc chắn muốn từ chối phương án sửa chữa có hỗ trợ với mức giá{" "}
+                <strong>
+                  {formatMoney(
+                    declineModalClaim.finalSupportPrice !== undefined &&
+                      declineModalClaim.finalSupportPrice !== null
+                      ? declineModalClaim.finalSupportPrice
+                      : declineModalClaim.suggestedPrice
+                  )}
+                </strong>{" "}
+                không?
+              </div>
+            </div>
+
+            <p className="text-slate-600 leading-relaxed">
+              Sau khi xác nhận từ chối, phiếu bảo hành <strong>#{declineModalClaim.id}</strong> sẽ được hoàn tất đóng lại và hệ thống sẽ không triển khai nhân sự đến khắc phục.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeclineModalClaim(null)}
+                disabled={decliningSupport}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer transition"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                disabled={decliningSupport}
+                onClick={handleConfirmDeclineSupport}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs disabled:opacity-50 transition"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>{decliningSupport ? "Đang xử lý..." : "Xác Nhận Từ Chối"}</span>
+              </button>
+            </div>
           </div>
         </Modal>
       )}

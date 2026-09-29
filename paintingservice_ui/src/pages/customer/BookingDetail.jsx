@@ -81,6 +81,12 @@ export default function BookingDetail(props) {
   const [warrantyClaims, setWarrantyClaims] = useState([]);
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
 
+  const hasActiveWarrantyClaim = useMemo(() => {
+    return warrantyClaims.some(
+      (c) => !["COMPLETED", "REJECTED", "CANCELLED"].includes(c.status)
+    );
+  }, [warrantyClaims]);
+
   const fetchBooking = async () => {
     try {
       const response = await AxiosConfig.get(`/bookings/${id}`);
@@ -282,7 +288,25 @@ export default function BookingDetail(props) {
 
   // Xử lý các hành động từ Banner
   const handleBannerAction = async (actionType) => {
-    if (actionType === "respond_quote") {
+    if (actionType === "cancel_survey") {
+      setConfirmDialog({
+        title: "Xác nhận hủy yêu cầu khảo sát",
+        message: "Bạn có chắc chắn muốn hủy yêu cầu khảo sát cho công trình này không? Chuyên viên khảo sát sẽ không đến hiện trường nữa.",
+        onConfirm: async () => {
+          try {
+            await AxiosConfig.post(`/bookings/${id}/cancel-survey`, {
+              reason: "Khách hàng hủy yêu cầu khảo sát",
+            });
+            showToast?.("Đã hủy yêu cầu khảo sát thành công!", "success");
+            await refreshData();
+          } catch (error) {
+            showToast?.(error.response?.data?.message || "Không thể hủy yêu cầu khảo sát!", "error");
+          } finally {
+            setConfirmDialog(null);
+          }
+        },
+      });
+    } else if (actionType === "respond_quote") {
       setQuoteResponseModalOpen(true);
     } else if (actionType === "reject_quote") {
       setRejectModalOpen(true);
@@ -426,6 +450,18 @@ export default function BookingDetail(props) {
         </div>
 
         <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+          {["PENDING", "SURVEY_ASSIGNED", "SURVEY_REJECTED", "ACCEPTED"].includes(booking.status) && (
+            <button
+              type="button"
+              onClick={() => handleBannerAction("cancel_survey")}
+              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition flex items-center gap-1.5 border border-rose-200 cursor-pointer shadow-2xs"
+              title="Hủy yêu cầu khảo sát hiện tại"
+            >
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+              <span>Hủy yêu cầu</span>
+            </button>
+          )}
+
           {contract && (
             <button
               type="button"
@@ -1142,14 +1178,21 @@ export default function BookingDetail(props) {
                 </h3>
               </div>
               {["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) && (
-                <button
-                  type="button"
-                  onClick={() => setWarrantyModalOpen(true)}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer self-start sm:self-auto"
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  <span>Gửi Yêu Cầu Bảo Hành</span>
-                </button>
+                hasActiveWarrantyClaim ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 text-xs font-semibold rounded-xl border border-amber-200">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Đang có yêu cầu bảo hành đang xử lý</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setWarrantyModalOpen(true)}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer self-start sm:self-auto"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    <span>Gửi Yêu Cầu Bảo Hành</span>
+                  </button>
+                )
               )}
             </div>
 
@@ -1178,6 +1221,7 @@ export default function BookingDetail(props) {
                 claims={warrantyClaims}
                 onPreviewImage={setPreviewImage}
                 onClaimUpdated={fetchWarrantyClaims}
+                showToast={showToast}
               />
             )}
           </div>

@@ -15,7 +15,7 @@ public interface BookingNotificationService {
     void notifyBookingCreated(Booking saved, User autoSupervisor);
 
     void notifyBookingUpdated(Booking old, BookingDto dto, String currentUsername,
-                             boolean statusChanged, boolean detailsChanged, boolean technicianChanged);
+            boolean statusChanged, boolean detailsChanged, boolean technicianChanged);
 
     void notifyBookingDeleted(Booking booking, String currentUsername);
 
@@ -40,4 +40,6 @@ public interface BookingNotificationService {
     void notifySurveyJobRejected(Booking booking, String username, String reason);
 
     void notifyQuoteRejected(Booking booking, String username, String reason, boolean isAdmin);
+
+    void notifySurveyCancelled(Booking booking, String username, String reason);
 }

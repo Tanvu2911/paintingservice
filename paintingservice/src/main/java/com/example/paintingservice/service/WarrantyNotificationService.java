@@ -36,4 +36,12 @@ public interface WarrantyNotificationService {
     void notifyStatusUpdated(WarrantyClaim claim, String adminNote);
 
     void notifyCustomerPaid(WarrantyClaim claim, BigDecimal price);
+
+    void notifySurveyorAcceptedJob(WarrantyClaim claim, User surveyor);
+
+    void notifySurveyorRejected(WarrantyClaim claim, String surveyorName, String reason);
+
+    void notifyClaimUpdated(WarrantyClaim claim);
+
+    void notifyClaimDeleted(WarrantyClaim claim);
 }

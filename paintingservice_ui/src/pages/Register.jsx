@@ -76,11 +76,31 @@ function Register({ showToast }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl w-full bg-white rounded-3xl shadow-2xl shadow-slate-900/10 border border-slate-200 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[620px]">
-        
+    <div className="relative min-h-screen bg-[#070B14] flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-hidden">
+      {/* 1. Atmospheric Photographic & Gradient Background */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        {/* Subtle architectural painting background */}
+        <img
+          src="/hero-living.jpg"
+          alt="Architectural Backdrop"
+          className="w-full h-full object-cover object-center filter blur-md scale-105 opacity-25"
+        />
+        {/* Deep dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#060913]/95 via-[#0A0F1D]/85 to-[#0B132B]/95" />
+
+        {/* Floating ambient glow lights */}
+        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[34rem] h-[34rem] bg-blue-600/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/3 right-1/4 translate-x-1/3 translate-y-1/3 w-[34rem] h-[34rem] bg-amber-500/10 rounded-full blur-3xl" />
+
+        {/* Micro geometric pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(#1E293B_1px,transparent_1px)] [background-size:32px_32px] opacity-35" />
+      </div>
+
+      {/* 2. Floating Card with Premium Depth */}
+      <div className="relative z-10 max-w-4xl w-full bg-white rounded-3xl shadow-2xl shadow-black/60 border border-slate-700/50 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[620px] backdrop-blur-sm">
+
         {/* Left Side: Brand Hero Showcase (Dark Minimalist Slate) */}
-        <div className="lg:col-span-5 bg-slate-900 text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden">
+        <div className="lg:col-span-5 bg-slate-900/95 text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden border-r border-slate-800">
           {/* Subtle ambient blur */}
           <div className="absolute -top-24 -left-24 w-64 h-64 bg-slate-800/80 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-emerald-950/40 rounded-full blur-3xl pointer-events-none" />
@@ -257,11 +277,10 @@ function Register({ showToast }) {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full mt-2 py-3.5 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-                  loading
+                className={`w-full mt-2 py-3.5 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${loading
                     ? "bg-slate-400 cursor-not-allowed"
                     : "bg-amber-500 hover:bg-amber-600 active:bg-amber-700 shadow-amber-500/20 active:scale-[0.99]"
-                }`}
+                  }`}
               >
                 {loading ? (
                   <>

@@ -32,6 +32,8 @@ public class WarrantyNotificationServiceImpl implements WarrantyNotificationServ
         return switch (status) {
             case PENDING -> "Chờ tiếp nhận khảo sát";
             case SURVEY_ASSIGNED -> "Đã phân công giám sát khảo sát";
+            case SURVEYOR_ACCEPTED -> "Giám sát đã tiếp nhận việc";
+            case SURVEYOR_REJECTED -> "Giám sát từ chối nhận việc";
             case SURVEYED -> "Đã khảo sát hiện trường";
             case CUSTOMER_ACCEPTED_SUPPORT -> "Khách hàng đồng ý chi phí hỗ trợ";
             case ACCEPTED -> "Đã gán đội thợ thi công";
@@ -405,6 +407,108 @@ public class WarrantyNotificationServiceImpl implements WarrantyNotificationServ
                     .user(claim.getTechnician())
                     .title(String.format("Khách đã thanh toán phí bảo hành #%d", bookingId))
                     .content(String.format("Khách hàng đã thanh toán phí bảo hành cho đơn #%d. Admin sẽ tiến hành quyết toán thù lao cho bạn.",
+                            bookingId))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+    }
+
+    @Override
+    public void notifySurveyorAcceptedJob(WarrantyClaim claim, User surveyor) {
+        Long bookingId = claim.getBooking().getId();
+        if (claim.getCustomer() != null) {
+            notificationService.save(Notification.builder()
+                    .user(claim.getCustomer())
+                    .title(String.format("Giám sát đã tiếp nhận yêu cầu bảo hành #%d", bookingId))
+                    .content(String.format("Chuyên viên giám sát @%s (SĐT: %s) đã tiếp nhận nhiệm vụ và sẽ liên hệ khảo sát công trình của bạn.",
+                            surveyor.getUsername(),
+                            surveyor.getPhoneNumber() != null ? surveyor.getPhoneNumber() : "Đang cập nhật"))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+
+        userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title(String.format("Giám sát đã nhận việc bảo hành #%d", bookingId))
+                    .content(String.format("Giám sát @%s đã tiếp nhận nhiệm vụ khảo sát cho đơn bảo hành #%d tại %s.",
+                            surveyor.getUsername(),
+                            bookingId,
+                            claim.getBooking().getAddress()))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+    }
+
+    @Override
+    public void notifySurveyorRejected(WarrantyClaim claim, String surveyorName, String reason) {
+        Long bookingId = claim.getBooking().getId();
+        userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title(String.format("Giám sát từ chối nhận việc bảo hành #%d", bookingId))
+                    .content(String.format("Giám sát @%s đã từ chối nhận khảo sát cho đơn bảo hành #%d tại %s. Lý do: %s. Vui lòng phân công Giám sát khác.",
+                            surveyorName,
+                            bookingId,
+                            claim.getBooking().getAddress(),
+                            reason))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+    }
+
+
+    @Override
+    public void notifyClaimUpdated(WarrantyClaim claim) {
+        Long bookingId = claim.getBooking().getId();
+        userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title(String.format("Khách hàng đã sửa yêu cầu bảo hành #%d", bookingId))
+                    .content(String.format("Khách hàng @%s vừa cập nhật lại thông tin/hình ảnh yêu cầu bảo hành cho đơn #%d.",
+                            finalCustomerUsername(claim.getCustomer()),
+                            bookingId))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+
+        if (claim.getSurveyor() != null) {
+            notificationService.save(Notification.builder()
+                    .user(claim.getSurveyor())
+                    .title(String.format("Khách cập nhật yêu cầu bảo hành #%d", bookingId))
+                    .content(String.format("Khách hàng đơn #%d vừa thay đổi thông tin/lịch hẹn bảo hành. Vui lòng kiểm tra lại chi tiết.",
+                            bookingId))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        }
+    }
+
+    @Override
+    public void notifyClaimDeleted(WarrantyClaim claim) {
+        Long bookingId = claim.getBooking().getId();
+        userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+            notificationService.save(Notification.builder()
+                    .user(admin)
+                    .title(String.format("Khách đã xóa/hủy yêu cầu bảo hành #%d", bookingId))
+                    .content(String.format("Khách hàng @%s đã hủy yêu cầu bảo hành cho đơn #%d.",
+                            finalCustomerUsername(claim.getCustomer()),
+                            bookingId))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+        });
+
+        if (claim.getSurveyor() != null) {
+            notificationService.save(Notification.builder()
+                    .user(claim.getSurveyor())
+                    .title(String.format("Yêu cầu bảo hành #%d đã bị hủy", bookingId))
+                    .content(String.format("Khách hàng đơn #%d đã hủy yêu cầu bảo hành. Bạn không cần thực hiện khảo sát đơn này nữa.",
                             bookingId))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)

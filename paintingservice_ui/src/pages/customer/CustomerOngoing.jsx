@@ -97,20 +97,20 @@ export default function CustomerOngoing() {
     loadBookings();
   }, [loadBookings]);
 
-  // Hủy đơn khi đang ở trạng thái PENDING
+  // Hủy yêu cầu khảo sát khi nhân viên chưa nộp báo cáo
   const handleCancelBooking = (bookingId) => {
     setConfirmDialog({
-      title: "Xác nhận hủy yêu cầu",
-      message: "Bạn có chắc chắn muốn hủy yêu cầu khảo sát công trình này không?",
+      title: "Xác nhận hủy yêu cầu khảo sát",
+      message: "Bạn có chắc chắn muốn hủy yêu cầu khảo sát công trình này không? Chuyên viên khảo sát sẽ không đến hiện trường nữa.",
       onConfirm: async () => {
         try {
-          await AxiosConfig.put(`/bookings/${bookingId}`, {
-            status: "CANCELLED",
+          await AxiosConfig.post(`/bookings/${bookingId}/cancel-survey`, {
+            reason: "Khách hàng hủy yêu cầu khảo sát",
           });
-          showToast?.("Đã hủy yêu cầu thành công!", "success");
+          showToast?.("Đã hủy yêu cầu khảo sát thành công!", "success");
           loadBookings();
         } catch (error) {
-          showToast?.(error.response?.data?.message || "Không thể hủy yêu cầu!", "error");
+          showToast?.(error.response?.data?.message || "Không thể hủy yêu cầu khảo sát!", "error");
         } finally {
           setConfirmDialog(null);
         }
@@ -522,7 +522,7 @@ export default function CustomerOngoing() {
 
                 {/* Bottom Action CTA */}
                 <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100 mt-3">
-                  {b.status === "PENDING" && (
+                  {["PENDING", "SURVEY_ASSIGNED", "SURVEY_REJECTED", "ACCEPTED"].includes(b.status) && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -531,7 +531,7 @@ export default function CustomerOngoing() {
                       }}
                       className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition cursor-pointer"
                     >
-                      Hủy đơn
+                      Hủy yêu cầu
                     </button>
                   )}
 

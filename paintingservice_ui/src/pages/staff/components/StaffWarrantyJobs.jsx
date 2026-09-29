@@ -40,6 +40,8 @@ import {
   List,
   Check,
   X,
+  UserCheck,
+  AlertCircle,
 } from "lucide-react";
 
 export default function StaffWarrantyJobs({ role = "survey" }) {
@@ -93,6 +95,11 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
   const [rejectJobClaim, setRejectJobClaim] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [submittingRejectJob, setSubmittingRejectJob] = useState(false);
+
+  // Modal 5: Giám sát từ chối nhận việc
+  const [rejectSupervisorClaim, setRejectSupervisorClaim] = useState(null);
+  const [rejectSupervisorReason, setRejectSupervisorReason] = useState("");
+  const [submittingRejectSupervisor, setSubmittingRejectSupervisor] = useState(false);
 
   const fetchClaims = useCallback(async (isRefresh = false) => {
     try {
@@ -267,6 +274,45 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
     }
   };
 
+  const handleSupervisorAcceptJob = async (claim) => {
+    try {
+      await AxiosConfig.post(`/warranty-claims/${claim.id}/surveyor-accept`);
+      showToast?.("Đã tiếp nhận nhiệm vụ khảo sát bảo hành!", "success");
+      if (selectedClaim?.id === claim.id) setSelectedClaim(null);
+      fetchClaims(false);
+    } catch (err) {
+      showToast?.(err.response?.data?.message || "Tiếp nhận nhiệm vụ thất bại!", "error");
+    }
+  };
+
+  const openSupervisorRejectModal = (claim) => {
+    setRejectSupervisorClaim(claim);
+    setRejectSupervisorReason("");
+  };
+
+  const handleConfirmSupervisorReject = async (e) => {
+    e.preventDefault();
+    if (!rejectSupervisorClaim) return;
+    if (!rejectSupervisorReason.trim()) {
+      showToast?.("Vui lòng nhập lý do từ chối nhận việc!", "warning");
+      return;
+    }
+    setSubmittingRejectSupervisor(true);
+    try {
+      await AxiosConfig.post(`/warranty-claims/${rejectSupervisorClaim.id}/surveyor-reject`, {
+        reason: rejectSupervisorReason.trim(),
+      });
+      showToast?.("Đã từ chối nhận việc! Hệ thống đã thông báo đến Ban Quản Trị để phân công Giám sát khác.", "info");
+      setRejectSupervisorClaim(null);
+      if (selectedClaim?.id === rejectSupervisorClaim.id) setSelectedClaim(null);
+      fetchClaims(false);
+    } catch (err) {
+      showToast?.(err.response?.data?.message || "Thao tác thất bại!", "error");
+    } finally {
+      setSubmittingRejectSupervisor(false);
+    }
+  };
+
   // =========================================================
   // ACTIONS: THỢ THI CÔNG
   // =========================================================
@@ -333,9 +379,21 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
         };
       case "SURVEY_ASSIGNED":
         return {
-          label: isSurveyor ? "Cần Khảo Sát Hiện Trường" : "Đang Khảo Sát",
+          label: isSurveyor ? "Chờ Bạn Tiếp Nhận" : "Đang Khảo Sát",
+          color: "bg-amber-50 text-amber-800 border-amber-200",
+          icon: <Clock className="w-3.5 h-3.5 text-amber-600" />,
+        };
+      case "SURVEYOR_ACCEPTED":
+        return {
+          label: isSurveyor ? "Đã Tiếp Nhận (Cần Khảo Sát)" : "Giám Sát Đang Khảo Sát",
           color: "bg-blue-50 text-blue-800 border-blue-200",
-          icon: <MapPin className="w-3.5 h-3.5 text-blue-600" />,
+          icon: <UserCheck className="w-3.5 h-3.5 text-blue-600" />,
+        };
+      case "SURVEYOR_REJECTED":
+        return {
+          label: isSurveyor ? "Đã Từ Chối Nhận Việc" : "Chờ Đổi Giám Sát",
+          color: "bg-rose-50 text-rose-800 border-rose-200",
+          icon: <XCircle className="w-3.5 h-3.5 text-rose-600" />,
         };
       case "SURVEYED":
         return {
@@ -465,7 +523,7 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
   const counts = useMemo(() => {
     const total = claims.length;
     const pending = claims.filter((c) =>
-      ["PENDING", "SURVEY_ASSIGNED", "ACCEPTED"].includes(c.status)
+      ["PENDING", "SURVEY_ASSIGNED", "SURVEYOR_ACCEPTED", "ACCEPTED"].includes(c.status)
     ).length;
     const inProgress = claims.filter((c) => c.status === "IN_PROGRESS").length;
     const waitingAccept = claims.filter((c) => c.status === "WORKER_COMPLETED").length;
@@ -855,6 +913,27 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
                     {isSurveyor && (
                       <>
                         {claim.status === "SURVEY_ASSIGNED" && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openSupervisorRejectModal(claim)}
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer"
+                              title="Từ chối nhận việc"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSupervisorAcceptJob(claim)}
+                              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Tiếp nhận</span>
+                            </button>
+                          </>
+                        )}
+
+                        {claim.status === "SURVEYOR_ACCEPTED" && (
                           <button
                             type="button"
                             onClick={() => openReportModal(claim)}
@@ -1012,6 +1091,27 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
                           {isSurveyor && (
                             <>
                               {claim.status === "SURVEY_ASSIGNED" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => openSupervisorRejectModal(claim)}
+                                    className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition cursor-pointer"
+                                    title="Từ chối nhận việc"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSupervisorAcceptJob(claim)}
+                                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-xs cursor-pointer text-xs flex items-center gap-1"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Tiếp nhận</span>
+                                  </button>
+                                </>
+                              )}
+
+                              {claim.status === "SURVEYOR_ACCEPTED" && (
                                 <button
                                   type="button"
                                   onClick={() => openReportModal(claim)}
@@ -1433,6 +1533,27 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
                 {isSurveyor && (
                   <>
                     {selectedClaim.status === "SURVEY_ASSIGNED" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openSupervisorRejectModal(selectedClaim)}
+                          className="px-4 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold border border-rose-200 transition text-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Từ chối nhận việc</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSupervisorAcceptJob(selectedClaim)}
+                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs transition text-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Tiếp Nhận Khảo Sát</span>
+                        </button>
+                      </>
+                    )}
+
+                    {selectedClaim.status === "SURVEYOR_ACCEPTED" && (
                       <button
                         type="button"
                         onClick={() => openReportModal(selectedClaim)}
@@ -1831,6 +1952,60 @@ export default function StaffWarrantyJobs({ role = "survey" }) {
               >
                 <XCircle className="w-4 h-4" />
                 <span>{submittingRejectJob ? "Đang gửi..." : "Xác Nhận Từ Chối"}</span>
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ========================================================= */}
+      {/* ========================================================= */}
+      {/* MODAL 5: GIÁM SÁT TỪ CHỐI NHẬN VIỆC                       */}
+      {/* ========================================================= */}
+      {rejectSupervisorClaim && (
+        <Modal
+          isOpen={Boolean(rejectSupervisorClaim)}
+          onClose={() => setRejectSupervisorClaim(null)}
+          title={`Từ Chối Nhận Việc Khảo Sát #${rejectSupervisorClaim.id}`}
+          maxWidth="max-w-lg"
+        >
+          <form onSubmit={handleConfirmSupervisorReject} className="space-y-4 text-xs">
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 leading-relaxed text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                Bạn đang từ chối nhận nhiệm vụ khảo sát này. Hệ thống sẽ chuyển trạng thái sang <strong>Giám sát từ chối việc</strong> và thông báo đến Ban Quản Trị để điều phối Giám sát viên khác.
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block font-semibold text-slate-900">
+                Lý do từ chối nhận việc <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={rejectSupervisorReason}
+                onChange={(e) => setRejectSupervisorReason(e.target.value)}
+                placeholder="Ví dụ: Trùng lịch khảo sát công trình khác, khu vực quá xa..."
+                className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 leading-relaxed text-xs"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setRejectSupervisorClaim(null)}
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 font-bold rounded-xl transition cursor-pointer border border-slate-200"
+              >
+                Đóng
+              </button>
+              <button
+                type="submit"
+                disabled={submittingRejectSupervisor}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <XCircle className="w-4 h-4" />
+                <span>{submittingRejectSupervisor ? "Đang gửi..." : "Xác Nhận Từ Chối Nhận Việc"}</span>
               </button>
             </div>
           </form>

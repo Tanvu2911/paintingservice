@@ -67,8 +67,8 @@ public class BookingController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or isAuthenticated()")
     public ResponseEntity<BookingDto> update(@PathVariable Long id,
-                                             @Valid @RequestBody BookingDto dto,
-                                             Authentication authentication) {
+            @Valid @RequestBody BookingDto dto,
+            Authentication authentication) {
         BookingDto updated = bookingService.updateBooking(id, dto, authentication.getName());
         return ResponseEntity.ok(updated);
     }
@@ -91,11 +91,11 @@ public class BookingController {
         BookingDto bookingDto = bookingService.assignSupervisor(id, supervisorId);
         return ResponseEntity.ok(Map.of(
                 "message", "Phân công giám sát thành công",
-                "booking", bookingDto
-        ));
+                "booking", bookingDto));
     }
 
-    // ==================== ADMIN GỬI BÁO GIÁ & LẬP HỢP ĐỒNG CHI TIẾT ====================
+    // ==================== ADMIN GỬI BÁO GIÁ & LẬP HỢP ĐỒNG CHI TIẾT
+    // ====================
     @PostMapping("/{id}/send-quote")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> sendQuote(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
@@ -109,7 +109,8 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.confirmDeposit(id, payload));
     }
 
-    // ==================== PHÂN CÔNG ĐỘI THỢ (KÝ XONG MỚI ĐƯỢC PHÂN) ====================
+    // ==================== PHÂN CÔNG ĐỘI THỢ (KÝ XONG MỚI ĐƯỢC PHÂN)
+    // ====================
     @PostMapping("/{id}/assign-team")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignTeam(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
@@ -120,7 +121,6 @@ public class BookingController {
         Long technicianId = Long.valueOf(teamIdObj.toString());
         return ResponseEntity.ok(bookingService.assignTeam(id, technicianId));
     }
-
 
     // ==================== CÁC API CỦA ĐỘI THỢ & GIÁM SÁT ====================
     @PostMapping("/{id}/accept-job")
@@ -155,6 +155,20 @@ public class BookingController {
             Principal principal) {
         String reason = dto != null ? dto.getReason() : null;
         return ResponseEntity.ok(bookingService.rejectQuote(id, principal.getName(), reason));
+    }
+
+    @PostMapping("/{id}/cancel-survey")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> cancelSurvey(
+            @PathVariable Long id,
+            @RequestBody(required = false) RejectJobDto dto,
+            Principal principal) {
+        String reason = dto != null ? dto.getReason() : null;
+        try {
+            return ResponseEntity.ok(bookingService.cancelSurvey(id, principal.getName(), reason));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
     @PostMapping("/{id}/start-job")

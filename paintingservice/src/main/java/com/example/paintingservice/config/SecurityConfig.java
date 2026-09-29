@@ -83,9 +83,9 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write("{\"status\":401,\"message\":\"Phiên đăng nhập đã hết hạn hoặc không hợp lệ.\"}");
-                        })
-                )
+                            response.getWriter().write(
+                                    "{\"status\":401,\"message\":\"Phiên đăng nhập đã hết hạn hoặc không hợp lệ.\"}");
+                        }))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);

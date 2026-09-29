@@ -20,7 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +48,11 @@ public class BookingDispatchServiceImpl implements BookingDispatchService {
      */
     @Override
     public User autoAssignSupervisor(Booking booking) {
+        return autoAssignSupervisor(booking, null);
+    }
+
+    @Override
+    public User autoAssignSupervisor(Booking booking, List<Long> excludedUserIds) {
         try {
             List<StaffProfile> profiles = staffProfileRepository
                     .findByStaffTypeAndAvailableTrue(StaffType.SUPERVISOR);
@@ -72,10 +82,17 @@ public class BookingDispatchServiceImpl implements BookingDispatchService {
 
             for (StaffProfile sp : activeProfiles) {
                 User u = sp.getUser();
+                if (excludedUserIds != null && excludedUserIds.contains(u.getId())) {
+                    log.info("[Auto-Assign] Bỏ qua giám sát viên @{} (id={}) do nằm trong danh sách loại trừ",
+                            u.getUsername(), u.getId());
+                    continue;
+                }
+
                 double score = 0.0;
 
-                // 1. Ưu tiên Giám sát viên cũ do khách hàng chọn (+200 điểm nếu khả dụng)
-                if (preferredSupervisorId != null && preferredSupervisorId.equals(u.getId())) {
+                // 1. Ưu tiên Giám sát viên cũ do khách hàng chọn (+200 điểm nếu khả dụng và không bị loại trừ)
+                if (preferredSupervisorId != null && preferredSupervisorId.equals(u.getId())
+                        && (excludedUserIds == null || !excludedUserIds.contains(preferredSupervisorId))) {
                     score += 200.0;
                     log.info("[Auto-Assign] Giám sát viên cũ được chọn @{} (#{}) khớp đơn hàng, cộng 200 điểm ưu tiên",
                             u.getUsername(), u.getId());
@@ -152,6 +169,11 @@ public class BookingDispatchServiceImpl implements BookingDispatchService {
      */
     @Override
     public User autoAssignTechnician(Booking booking) {
+        return autoAssignTechnician(booking, null);
+    }
+
+    @Override
+    public User autoAssignTechnician(Booking booking, List<Long> excludedUserIds) {
         try {
             List<StaffProfile> profiles = staffProfileRepository
                     .findByStaffTypeAndAvailableTrue(StaffType.WORKER);
@@ -184,10 +206,17 @@ public class BookingDispatchServiceImpl implements BookingDispatchService {
 
             for (StaffProfile sp : activeProfiles) {
                 User u = sp.getUser();
+                if (excludedUserIds != null && excludedUserIds.contains(u.getId())) {
+                    log.info("[Auto-Assign-Worker] Bỏ qua thợ thi công @{} (id={}) do nằm trong danh sách loại trừ",
+                            u.getUsername(), u.getId());
+                    continue;
+                }
+
                 double score = 0.0;
 
-                // 1. Ưu tiên thợ yêu thích mà khách đã chọn khi tạo đơn (+200 điểm)
-                if (preferredTechId != null && preferredTechId.equals(u.getId())) {
+                // 1. Ưu tiên thợ yêu thích mà khách đã chọn khi tạo đơn (+200 điểm nếu chưa bị loại trừ)
+                if (preferredTechId != null && preferredTechId.equals(u.getId())
+                        && (excludedUserIds == null || !excludedUserIds.contains(preferredTechId))) {
                     score += 200.0;
                 }
 
@@ -366,6 +395,256 @@ public class BookingDispatchServiceImpl implements BookingDispatchService {
             });
 
             log.warn("[Auto-Assign-Worker] Đơn hàng #{} không tìm thấy thợ thi công khả dụng, giữ DEPOSIT_CONFIRMED để gán thủ công",
+                    booking.getId());
+            return null;
+        }
+    }
+
+    private List<Long> extractExcludedSupervisorIds(Booking booking, Long currentRejectUserId) {
+        Set<Long> ids = new HashSet<>();
+        if (currentRejectUserId != null) {
+            ids.add(currentRejectUserId);
+        }
+        if (booking.getSurveyor() != null && booking.getSurveyor().getId() != null) {
+            ids.add(booking.getSurveyor().getId());
+        }
+        String desc = booking.getDescription();
+        if (desc != null && !desc.isBlank()) {
+            Pattern pattern = Pattern.compile("\\[(?:Từ chối nhận khảo sát|Giám sát từ chối)[^\\]]*bởi\\s+([^\\]\\s:]+)\\]", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(desc);
+            while (matcher.find()) {
+                String uname = matcher.group(1).trim();
+                userRepository.findByUsername(uname).ifPresent(u -> ids.add(u.getId()));
+            }
+        }
+        return new ArrayList<>(ids);
+    }
+
+    private List<Long> extractExcludedWorkerIds(Booking booking, Long currentRejectUserId) {
+        Set<Long> ids = new HashSet<>();
+        if (currentRejectUserId != null) {
+            ids.add(currentRejectUserId);
+        }
+        if (booking.getTechnician() != null && booking.getTechnician().getId() != null) {
+            ids.add(booking.getTechnician().getId());
+        }
+        String desc = booking.getDescription();
+        if (desc != null && !desc.isBlank()) {
+            Pattern pattern = Pattern.compile("\\[(?:Thợ từ chối|Từ chối thi công)[^\\]]*?(?:bởi\\s+|-)\\s*([^\\]\\s:]+)\\]", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(desc);
+            while (matcher.find()) {
+                String uname = matcher.group(1).trim();
+                userRepository.findByUsername(uname).ifPresent(u -> ids.add(u.getId()));
+            }
+        }
+        return new ArrayList<>(ids);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public User reassignSupervisorAfterRejection(Booking booking, User rejectedSupervisor, String reason) {
+        if (booking == null) return null;
+
+        List<Long> excludedIds = extractExcludedSupervisorIds(booking, rejectedSupervisor != null ? rejectedSupervisor.getId() : null);
+        log.info("[Reassign-Supervisor] Đơn hàng #{}, danh sách giám sát bị loại trừ: {}", booking.getId(), excludedIds);
+
+        User newSupervisor = autoAssignSupervisor(booking, excludedIds);
+        if (newSupervisor != null) {
+            booking.setSurveyor(newSupervisor);
+            booking.setStatus(BookingStatus.SURVEY_ASSIGNED);
+            bookingRepository.save(booking);
+
+            // 1. Thông báo cho Giám sát viên mới
+            String appointmentInfo = String.format("%s %s",
+                    booking.getAppointmentTime() != null ? booking.getAppointmentTime() : "08:00",
+                    booking.getAppointmentDate() != null ? booking.getAppointmentDate() : "trong ngày");
+            notificationService.save(Notification.builder()
+                    .user(newSupervisor)
+                    .title("Phân công khảo sát tự động #" + booking.getId())
+                    .content(String.format(
+                            "Bạn đã được hệ thống tự động phân công khảo sát đơn hàng #%d (Địa chỉ: %s). Lịch hẹn: %s. Vui lòng vào hệ thống để tiếp nhận công việc.",
+                            booking.getId(),
+                            booking.getAddress() != null ? booking.getAddress() : "Theo đơn",
+                            appointmentInfo))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+
+            // 2. Thông báo cho Khách hàng
+            if (booking.getCustomer() != null) {
+                String supervisorContact = (newSupervisor.getPhoneNumber() != null && !newSupervisor.getPhoneNumber().isBlank())
+                        ? " (SĐT: " + newSupervisor.getPhoneNumber() + ")"
+                        : "";
+                notificationService.save(Notification.builder()
+                        .user(booking.getCustomer())
+                        .title("Cập nhật Chuyên viên khảo sát #" + booking.getId())
+                        .content(String.format(
+                                "Đơn hàng #%d đã được hệ thống điều phối lại cho Chuyên viên khảo sát: @%s%s. Chuyên viên sẽ liên hệ và đến khảo sát theo đúng lịch hẹn.",
+                                booking.getId(),
+                                newSupervisor.getUsername(),
+                                supervisorContact))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            }
+
+            // 3. Thông báo cho Admin
+            userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+                notificationService.save(Notification.builder()
+                        .user(admin)
+                        .title("Tự động điều phối lại khảo sát #" + booking.getId())
+                        .content(String.format(
+                                "Đơn hàng #%d: Giám sát viên @%s đã từ chối khảo sát (Lý do: %s). Hệ thống đã tự động chuyển giao đơn cho Giám sát viên @%s.",
+                                booking.getId(),
+                                rejectedSupervisor != null ? rejectedSupervisor.getUsername() : "N/A",
+                                reason != null ? reason : "Không có lý do",
+                                newSupervisor.getUsername()))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            });
+
+            log.info("[Reassign-Supervisor] Đơn hàng #{} đã tự động chuyển sang Giám sát viên @{}",
+                    booking.getId(), newSupervisor.getUsername());
+            return newSupervisor;
+        } else {
+            // Không tìm thấy giám sát viên khả dụng khác
+            booking.setSurveyor(null);
+            booking.setStatus(BookingStatus.SURVEY_REJECTED);
+            bookingRepository.save(booking);
+
+            userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+                notificationService.save(Notification.builder()
+                        .user(admin)
+                        .title("Cần phân công giám sát viên #" + booking.getId())
+                        .content(String.format(
+                                "Đơn hàng #%d: Giám sát viên @%s đã từ chối khảo sát (Lý do: %s). Hiện tại không còn giám sát viên nào khác khả dụng. Vui lòng phân công thủ công.",
+                                booking.getId(),
+                                rejectedSupervisor != null ? rejectedSupervisor.getUsername() : "N/A",
+                                reason != null ? reason : "Không có lý do"))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            });
+
+            if (booking.getCustomer() != null) {
+                notificationService.save(Notification.builder()
+                        .user(booking.getCustomer())
+                        .title("Đang điều phối lại khảo sát #" + booking.getId())
+                        .content(String.format(
+                                "Chuyên viên khảo sát trước đó bận lịch đột xuất. Đội ngũ quản trị đang sắp xếp chuyên viên khác phù hợp nhất cho đơn hàng #%d của bạn.",
+                                booking.getId()))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            }
+
+            log.warn("[Reassign-Supervisor] Đơn hàng #{} không còn giám sát viên khả dụng, chuyển sang SURVEY_REJECTED để phân công thủ công",
+                    booking.getId());
+            return null;
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public User reassignTechnicianAfterRejection(Booking booking, User rejectedTechnician, String reason) {
+        if (booking == null) return null;
+
+        List<Long> excludedIds = extractExcludedWorkerIds(booking, rejectedTechnician != null ? rejectedTechnician.getId() : null);
+        log.info("[Reassign-Worker] Đơn hàng #{}, danh sách thợ bị loại trừ: {}", booking.getId(), excludedIds);
+
+        User newWorker = autoAssignTechnician(booking, excludedIds);
+        if (newWorker != null) {
+            booking.setTechnician(newWorker);
+            booking.setStatus(BookingStatus.ASSIGNED);
+            bookingRepository.save(booking);
+
+            BigDecimal total = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal workerFee = total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE);
+
+            // 1. Thông báo cho Đội thợ mới
+            notificationService.save(Notification.builder()
+                    .user(newWorker)
+                    .title("Phân công thi công tự động #" + booking.getId())
+                    .content(String.format(
+                            "Bạn đã được hệ thống tự động phân công thi công đơn hàng #%d (Địa chỉ: %s). Thù lao thi công của bạn: %s đ (60%% giá trị công trình). Vui lòng vào hệ thống để tiếp nhận công việc.",
+                            booking.getId(),
+                            booking.getAddress() != null ? booking.getAddress() : "Theo đơn",
+                            String.format("%,d", workerFee.longValue())))
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build());
+
+            // 2. Thông báo cho Khách hàng
+            if (booking.getCustomer() != null) {
+                String workerContact = (newWorker.getPhoneNumber() != null && !newWorker.getPhoneNumber().isBlank())
+                        ? " (SĐT: " + newWorker.getPhoneNumber() + ")"
+                        : "";
+                notificationService.save(Notification.builder()
+                        .user(booking.getCustomer())
+                        .title("Cập nhật Đội thợ thi công #" + booking.getId())
+                        .content(String.format(
+                                "Đơn hàng #%d đã được hệ thống điều phối lại cho Đội thợ: @%s%s. Đội thợ sẽ sớm liên hệ và tiếp nhận thi công theo lịch hẹn.",
+                                booking.getId(),
+                                newWorker.getUsername(),
+                                workerContact))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            }
+
+            // 3. Thông báo cho Admin
+            userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+                notificationService.save(Notification.builder()
+                        .user(admin)
+                        .title("Tự động điều phối lại thợ thi công #" + booking.getId())
+                        .content(String.format(
+                                "Đơn hàng #%d: Thợ thi công @%s đã từ chối đơn (Lý do: %s). Hệ thống đã tự động điều phối lại cho thợ thi công @%s.",
+                                booking.getId(),
+                                rejectedTechnician != null ? rejectedTechnician.getUsername() : "N/A",
+                                reason != null ? reason : "Không có lý do",
+                                newWorker.getUsername()))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            });
+
+            log.info("[Reassign-Worker] Đơn hàng #{} đã tự động chuyển giao cho thợ thi công @{}",
+                    booking.getId(), newWorker.getUsername());
+            return newWorker;
+        } else {
+            // Không tìm thấy thợ thi công khả dụng khác
+            booking.setTechnician(null);
+            booking.setStatus(BookingStatus.WORKER_REJECTED);
+            bookingRepository.save(booking);
+
+            userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+                notificationService.save(Notification.builder()
+                        .user(admin)
+                        .title("Cần phân công thợ thi công #" + booking.getId())
+                        .content(String.format(
+                                "Đơn hàng #%d: Thợ thi công @%s đã từ chối đơn (Lý do: %s). Hiện tại không còn thợ nào khác khả dụng để tự động phân công. Vui lòng phân công thủ công.",
+                                booking.getId(),
+                                rejectedTechnician != null ? rejectedTechnician.getUsername() : "N/A",
+                                reason != null ? reason : "Không có lý do"))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            });
+
+            if (booking.getCustomer() != null) {
+                notificationService.save(Notification.builder()
+                        .user(booking.getCustomer())
+                        .title("Đang điều phối lại đội thợ #" + booking.getId())
+                        .content(String.format(
+                                "Đơn vị thi công đang phân bổ đội thợ tay nghề cao khác để đảm bảo tiến độ cho đơn hàng #%d của bạn.",
+                                booking.getId()))
+                        .createdAt(LocalDateTime.now())
+                        .isRead(false)
+                        .build());
+            }
+
+            log.warn("[Reassign-Worker] Đơn hàng #{} không còn thợ khả dụng, chuyển sang WORKER_REJECTED để phân công thủ công",
                     booking.getId());
             return null;
         }

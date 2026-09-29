@@ -25,6 +25,20 @@ public interface WarrantyClaimService {
     // 1. Admin gán Giám sát đi khảo sát
     WarrantyClaimDto assignSurveyor(Long claimId, Long surveyorId, String adminNote);
 
+    // 1b. Giám sát bấm Tiếp nhận khảo sát (nhận việc)
+    WarrantyClaimDto surveyorAcceptJob(Long claimId, String username);
+
+    // 1c. Giám sát từ chối nhận việc khảo sát (chờ Admin phân người khác)
+    WarrantyClaimDto surveyorReject(Long claimId, String reason, String username);
+
+
+    // 1e. Khách hàng chỉnh sửa yêu cầu bảo hành (trước khi Giám sát nhận việc)
+    WarrantyClaimDto updateClaim(Long claimId, WarrantyClaimDto request, List<MultipartFile> newImages,
+            String existingImageUrls, String username);
+
+    // 1f. Khách hàng xóa yêu cầu bảo hành (trước khi Giám sát nhận việc)
+    void deleteClaim(Long claimId, String username);
+
     // 2. Giám sát nộp Báo cáo khảo sát
     WarrantyClaimDto submitSurveyReport(Long claimId, String faultType, String surveyNote, String materialNote,
             BigDecimal suggestedPrice, List<MultipartFile> surveyImages, String username);

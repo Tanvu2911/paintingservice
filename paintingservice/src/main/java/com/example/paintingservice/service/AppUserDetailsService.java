@@ -23,9 +23,10 @@ public class AppUserDetailsService implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    public UserDetails loadUserByUsername(@NonNull String username) throws UsernameNotFoundException {
-        com.example.paintingservice.entity.User user = userRepository.findByUsername(username).orElseThrow(() ->
-                new UsernameNotFoundException("Không tìm thấy người dùng: " + username));
+    public UserDetails loadUserByUsername(@NonNull String usernameOrEmail) throws UsernameNotFoundException {
+        com.example.paintingservice.entity.User user = userRepository.findByEmailIgnoreCase(usernameOrEmail)
+                .or(() -> userRepository.findByUsername(usernameOrEmail))
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với email hoặc tài khoản: " + usernameOrEmail));
 
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUsername())

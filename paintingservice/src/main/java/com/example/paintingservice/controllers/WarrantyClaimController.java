@@ -72,6 +72,71 @@ public class WarrantyClaimController {
     }
 
     /**
+     * Khách hàng chỉnh sửa yêu cầu bảo hành (trước khi Giám sát nhận việc)
+     */
+    @PutMapping(value = "/{id}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE,
+            MediaType.APPLICATION_OCTET_STREAM_VALUE, "*/*" })
+    public ResponseEntity<?> updateClaim(
+            @PathVariable Long id,
+            @RequestParam(value = "issueType", required = false) String issueType,
+            @RequestParam(value = "issueTitle", required = false) String issueTitle,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "preferredDate", required = false) String preferredDateStr,
+            @RequestParam(value = "preferredTime", required = false) String preferredTime,
+            @RequestParam(value = "existingImages", required = false) String existingImages,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            Principal principal) {
+        try {
+            LocalDate parsedDate = null;
+            if (preferredDateStr != null && !preferredDateStr.isBlank()) {
+                try {
+                    parsedDate = LocalDate.parse(preferredDateStr);
+                } catch (Exception ignored) {
+                }
+            }
+
+            WarrantyClaimDto req = WarrantyClaimDto.builder()
+                    .issueType(issueType)
+                    .issueTitle(issueTitle)
+                    .description(description)
+                    .preferredDate(parsedDate)
+                    .preferredTime(preferredTime)
+                    .build();
+
+            WarrantyClaimDto updated = warrantyClaimService.updateClaim(
+                    id,
+                    req,
+                    files,
+                    existingImages,
+                    principal.getName());
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Cập nhật yêu cầu bảo hành thành công!",
+                    "claim", updated));
+        } catch (Exception e) {
+            log.error("Lỗi cập nhật yêu cầu bảo hành #{}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "message", e.getMessage() != null ? e.getMessage() : "Cập nhật thất bại"));
+        }
+    }
+
+    /**
+     * Khách hàng xóa yêu cầu bảo hành (trước khi Giám sát nhận việc)
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteClaim(@PathVariable Long id, Principal principal) {
+        try {
+            warrantyClaimService.deleteClaim(id, principal.getName());
+            return ResponseEntity.ok(Map.of(
+                    "message", "Đã xóa yêu cầu bảo hành thành công!"));
+        } catch (Exception e) {
+            log.error("Lỗi xóa yêu cầu bảo hành #{}: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "message", e.getMessage() != null ? e.getMessage() : "Xóa yêu cầu bảo hành thất bại"));
+        }
+    }
+
+    /**
      * Lấy danh sách phiếu bảo hành theo đơn hàng (Booking)
      */
     @GetMapping("/booking/{bookingId}")
@@ -146,6 +211,44 @@ public class WarrantyClaimController {
                     "message", e.getMessage() != null ? e.getMessage() : "Phân công Giám sát thất bại"));
         }
     }
+
+    /**
+     * 1b. Giám sát bấm Tiếp nhận nhiệm vụ khảo sát bảo hành
+     */
+    @PostMapping("/{id}/surveyor-accept")
+    public ResponseEntity<?> surveyorAccept(@PathVariable Long id, Principal principal) {
+        try {
+            WarrantyClaimDto updated = warrantyClaimService.surveyorAcceptJob(id, principal.getName());
+            return ResponseEntity.ok(Map.of(
+                    "message", "Đã tiếp nhận nhiệm vụ khảo sát bảo hành thành công!",
+                    "claim", updated));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "message", e.getMessage() != null ? e.getMessage() : "Tiếp nhận nhiệm vụ thất bại"));
+        }
+    }
+
+    /**
+     * 1c. Giám sát từ chối nhận việc khảo sát (chờ Admin phân công người khác)
+     */
+    @PostMapping("/{id}/surveyor-reject")
+    public ResponseEntity<?> surveyorReject(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body,
+            Principal principal) {
+        try {
+            String reason = body != null && body.containsKey("reason") ? (String) body.get("reason")
+                    : "Bận lịch / Lý do cá nhân";
+            WarrantyClaimDto updated = warrantyClaimService.surveyorReject(id, reason, principal.getName());
+            return ResponseEntity.ok(Map.of(
+                    "message", "Đã từ chối nhận việc thành công! Hệ thống đã thông báo đến Ban Quản Trị để phân công Giám sát khác.",
+                    "claim", updated));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "message", e.getMessage() != null ? e.getMessage() : "Thao tác thất bại"));
+        }
+    }
+
 
     /**
      * 2. Giám sát nộp Báo cáo khảo sát về Admin

@@ -100,16 +100,24 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         Booking old = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + id));
 
-        User currentUser = userRepository.findByUsername(currentUsername).orElse(null);
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .or(() -> userRepository.findByEmailIgnoreCase(currentUsername))
+                .orElse(null);
         boolean isAdmin = currentUser != null && currentUser.getRole() != null &&
                 ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName())
                         || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
 
-        boolean isCustomer = old.getCustomer() != null && old.getCustomer().getUsername() != null
-                && old.getCustomer().getUsername().equalsIgnoreCase(currentUsername);
+        boolean isCustomer = currentUser != null && old.getCustomer() != null && (
+                old.getCustomer().getId().equals(currentUser.getId())
+                || (old.getCustomer().getUsername() != null && old.getCustomer().getUsername().equalsIgnoreCase(currentUser.getUsername()))
+                || (old.getCustomer().getEmail() != null && old.getCustomer().getEmail().equalsIgnoreCase(currentUser.getEmail()))
+        );
 
-        boolean isSurveyor = old.getSurveyor() != null && old.getSurveyor().getUsername() != null
-                && old.getSurveyor().getUsername().equalsIgnoreCase(currentUsername);
+        boolean isSurveyor = currentUser != null && old.getSurveyor() != null && (
+                old.getSurveyor().getId().equals(currentUser.getId())
+                || (old.getSurveyor().getUsername() != null && old.getSurveyor().getUsername().equalsIgnoreCase(currentUser.getUsername()))
+                || (old.getSurveyor().getEmail() != null && old.getSurveyor().getEmail().equalsIgnoreCase(currentUser.getEmail()))
+        );
 
         if (!isAdmin) {
             if (!isCustomer && !isSurveyor) {
@@ -128,22 +136,29 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             dto.setSurveyorId(old.getSurveyor() != null ? old.getSurveyor().getId() : null);
             dto.setSupervisorId(old.getSurveyor() != null ? old.getSurveyor().getId() : null);
             dto.setTechnicianId(old.getTechnician() != null ? old.getTechnician().getId() : null);
-            dto.setPreferredSupervisorId(old.getPreferredSupervisor() != null ? old.getPreferredSupervisor().getId() : null);
+            dto.setPreferredSupervisorId(
+                    old.getPreferredSupervisor() != null ? old.getPreferredSupervisor().getId() : null);
 
-            // Cho phép khách hàng chọn Đội thợ ưu tiên khi duyệt báo giá (khi thợ chưa được gán chính thức)
+            // Cho phép khách hàng chọn Đội thợ ưu tiên khi duyệt báo giá (khi thợ chưa được
+            // gán chính thức)
             if (isCustomer && old.getTechnician() == null) {
                 // Giữ nguyên dto.getPreferredTechnicianId() do khách chọn
             } else {
-                dto.setPreferredTechnicianId(old.getPreferredTechnician() != null ? old.getPreferredTechnician().getId() : null);
+                dto.setPreferredTechnicianId(
+                        old.getPreferredTechnician() != null ? old.getPreferredTechnician().getId() : null);
             }
 
             // Kiểm soát chuyển trạng thái: chỉ cho phép hủy đơn hợp lệ
             if (dto.getStatus() != null && dto.getStatus() != old.getStatus()) {
                 if (dto.getStatus() == BookingStatus.CANCELLED) {
-                    boolean customerCanCancel = isCustomer && (old.getStatus() == BookingStatus.PENDING || old.getStatus() == BookingStatus.SURVEY_ASSIGNED);
+                    boolean customerCanCancel = isCustomer && (old.getStatus() == BookingStatus.PENDING
+                            || old.getStatus() == BookingStatus.SURVEY_ASSIGNED
+                            || old.getStatus() == BookingStatus.SURVEY_REJECTED
+                            || old.getStatus() == BookingStatus.ACCEPTED);
                     boolean surveyorCanCancel = isSurveyor && old.getStatus() == BookingStatus.SURVEY_ASSIGNED;
                     if (!customerCanCancel && !surveyorCanCancel) {
-                        throw new RuntimeException("Không thể hủy đơn hàng ở trạng thái hiện tại (" + old.getStatus() + ")");
+                        throw new RuntimeException(
+                                "Không thể hủy đơn hàng ở trạng thái hiện tại (" + old.getStatus() + ")");
                     }
                 } else {
                     dto.setStatus(old.getStatus());
@@ -170,7 +185,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         Booking updated = bookingRepository.save(old);
 
         // Gửi thông báo cập nhật đơn hàng
-        bookingNotificationService.notifyBookingUpdated(old, dto, currentUsername, statusChanged, detailsChanged, technicianChanged);
+        bookingNotificationService.notifyBookingUpdated(old, dto, currentUsername, statusChanged, detailsChanged,
+                technicianChanged);
 
         return BookingMapper.toDto(updated);
     }
@@ -293,7 +309,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         booking.setStatus(BookingStatus.WAITING_CUSTOMER_SIGNATURE);
 
         // Lưu vết lịch sử thương lượng qua ContractGenerationService
-        String updatedDescription = contractGenerationService.archiveNegotiationToDescription(booking.getDescription(), total);
+        String updatedDescription = contractGenerationService.archiveNegotiationToDescription(booking.getDescription(),
+                total);
         booking.setDescription(updatedDescription);
 
         bookingRepository.save(booking);
@@ -301,7 +318,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         List<BookingDetail> details = bookingDetailRepository.findByBookingIdOrderByCreatedAtAsc(id);
 
         // Tạo văn bản hợp đồng thông qua ContractGenerationService
-        String contractText = contractGenerationService.generateContractContent(booking, total, deposit, estimatedDays, warrantyYears, details);
+        String contractText = contractGenerationService.generateContractContent(booking, total, deposit, estimatedDays,
+                warrantyYears, details);
 
         Contract contract = contractRepository.findByBookingId(id).orElseGet(() -> Contract.builder()
                 .booking(booking)
@@ -318,7 +336,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             contract.setCustomerSignatureImg(null);
         }
 
-        // Hướng 3: Admin ký duyệt hợp đồng trước khi gửi báo giá cho khách (Pre-signed contract)
+        // Hướng 3: Admin ký duyệt hợp đồng trước khi gửi báo giá cho khách (Pre-signed
+        // contract)
         String adminSignature = payload.get("adminSignatureImg") != null
                 ? payload.get("adminSignatureImg").toString()
                 : (payload.get("adminSignature") != null ? payload.get("adminSignature").toString() : null);
@@ -364,8 +383,10 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 .customerSigned(true)
                 .build());
 
-        String signature = payload != null ? (payload.get("adminSignatureImg") != null ? payload.get("adminSignatureImg")
-                : payload.get("adminSignature")) : null;
+        String signature = payload != null
+                ? (payload.get("adminSignatureImg") != null ? payload.get("adminSignatureImg")
+                        : payload.get("adminSignature"))
+                : null;
         contract.setAdminSigned(true);
         if (contract.getAdminSignedAt() == null) {
             contract.setAdminSignedAt(LocalDateTime.now());
@@ -377,8 +398,7 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
             } else {
                 signatureUrl = cloudinaryService.uploadBase64(
                         signature,
-                        AppConstants.FOLDER_CONTRACT_SIGNATURES + "/" + booking.getId()
-                );
+                        AppConstants.FOLDER_CONTRACT_SIGNATURES + "/" + booking.getId());
             }
             contract.setAdminSignatureImg(signatureUrl);
         }
@@ -402,10 +422,10 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         if (!hasDepositPayment) {
             BigDecimal depositAmount = booking.getDepositAmount() != null
                     && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0
-                    ? booking.getDepositAmount()
-                    : (booking.getTotalAmount() != null
-                    ? booking.getTotalAmount().multiply(AppConstants.DEPOSIT_RATE)
-                    : BigDecimal.ZERO);
+                            ? booking.getDepositAmount()
+                            : (booking.getTotalAmount() != null
+                                    ? booking.getTotalAmount().multiply(AppConstants.DEPOSIT_RATE)
+                                    : BigDecimal.ZERO);
             Payment newPayment = Payment.builder()
                     .booking(booking)
                     .amount(depositAmount)
@@ -425,7 +445,7 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
 
         String successMessage = autoWorker != null
                 ? String.format("Đã xác nhận tiền cọc, Admin ký hợp đồng & tự động phân công đội thợ @%s thành công!",
-                autoWorker.getUsername())
+                        autoWorker.getUsername())
                 : "Đã xác nhận tiền cọc và Admin đã ký duyệt hợp đồng thành công!";
 
         return Map.of(
@@ -445,12 +465,14 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT ||
                 booking.getStatus() == BookingStatus.COMPLETED ||
                 booking.getStatus() == BookingStatus.PAID_TO_STAFF) {
-            throw new RuntimeException("Công trình đã bắt đầu thi công hoặc đã hoàn thành, không thể thay đổi đội thợ!");
+            throw new RuntimeException(
+                    "Công trình đã bắt đầu thi công hoặc đã hoàn thành, không thể thay đổi đội thợ!");
         }
 
         Contract contract = contractRepository.findByBookingId(id).orElse(null);
         if (contract == null || !Boolean.TRUE.equals(contract.getAdminSigned())) {
-            throw new RuntimeException("Admin chưa ký hợp đồng! Vui lòng ký duyệt hợp đồng và xác nhận cọc trước khi phân công đội thợ thi công.");
+            throw new RuntimeException(
+                    "Admin chưa ký hợp đồng! Vui lòng ký duyệt hợp đồng và xác nhận cọc trước khi phân công đội thợ thi công.");
         }
 
         if (!Boolean.TRUE.equals(contract.getCustomerSigned())) {
@@ -471,7 +493,6 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
 
         return Map.of("message", "Phân công đội thợ thành công");
     }
-
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -523,18 +544,21 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 || booking.getStatus() == BookingStatus.PAID_TO_STAFF
                 || booking.getStatus() == BookingStatus.CANCELLED
                 || booking.getStatus() == BookingStatus.WORKER_REJECTED) {
-            throw new RuntimeException("Chỉ được từ chối khi đơn chưa bắt đầu thi công (hiện tại: " + booking.getStatus() + ")");
+            throw new RuntimeException(
+                    "Chỉ được từ chối khi đơn chưa bắt đầu thi công (hiện tại: " + booking.getStatus() + ")");
         }
 
         String rejectReason = (reason != null && !reason.isBlank()) ? reason.trim() : "Không ghi rõ lý do";
         String description = booking.getDescription() == null ? "" : booking.getDescription();
-        booking.setDescription(description + "\n[Thợ từ chối - " + (currentUser != null ? currentUser.getUsername() : username) + "]: " + rejectReason);
+        booking.setDescription(description + "\n[Thợ từ chối - "
+                + (currentUser != null ? currentUser.getUsername() : username) + "]: " + rejectReason);
 
-        booking.setStatus(BookingStatus.WORKER_REJECTED);
-        Booking saved = bookingRepository.save(booking);
+        User rejectingWorker = booking.getTechnician() != null ? booking.getTechnician() : currentUser;
 
-        bookingNotificationService.notifyJobRejected(booking, username, rejectReason);
+        // Tự động phân công lại cho Đội thợ khác (Smart Auto-Redispatch)
+        bookingDispatchService.reassignTechnicianAfterRejection(booking, rejectingWorker, rejectReason);
 
+        Booking saved = bookingRepository.findById(bookingId).orElse(booking);
         return BookingMapper.toDto(saved);
     }
 
@@ -602,7 +626,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         }
 
         if (booking.getStatus() != BookingStatus.SURVEY_ASSIGNED) {
-            throw new RuntimeException("Đơn không ở trạng thái có thể từ chối nhận khảo sát (hiện tại: " + booking.getStatus() + ")");
+            throw new RuntimeException(
+                    "Đơn không ở trạng thái có thể từ chối nhận khảo sát (hiện tại: " + booking.getStatus() + ")");
         }
 
         String rejectNote = String.format(
@@ -612,13 +637,11 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 reason.trim());
         String currentDesc = booking.getDescription() != null ? booking.getDescription() : "";
         booking.setDescription(currentDesc + rejectNote);
-        booking.setSurveyor(null);
-        booking.setStatus(BookingStatus.PENDING);
 
-        Booking saved = bookingRepository.save(booking);
+        // Tự động phân công lại cho Giám sát viên khác (Smart Auto-Redispatch)
+        bookingDispatchService.reassignSupervisorAfterRejection(booking, currentUser, reason.trim());
 
-        bookingNotificationService.notifySurveyJobRejected(booking, username, reason);
-
+        Booking saved = bookingRepository.findById(bookingId).orElse(booking);
         return BookingMapper.toDto(saved);
     }
 
@@ -646,7 +669,8 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
                 && booking.getStatus() != BookingStatus.WAITING_CUSTOMER_QUOTE_APPROVAL
                 && booking.getStatus() != BookingStatus.CUSTOMER_ACCEPTED_QUOTE
                 && booking.getStatus() != BookingStatus.WAITING_DEPOSIT) {
-            throw new RuntimeException("Đơn không ở trạng thái có thể từ chối báo giá (Trạng thái hiện tại: " + booking.getStatus() + ")");
+            throw new RuntimeException(
+                    "Đơn không ở trạng thái có thể từ chối báo giá (Trạng thái hiện tại: " + booking.getStatus() + ")");
         }
 
         String finalReason = (reason != null && !reason.isBlank()) ? reason.trim()
@@ -665,6 +689,59 @@ public class BookingServiceImpl extends BaseServiceImpl<Booking, Long> implement
         Booking saved = bookingRepository.save(booking);
 
         bookingNotificationService.notifyQuoteRejected(saved, username, reason, isAdmin);
+
+        return BookingMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BookingDto cancelSurvey(Long bookingId, String username, String reason) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng #" + bookingId));
+
+        User currentUser = userRepository.findByUsername(username)
+                .or(() -> userRepository.findByEmailIgnoreCase(username))
+                .orElseThrow(() -> new RuntimeException("User không tồn tại: " + username));
+
+        boolean isAdmin = currentUser.getRole() != null &&
+                ("ROLE_ADMIN".equalsIgnoreCase(currentUser.getRole().getName())
+                        || "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
+
+        boolean isCustomer = booking.getCustomer() != null && (
+                booking.getCustomer().getId().equals(currentUser.getId())
+                || (booking.getCustomer().getUsername() != null && booking.getCustomer().getUsername().equalsIgnoreCase(currentUser.getUsername()))
+                || (booking.getCustomer().getEmail() != null && booking.getCustomer().getEmail().equalsIgnoreCase(currentUser.getEmail()))
+        );
+
+        if (!isAdmin && !isCustomer) {
+            throw new RuntimeException("Bạn không có quyền hủy yêu cầu khảo sát cho đơn hàng này");
+        }
+
+        // Chỉ cho phép hủy khi chuyên viên khảo sát chưa nộp báo cáo
+        // Các trạng thái trước khi nộp báo cáo: PENDING, SURVEY_ASSIGNED, SURVEY_REJECTED, ACCEPTED
+        if (booking.getStatus() != BookingStatus.PENDING
+                && booking.getStatus() != BookingStatus.SURVEY_ASSIGNED
+                && booking.getStatus() != BookingStatus.SURVEY_REJECTED
+                && booking.getStatus() != BookingStatus.ACCEPTED) {
+            throw new RuntimeException("Không thể hủy yêu cầu do chuyên viên khảo sát đã hoàn tất nộp báo cáo hiện trường. Bạn có thể kiểm tra dự toán và từ chối báo giá sau khi nhận được thông báo.");
+        }
+
+        String finalReason = (reason != null && !reason.isBlank()) ? reason.trim()
+                : "Khách hàng không còn nhu cầu khảo sát";
+
+        String cancelNote = String.format(
+                "\n[Khách hàng hủy khảo sát - %s bởi %s]: %s",
+                DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(LocalDateTime.now()),
+                currentUser.getUsername(),
+                finalReason);
+
+        String currentDesc = booking.getDescription() != null ? booking.getDescription() : "";
+        booking.setDescription(currentDesc + cancelNote);
+        booking.setStatus(BookingStatus.CANCELLED);
+
+        Booking saved = bookingRepository.save(booking);
+
+        bookingNotificationService.notifySurveyCancelled(saved, username, finalReason);
 
         return BookingMapper.toDto(saved);
     }

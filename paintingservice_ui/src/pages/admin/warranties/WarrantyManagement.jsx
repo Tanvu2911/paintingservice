@@ -169,8 +169,20 @@ export default function WarrantyManagement() {
         );
       case "SURVEY_ASSIGNED":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-slate-50 text-slate-900 border border-slate-200">
-            <UserCheck className="w-3 h-3" /> 2. Đang Khảo Sát
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-200">
+            <Clock className="w-3 h-3 text-amber-600" /> 2. Chờ GS Nhận Việc
+          </span>
+        );
+      case "SURVEYOR_ACCEPTED":
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-900 border border-blue-200">
+            <UserCheck className="w-3 h-3 text-blue-600" /> 2b. GS Đã Nhận Việc
+          </span>
+        );
+      case "SURVEYOR_REJECTED":
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-900 border border-rose-200">
+            <AlertTriangle className="w-3 h-3 text-rose-500" /> 2c. GS Từ Chối
           </span>
         );
       case "SURVEYED":
@@ -277,7 +289,11 @@ export default function WarrantyManagement() {
 
       let matchStatus = true;
       if (statusFilter === "PENDING") matchStatus = claim.status === "PENDING";
-      else if (statusFilter === "SURVEY_ASSIGNED") matchStatus = claim.status === "SURVEY_ASSIGNED";
+      else if (statusFilter === "SURVEY_ASSIGNED")
+        matchStatus =
+          claim.status === "SURVEY_ASSIGNED" ||
+          claim.status === "SURVEYOR_ACCEPTED" ||
+          claim.status === "SURVEYOR_REJECTED";
       else if (statusFilter === "SURVEYED")
         matchStatus =
           claim.status === "SURVEYED" ||
@@ -302,7 +318,12 @@ export default function WarrantyManagement() {
   const stats = useMemo(() => {
     const total = claims.length;
     const pending = claims.filter((c) => c.status === "PENDING").length;
-    const surveying = claims.filter((c) => c.status === "SURVEY_ASSIGNED").length;
+    const surveying = claims.filter(
+      (c) =>
+        c.status === "SURVEY_ASSIGNED" ||
+        c.status === "SURVEYOR_ACCEPTED" ||
+        c.status === "SURVEYOR_REJECTED"
+    ).length;
     const surveyed = claims.filter(
       (c) =>
         c.status === "SURVEYED" ||
@@ -580,7 +601,7 @@ export default function WarrantyManagement() {
                           <div className="flex items-center justify-between gap-1.5">
                             <span className="text-slate-500 shrink-0">GS:</span>
                             <span className="font-semibold text-slate-900 truncate max-w-[100px]">
-                              {claim.surveyorName ? `@${claim.surveyorName}` : "Chưa gán"}
+                              {claim.surveyorName ? `@${claim.surveyorName}` : claim.status === "SURVEYOR_REJECTED" ? "⚠ Từ chối" : "Chưa gán"}
                             </span>
                             {claim.status === "COMPLETED" && (
                               claim.surveyorPaid ? (

@@ -31,13 +31,13 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final StaffProfileRepository staffProfileRepository;
 
-   public AuthController(
-        AuthenticationManager authenticationManager,
-        JWTUtil jwtUtil,
-        UserRepository userRepository,
-        RoleRepository roleRepository,
-        PasswordEncoder passwordEncoder,
-        StaffProfileRepository staffProfileRepository) {
+    public AuthController(
+            AuthenticationManager authenticationManager,
+            JWTUtil jwtUtil,
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder,
+            StaffProfileRepository staffProfileRepository) {
 
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
@@ -50,23 +50,37 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest req) {
         try {
-            if (req == null || req.getUsername() == null || req.getUsername().isBlank() ||
-                req.getPassword() == null || req.getPassword().isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng điền tên đăng nhập và mật khẩu."));
+            String inputEmail = req != null && req.getEmail() != null && !req.getEmail().isBlank()
+                    ? req.getEmail().trim()
+                    : (req != null && req.getUsername() != null ? req.getUsername().trim() : "");
+
+            if (inputEmail.isBlank() || req == null || req.getPassword() == null || req.getPassword().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng nhập email và mật khẩu."));
             }
+
+            // BẮT BUỘC ĐĂNG NHẬP BẰNG EMAIL - Từ chối nếu nhập tên tài khoản không có định
+            // dạng email
+            if (!inputEmail.contains("@")) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message",
+                                "Hệ thống chỉ chấp nhận đăng nhập bằng Email. Vui lòng nhập đúng địa chỉ email."));
+            }
+
+            // Chỉ tìm kiếm tài khoản thông qua Email
+            User user = userRepository.findByEmailIgnoreCase(inputEmail)
+                    .orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException(
+                            "Email hoặc mật khẩu không chính xác."));
 
             Authentication auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            req.getUsername().trim(),
+                            user.getUsername(),
                             req.getPassword().trim()));
-
-            User user = userRepository.findByUsername(auth.getName())
-                    .orElseThrow(() -> new IllegalArgumentException("Tài khoản không tồn tại trên hệ thống."));
 
             String token = jwtUtil.generateToken(user.getUsername());
 
             AuthResponse res = new AuthResponse(token);
             res.setUsername(user.getUsername());
+            res.setEmail(user.getEmail());
             res.setRole(user.getRole() != null ? user.getRole().getName() : "ROLE_CUSTOMER");
 
             staffProfileRepository.findByUser(user)
@@ -79,12 +93,13 @@ public class AuthController {
             return ResponseEntity.ok(res);
         } catch (org.springframework.security.authentication.BadCredentialsException e) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Tên đăng nhập hoặc mật khẩu không chính xác."));
+                    .body(Map.of("message", "Email hoặc mật khẩu không chính xác."));
         } catch (Exception e) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", "Đăng nhập không thành công: " + e.getMessage()));
         }
     }
+
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
         // Đối với cơ chế JWT cơ bản, chỉ cần trả về OK 200.
@@ -94,27 +109,63 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
-        Optional<User> existing = userRepository.findByUsername(req.getUsername());
-        if (existing.isPresent()) {
-            return ResponseEntity.badRequest().body("username_taken");
+        if (req == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Thông tin đăng ký không hợp lệ."));
+        }
+
+        String username = req.getUsername() != null ? req.getUsername().trim() : "";
+        String email = req.getEmail() != null ? req.getEmail().trim() : "";
+        String password = req.getPassword() != null ? req.getPassword().trim() : "";
+        String phone = req.getEffectivePhoneNumber();
+
+        if (username.isBlank() || email.isBlank() || password.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vui lòng điền đầy đủ tên đăng nhập, email và mật khẩu."));
+        }
+
+        // 1. Bắt buộc nhập số điện thoại
+        if (phone == null || phone.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Số điện thoại là bắt buộc. Vui lòng nhập số điện thoại."));
+        }
+
+        // 2. Validate định dạng số điện thoại Việt Nam (10 chữ số, bắt đầu bằng 0 hoặc +84)
+        if (!phone.matches("^(0|\\+84)[35789][0-9]{8}$") && !phone.matches("^0[0-9]{9}$")) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Số điện thoại không đúng định dạng (ví dụ: 0912345678)."));
+        }
+
+        // 3. Kiểm tra email hợp lệ
+        if (!email.contains("@") || !email.contains(".")) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Địa chỉ email không đúng định dạng."));
+        }
+
+        // 4. Kiểm tra trùng lặp
+        if (userRepository.existsByUsername(username)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Tên đăng nhập này đã được sử dụng."));
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Địa chỉ email này đã được sử dụng."));
+        }
+
+        if (userRepository.existsByPhoneNumber(phone)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Số điện thoại này đã được sử dụng bởi tài khoản khác."));
         }
 
         // Mặc định đăng ký là Khách hàng
         Role role = roleRepository.findByName("ROLE_CUSTOMER").orElseGet(() -> {
-            Role r = new Role(); r.setName("ROLE_CUSTOMER"); return roleRepository.save(r);
+            Role r = new Role();
+            r.setName("ROLE_CUSTOMER");
+            return roleRepository.save(r);
         });
-        //  Role role = roleRepository.findByName("ROLE_ADMIN").orElseGet(() -> {
-        //     Role r = new Role(); r.setName("ROLE_ADMIN"); return roleRepository.save(r);
-        // });
 
         User u = User.builder()
-                .username(req.getUsername())
-                .password(passwordEncoder.encode(req.getPassword()))
-                .email(req.getEmail())
+                .username(username)
+                .password(passwordEncoder.encode(password))
+                .email(email)
+                .phoneNumber(phone)
                 .role(role)
                 .build();
 
         userRepository.save(u);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(Map.of("message", "Đăng ký tài khoản thành công!"));
     }
 }

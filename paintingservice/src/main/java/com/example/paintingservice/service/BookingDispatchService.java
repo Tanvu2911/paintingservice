@@ -16,13 +16,33 @@ public interface BookingDispatchService {
     User autoAssignSupervisor(Booking booking);
 
     /**
+     * Tự động phân công Giám sát viên với danh sách User ID cần loại trừ.
+     */
+    User autoAssignSupervisor(Booking booking, java.util.List<Long> excludedUserIds);
+
+    /**
      * Tự động tìm kiếm và phân công Đội thợ thi công (WORKER) phù hợp nhất
      * dựa trên thuật toán Smart Scoring: Thợ ưu tiên, khu vực, chuyên môn, cân bằng tải, đánh giá sao, kinh nghiệm.
      */
     User autoAssignTechnician(Booking booking);
 
     /**
+     * Tự động phân công Đội thợ thi công với danh sách User ID cần loại trừ.
+     */
+    User autoAssignTechnician(Booking booking, java.util.List<Long> excludedUserIds);
+
+    /**
      * Tự động phân công thợ thi công sau khi đơn hoàn tất đặt cọc / Admin ký hợp đồng.
      */
     User handleWorkerAutoAssignmentAfterDeposit(Booking booking);
+
+    /**
+     * Tự động phân công lại Giám sát viên sau khi Giám sát viên hiện tại từ chối khảo sát.
+     */
+    User reassignSupervisorAfterRejection(Booking booking, User rejectedSupervisor, String reason);
+
+    /**
+     * Tự động phân công lại Đội thợ thi công sau khi Đội thợ hiện tại từ chối nhận việc.
+     */
+    User reassignTechnicianAfterRejection(Booking booking, User rejectedTechnician, String reason);
 }

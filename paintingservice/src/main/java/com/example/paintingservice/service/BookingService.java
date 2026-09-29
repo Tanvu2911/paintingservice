@@ -42,8 +42,9 @@ public interface BookingService extends BaseService<Booking, Long> {
 
     BookingDto rejectQuote(Long bookingId, String username, String reason);
 
+    BookingDto cancelSurvey(Long bookingId, String username, String reason);
+
     BookingDto startJob(Long id, String username);
 
     BookingDto completeJob(Long id, String username);
 }
-
