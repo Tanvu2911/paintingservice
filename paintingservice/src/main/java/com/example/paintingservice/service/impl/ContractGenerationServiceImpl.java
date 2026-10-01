@@ -69,7 +69,25 @@ public class ContractGenerationServiceImpl implements ContractGenerationService 
             }
         }
         sb.append("\nII. GIÁ TRỊ HỢP ĐỒNG & PHƯƠNG THỨC THANH TOÁN:\n");
-        sb.append("- Tổng chi phí thi công: ").append(nf.format(total)).append(" VNĐ\n");
+        if (booking.getBookingServices() != null && !booking.getBookingServices().isEmpty()) {
+            sb.append("Bảng kê chi tiết từng hạng mục dịch vụ:\n");
+            int sIdx = 1;
+            for (com.example.paintingservice.entity.BookingServiceItem item : booking.getBookingServices()) {
+                String sName = item.getService() != null ? item.getService().getName() : "Dịch vụ sơn";
+                sb.append("  ").append(sIdx++).append(". ").append(sName);
+                if (item.getEstimatedArea() != null && item.getEstimatedArea() > 0) {
+                    sb.append(" (Khối lượng: ").append(item.getEstimatedArea()).append(" m²)");
+                }
+                if (item.getPrice() != null && item.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+                    sb.append(": ").append(nf.format(item.getPrice())).append(" VNĐ");
+                }
+                if (item.getNote() != null && !item.getNote().isBlank()) {
+                    sb.append(" [").append(item.getNote()).append("]");
+                }
+                sb.append("\n");
+            }
+        }
+        sb.append("- Tổng chi phí thi công trọn gói: ").append(nf.format(total)).append(" VNĐ\n");
         sb.append("- Số tiền đặt cọc (xác nhận đơn): ").append(nf.format(deposit)).append(" VNĐ\n");
         sb.append("- Số tiền còn lại (thanh toán sau nghiệm thu): ")
                 .append(nf.format(remaining))

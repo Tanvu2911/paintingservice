@@ -84,6 +84,34 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
                 .map(r -> r.getMaterialCost() != null ? r.getMaterialCost() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Tính thù lao theo tỷ lệ cho thợ thi công nếu đơn có nhiều dịch vụ/nhiều thợ
+        BigDecimal workerWage = total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE);
+        if ("TECHNICIAN".equalsIgnoreCase(roleInBooking) && booking.getBookingServices() != null && !booking.getBookingServices().isEmpty()) {
+            BigDecimal staffServiceTotal = booking.getBookingServices().stream()
+                    .filter(i -> i.getTechnician() != null && i.getTechnician().getId().equals(staffId))
+                    .map(i -> i.getPrice() != null ? i.getPrice() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalServicePrice = booking.getBookingServices().stream()
+                    .map(i -> i.getPrice() != null ? i.getPrice() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            long uniqueTechCount = booking.getBookingServices().stream()
+                    .filter(i -> i.getTechnician() != null)
+                    .map(i -> i.getTechnician().getId())
+                    .distinct()
+                    .count();
+
+            if (totalServicePrice.compareTo(BigDecimal.ZERO) > 0 && staffServiceTotal.compareTo(BigDecimal.ZERO) > 0) {
+                workerWage = total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE)
+                        .multiply(staffServiceTotal)
+                        .divide(totalServicePrice, 0, java.math.RoundingMode.HALF_UP);
+            } else if (uniqueTechCount > 0) {
+                workerWage = total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE)
+                        .divide(BigDecimal.valueOf(uniqueTechCount), 0, java.math.RoundingMode.HALF_UP);
+            }
+        }
+
         SalaryHistory sh;
         if (opt.isPresent()) {
             sh = opt.get();
@@ -91,7 +119,7 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
                 BigDecimal baseSurveyor = total.multiply(AppConstants.SUPERVISOR_COMMISSION_RATE);
                 sh.setAmountEarned(baseSurveyor.add(materialCostTotal));
             } else if ("TECHNICIAN".equalsIgnoreCase(roleInBooking)) {
-                sh.setAmountEarned(total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE));
+                sh.setAmountEarned(workerWage);
             }
         } else {
             BigDecimal amount;
@@ -99,7 +127,7 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
                 BigDecimal baseSurveyor = total.multiply(AppConstants.SUPERVISOR_COMMISSION_RATE);
                 amount = baseSurveyor.add(materialCostTotal);
             } else {
-                amount = total.multiply(AppConstants.TECHNICIAN_COMMISSION_RATE);
+                amount = workerWage;
             }
             sh = SalaryHistory.builder()
                     .booking(booking)
@@ -124,11 +152,28 @@ public class PaymentServiceImpl extends BaseServiceImpl<Payment, Long> implement
         }
 
         boolean techPaid = true;
-        User tech = booking.getTechnician() != null ? booking.getTechnician() : booking.getPreferredTechnician();
-        if (tech != null) {
+        java.util.Set<Long> workerIds = new java.util.HashSet<>();
+        if (booking.getBookingServices() != null) {
+            for (com.example.paintingservice.entity.BookingServiceItem item : booking.getBookingServices()) {
+                if (item.getTechnician() != null) {
+                    workerIds.add(item.getTechnician().getId());
+                }
+            }
+        }
+        if (workerIds.isEmpty()) {
+            User tech = booking.getTechnician() != null ? booking.getTechnician() : booking.getPreferredTechnician();
+            if (tech != null) {
+                workerIds.add(tech.getId());
+            }
+        }
+
+        for (Long wId : workerIds) {
             Optional<SalaryHistory> techSh = salaryHistoryRepository.findByBooking_IdAndWorker_IdAndRoleInBooking(
-                    bookingId, tech.getId(), "TECHNICIAN");
-            techPaid = techSh.isPresent() && techSh.get().getPaymentStatus() == SalaryStatus.PAID;
+                    bookingId, wId, "TECHNICIAN");
+            if (techSh.isEmpty() || techSh.get().getPaymentStatus() != SalaryStatus.PAID) {
+                techPaid = false;
+                break;
+            }
         }
 
         if (surveyorPaid && techPaid) {

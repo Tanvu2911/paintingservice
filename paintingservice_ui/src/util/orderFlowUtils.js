@@ -61,8 +61,16 @@ export const ORDER_STAGES = [
 /**
  * Lấy chỉ số giai đoạn hiện tại (0-5)
  */
-export function getActiveStageIndex(currentStatus) {
+export function getActiveStageIndex(currentStatus, booking = null) {
   if (!currentStatus || currentStatus === "CANCELLED") return 0;
+  if (booking) {
+    if (booking.finalPaid || booking.paymentStatus === "FULLY_PAID" || ["COMPLETED", "PAID_TO_STAFF"].includes(currentStatus)) {
+      return 5;
+    }
+    if (booking.customerAccepted || currentStatus === "WAITING_FINAL_PAYMENT") {
+      return 5;
+    }
+  }
   if (["PENDING", "SURVEY_ASSIGNED", "ACCEPTED", "SURVEY_REJECTED", "SURVEYING"].includes(currentStatus)) return 0;
   if (["WAITING_ADMIN_QUOTE", "CUSTOMER_ACCEPTED_QUOTE", "WAITING_CONTRACT_APPROVAL", "WAITING_CUSTOMER_SIGNATURE"].includes(currentStatus)) return 1;
   if (["WAITING_DEPOSIT", "DEPOSIT_CONFIRMED", "CONTRACT_APPROVED"].includes(currentStatus)) return 2;

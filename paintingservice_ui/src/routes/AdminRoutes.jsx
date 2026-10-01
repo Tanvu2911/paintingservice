@@ -39,7 +39,6 @@ export default function AdminRoutes({ user, onLogout, showToast }) {
           <Route path="warranties" element={<WarrantyManagement />} />
           <Route path="warranties/:id" element={<WarrantyDetail />} />
           <Route path="services" element={<ServiceManagement />} />
-          <Route path="painting" element={<ServiceManagement />} />
           <Route path="reviews" element={<ReviewManagement />} />
         </Route>
       </Routes>

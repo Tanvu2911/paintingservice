@@ -48,6 +48,10 @@ public class WarrantyClaim extends BaseEntity {
     @JoinColumn(name = "technician_id")
     private User technician; // Thợ được phân công khắc phục
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_service_id")
+    private BookingServiceItem bookingService; // Hạng mục dịch vụ cụ thể phát sinh bảo hành
+
     @Column(name = "issue_type", nullable = false, length = 100)
     private String issueType; // BONG_TROC, PHAI_MAU, NUT_NE, THAM_NUOC, KHAC
 

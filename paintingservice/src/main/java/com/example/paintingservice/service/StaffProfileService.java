@@ -297,8 +297,12 @@ public class StaffProfileService {
             Optional<StaffProfile> profileOpt = repository.findByUserId(supId);
 
             String lastServiceName = bList.stream()
-                    .filter(b -> b.getService() != null && b.getService().getName() != null)
-                    .map(b -> b.getService().getName())
+                    .filter(b -> b.getBookingServices() != null && !b.getBookingServices().isEmpty())
+                    .map(b -> b.getBookingServices().stream()
+                            .map(bs -> (bs != null && bs.getService() != null) ? bs.getService().getName() : "")
+                            .filter(s -> !s.isEmpty())
+                            .findFirst().orElse(""))
+                    .filter(s -> !s.isEmpty())
                     .reduce((first, second) -> second)
                     .orElse("Sơn sửa nhà");
 
@@ -361,8 +365,12 @@ public class StaffProfileService {
             Optional<StaffProfile> profileOpt = repository.findByUserId(techId);
 
             String lastServiceName = bList.stream()
-                    .filter(b -> b.getService() != null && b.getService().getName() != null)
-                    .map(b -> b.getService().getName())
+                    .filter(b -> b.getBookingServices() != null && !b.getBookingServices().isEmpty())
+                    .map(b -> b.getBookingServices().stream()
+                            .map(bs -> (bs != null && bs.getService() != null) ? bs.getService().getName() : "")
+                            .filter(s -> !s.isEmpty())
+                            .findFirst().orElse(""))
+                    .filter(s -> !s.isEmpty())
                     .reduce((first, second) -> second)
                     .orElse("Sơn sửa nhà");
 

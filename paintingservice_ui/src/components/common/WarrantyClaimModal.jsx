@@ -34,6 +34,10 @@ export default function WarrantyClaimModal({
   showToast,
   onSuccess,
 }) {
+  const availableServices = booking?.bookingServices || [];
+  const [selectedServiceId, setSelectedServiceId] = useState(
+    availableServices.length > 0 ? String(availableServices[0].id) : ""
+  );
   const [issueType, setIssueType] = useState("BONG_TROC");
   const [description, setDescription] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
@@ -83,6 +87,9 @@ export default function WarrantyClaimModal({
       const formData = new FormData();
       formData.append("issueType", issueType);
       formData.append("description", description.trim());
+      if (selectedServiceId) {
+        formData.append("bookingServiceId", selectedServiceId);
+      }
       if (preferredDate) {
         formData.append("preferredDate", preferredDate);
       }
@@ -142,10 +149,33 @@ export default function WarrantyClaimModal({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+          {/* Chọn Hạng mục / Gói dịch vụ bị sự cố nếu đơn có nhiều dịch vụ */}
+          {availableServices.length > 1 && (
+            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1.5">
+              <label className="font-bold text-slate-900 text-xs block">
+                1. Chọn Hạng mục / Gói dịch vụ cần bảo hành <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
+                className="w-full p-2.5 bg-white rounded-lg border border-slate-300 text-xs font-bold text-slate-800 focus:outline-blue-500"
+              >
+                {availableServices.map((bs) => (
+                  <option key={bs.id} value={bs.id}>
+                    {bs.serviceName || `Gói #${bs.id}`} {bs.technicianName ? `(Thợ thi công: @${bs.technicianName})` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-blue-800 italic leading-snug">
+                💡 Hệ thống sẽ tự động liên kết đúng đội thợ đã thi công hạng mục này để bảo hành trách nhiệm cho bạn.
+              </p>
+            </div>
+          )}
+
           {/* Chọn Loại sự cố */}
           <div className="space-y-2">
             <label className="font-bold text-slate-900 text-xs block">
-              1. Loại sự cố bề mặt cần bảo hành <span className="text-rose-500">*</span>
+              {availableServices.length > 1 ? "2. " : "1. "}Loại sự cố bề mặt cần bảo hành <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ISSUE_TYPES.map((t) => {

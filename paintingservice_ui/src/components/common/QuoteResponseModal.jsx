@@ -17,10 +17,203 @@ import {
   Edit3,
   RotateCcw,
   Sparkles,
+  Paintbrush,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import { formatMoney } from "../../util/formatters";
 import { formatDate, parseNegotiationInfo } from "../../util/orderFlowUtils";
+
+// ─────────────────────────────────────────────────────────────────
+// Mini component: Card chọn thợ thi công cho MỘT dịch vụ
+// ─────────────────────────────────────────────────────────────────
+function ServiceTechnicianPicker({
+  service,
+  index,
+  formerTechnicians,
+  allWorkers,
+  selectedTechId,
+  onSelect,
+  loadingWorkers,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const chosenTech =
+    selectedTechId != null
+      ? (formerTechnicians.find((t) => t.userId === selectedTechId) ||
+          allWorkers.find((t) => t.userId === selectedTechId))
+      : null;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+      {/* Header - tên dịch vụ */}
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-5 h-5 rounded-full bg-[#1E3A8A] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+            {index + 1}
+          </span>
+          <span className="text-sm font-bold text-slate-900 truncate">
+            {service.serviceName || `Gói dịch vụ #${index + 1}`}
+          </span>
+        </div>
+        {(service.price && Number(service.price) > 0) ? (
+          <span className="text-xs text-[#1E3A8A] font-bold font-mono shrink-0 ml-2">
+            {formatMoney(service.price)}
+          </span>
+        ) : service.servicePrice ? (
+          <span className="text-xs text-slate-500 font-medium shrink-0 ml-2">
+            {formatMoney(service.servicePrice)}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Kết quả chọn hiện tại */}
+      <div className="px-4 py-3 flex items-center justify-between gap-3">
+        {chosenTech ? (
+          <div className="flex items-center gap-2.5 min-w-0">
+            {chosenTech.avatar ? (
+              <img
+                src={chosenTech.avatar}
+                alt={chosenTech.username}
+                className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-sm flex items-center justify-center shrink-0">
+                {(chosenTech.fullName || chosenTech.username || "T").charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-slate-900 truncate">
+                {chosenTech.fullName || `@${chosenTech.username}`}
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <span className="flex items-center text-amber-600 font-bold">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-0.5" />
+                  {chosenTech.rating ? Number(chosenTech.rating).toFixed(1) : "5.0"}
+                </span>
+                <span>•</span>
+                <span>{chosenTech.specialty || "Thợ sơn"}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span className="font-semibold">Tự động điều phối đội thợ tối ưu</span>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setExpanded((p) => !p)}
+          className="flex items-center gap-1 text-xs text-[#1E3A8A] font-bold hover:underline shrink-0 cursor-pointer"
+        >
+          {expanded ? "Thu gọn" : "Thay đổi"}
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {/* Danh sách chọn thợ - chỉ hiện khi expanded */}
+      {expanded && (
+        <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+          {/* Tự động */}
+          <div
+            onClick={() => { onSelect(null); setExpanded(false); }}
+            className={`p-3 rounded-xl border cursor-pointer transition flex items-center gap-3 ${
+              selectedTechId === null
+                ? "bg-blue-50/70 border-blue-600 ring-1 ring-blue-600"
+                : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${selectedTechId === null ? "bg-[#1E3A8A] text-white" : "bg-slate-100 text-slate-500"}`}>
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900">Hệ thống tự động điều phối (Khuyên dùng)</div>
+              <div className="text-[11px] text-slate-500">Phân công đội thợ tay nghề cao nhất, sẵn sàng gần công trình</div>
+            </div>
+            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ml-auto shrink-0 ${selectedTechId === null ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>
+              {selectedTechId === null && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+            </div>
+          </div>
+
+          {/* Thợ cũ đã từng làm cho khách */}
+          {formerTechnicians.length > 0 && (
+            <>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pt-1">★ Thợ quen thuộc đã từng phục vụ bạn</div>
+              {formerTechnicians.map((tech) => {
+                const isSelected = selectedTechId === tech.userId;
+                return (
+                  <div
+                    key={`former-${tech.userId}`}
+                    onClick={() => { onSelect(tech.userId); setExpanded(false); }}
+                    className={`p-3 rounded-xl border cursor-pointer transition flex items-center gap-3 ${isSelected ? "bg-blue-50/70 border-blue-600 ring-1 ring-blue-600" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"}`}
+                  >
+                    {tech.avatar ? (
+                      <img src={tech.avatar} alt={tech.username} className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center shrink-0">
+                        {(tech.fullName || tech.username || "T").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-slate-900">{tech.fullName || `@${tech.username}`}</div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="flex items-center text-amber-600 font-bold"><Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-0.5" />{tech.rating ? Number(tech.rating).toFixed(1) : "5.0"}</span>
+                        <span>•</span><span>{tech.specialty || "Thi công sơn"}</span>
+                        <span>•</span><span className={`font-semibold ${tech.available ? "text-emerald-600" : "text-slate-400"}`}>{tech.available ? "Sẵn sàng" : "Đang bận"}</span>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>
+                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {/* Thợ khác từ toàn bộ danh sách */}
+          {loadingWorkers ? (
+            <div className="text-center text-xs text-slate-400 py-2">Đang tải danh sách thợ...</div>
+          ) : allWorkers.filter((w) => !formerTechnicians.some((ft) => ft.userId === w.userId)).length > 0 ? (
+            <>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pt-1">Đội thợ chuyên nghiệp khác</div>
+              {allWorkers.filter((w) => !formerTechnicians.some((ft) => ft.userId === w.userId)).map((tech) => {
+                const isSelected = selectedTechId === tech.userId;
+                return (
+                  <div
+                    key={`worker-${tech.userId}`}
+                    onClick={() => { onSelect(tech.userId); setExpanded(false); }}
+                    className={`p-3 rounded-xl border cursor-pointer transition flex items-center gap-3 ${isSelected ? "bg-blue-50/70 border-blue-600 ring-1 ring-blue-600" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"}`}
+                  >
+                    {tech.avatar ? (
+                      <img src={tech.avatar} alt={tech.username} className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center shrink-0">
+                        {(tech.fullName || tech.username || "T").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-slate-900">{tech.fullName || `@${tech.username}`}</div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="flex items-center text-amber-600 font-bold"><Star className="w-3 h-3 fill-amber-400 text-amber-400 mr-0.5" />{tech.rating ? Number(tech.rating).toFixed(1) : "5.0"}</span>
+                        <span>•</span><span>{tech.specialty || "Thi công sơn"}</span>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>
+                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function QuoteResponseModal({
   isOpen,
@@ -33,6 +226,10 @@ export default function QuoteResponseModal({
 }) {
   const negInfo = parseNegotiationInfo(booking?.description);
   const hasActiveNeg = negInfo.hasNegotiation;
+
+  // Kiểm tra đơn có nhiều dịch vụ không
+  const bookingServices = booking?.bookingServices || [];
+  const isMultiService = bookingServices.length > 1;
 
   // 3 tabs: 'accept' | 'negotiate' | 'reject'
   const [activeTab, setActiveTab] = useState(hasActiveNeg ? "negotiate" : "accept");
@@ -49,10 +246,21 @@ export default function QuoteResponseModal({
   const [rejectReason, setRejectReason] = useState("");
   const [submittingReject, setSubmittingReject] = useState(false);
 
-  // Đội thợ thi công cũ
+  // Đội thợ thi công cũ & toàn bộ danh sách thợ
   const [formerTechnicians, setFormerTechnicians] = useState([]);
+  const [allWorkers, setAllWorkers] = useState([]);
   const [loadingFormer, setLoadingFormer] = useState(false);
+  const [loadingWorkers, setLoadingWorkers] = useState(false);
+
+  // Trường hợp đơn 1 dịch vụ: chọn 1 thợ chung
   const [selectedTechnicianId, setSelectedTechnicianId] = useState(null);
+
+  // Trường hợp đơn nhiều dịch vụ: Map<serviceItemKey, technicianId|null>
+  const [serviceTechMap, setServiceTechMap] = useState({});
+
+  const handleSetTechForService = (serviceItemKey, techId) => {
+    setServiceTechMap((prev) => ({ ...prev, [serviceItemKey]: techId }));
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -71,12 +279,29 @@ export default function QuoteResponseModal({
       setRejectReason("");
       setSelectedTechnicianId(booking?.preferredTechnicianId || null);
 
+      // Khởi tạo serviceTechMap từ dữ liệu bookingServices hiện có
+      if (isMultiService) {
+        const initMap = {};
+        bookingServices.forEach((svc) => {
+          const key = svc.id || svc.serviceId;
+          initMap[key] = svc.technicianId || null;
+        });
+        setServiceTechMap(initMap);
+      }
+
       // Tải danh sách đội thợ cũ của khách hàng
       setLoadingFormer(true);
       AxiosConfig.get("/staff/former-technicians")
         .then((res) => setFormerTechnicians(res.data || []))
         .catch((err) => console.error("Lỗi tải danh sách thợ cũ:", err))
         .finally(() => setLoadingFormer(false));
+
+      // Tải toàn bộ danh sách thợ (cho chế độ nhiều dịch vụ)
+      setLoadingWorkers(true);
+      AxiosConfig.get("/staff?staffType=WORKER")
+        .then((res) => setAllWorkers(res.data || []))
+        .catch((err) => console.error("Lỗi tải danh sách thợ:", err))
+        .finally(() => setLoadingWorkers(false));
     }
   }, [isOpen, hasActiveNeg, booking?.description, booking?.preferredTechnicianId]);
 
@@ -92,7 +317,20 @@ export default function QuoteResponseModal({
 
   const handleAcceptSubmit = () => {
     if (!selectedStartDate) return;
-    onAccept?.(selectedStartDate, selectedTechnicianId);
+    if (isMultiService) {
+      // Gộp serviceTechMap vào bookingServices
+      const updatedBookingServices = bookingServices.map((svc) => {
+        const key = svc.id || svc.serviceId;
+        return {
+          ...svc,
+          technicianId: serviceTechMap[key] ?? svc.technicianId ?? null,
+        };
+      });
+      const firstTechId = updatedBookingServices.find((s) => s.technicianId)?.technicianId || null;
+      onAccept?.(selectedStartDate, firstTechId, updatedBookingServices);
+    } else {
+      onAccept?.(selectedStartDate, selectedTechnicianId, null);
+    }
     handleClose();
   };
 
@@ -150,6 +388,14 @@ export default function QuoteResponseModal({
             <h2 className="text-base sm:text-lg font-bold mt-0.5">
               Dự toán thi công: {formatMoney(total)}
             </h2>
+            {isMultiService && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <Paintbrush className="w-3.5 h-3.5 text-amber-300" />
+                <span className="text-xs text-blue-200">
+                  {bookingServices.length} gói dịch vụ — Phân công thợ theo từng gói
+                </span>
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -187,7 +433,7 @@ export default function QuoteResponseModal({
             <MessageSquare className="w-4 h-4 text-blue-600" />
             <span>Thương lượng giá</span>
             {hasActiveNeg && (
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-blue-600" />
             )}
           </button>
 
@@ -249,184 +495,148 @@ export default function QuoteResponseModal({
                 </p>
               </div>
 
-              {/* Lựa chọn Đội thợ thi công */}
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Lựa chọn đội thợ thi công
-                  </label>
-                  {formerTechnicians.length > 0 && (
-                    <span className="text-xs text-blue-700 font-medium">
-                      Tìm thấy {formerTechnicians.length} đội thợ đã từng làm cho bạn
+              {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+              {/* PHÂN CÔNG ĐỘI THỢ: 2 chế độ tuỳ số dịch vụ trong đơn   */}
+              {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+              {isMultiService ? (
+                /* ── CHẾ ĐỘ NHIỀU DỊCH VỤ: Phân công thợ cho từng dịch vụ ── */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Phân công đội thợ theo từng gói dịch vụ
+                    </label>
+                    <span className="text-[11px] font-bold text-[#1E3A8A] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                      {bookingServices.length} gói
                     </span>
-                  )}
-                </div>
-
-                {/* Option 1: Hệ thống tự động phân bổ tối ưu */}
-                <div
-                  onClick={() => setSelectedTechnicianId(null)}
-                  className={`p-3.5 rounded-xl border transition cursor-pointer flex items-start justify-between gap-3 ${
-                    selectedTechnicianId === null
-                      ? "bg-blue-50/60 border-blue-600 ring-1 ring-blue-600"
-                      : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60"
-                  }`}
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-sm ${
-                        selectedTechnicianId === null ? "bg-[#1E3A8A] text-white" : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div className="space-y-0.5 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-900 text-sm">
-                          Hệ thống tự động điều phối đội thợ tối ưu (Khuyên dùng)
-                        </span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                          Tự động
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Precision Paint sẽ chỉ định đội thợ có tay nghề cao, điểm đánh giá cao nhất và đang sẵn sàng gần công trình của bạn sau khi cọc 30%.
-                      </p>
-                    </div>
                   </div>
 
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Quý khách có thể chỉ định đội thợ riêng cho từng loại dịch vụ, hoặc để hệ thống tự động phân bổ tối ưu cho mỗi gói.
+                  </p>
+
+                  <div className="space-y-2.5">
+                    {bookingServices.map((svc, idx) => {
+                      const key = svc.id || svc.serviceId;
+                      return (
+                        <ServiceTechnicianPicker
+                          key={key || idx}
+                          service={svc}
+                          index={idx}
+                          formerTechnicians={formerTechnicians}
+                          allWorkers={allWorkers}
+                          selectedTechId={key in serviceTechMap ? serviceTechMap[key] : (svc.technicianId || null)}
+                          onSelect={(techId) => handleSetTechForService(key, techId)}
+                          loadingWorkers={loadingWorkers}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* ── CHẾ ĐỘ MỘT DỊCH VỤ: Chọn thợ chung cho toàn đơn ── */
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Lựa chọn đội thợ thi công
+                    </label>
+                    {formerTechnicians.length > 0 && (
+                      <span className="text-xs text-blue-700 font-medium">
+                        Tìm thấy {formerTechnicians.length} đội thợ đã từng làm cho bạn
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Option 1: Hệ thống tự động phân bổ tối ưu */}
                   <div
-                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-1 ${
+                    onClick={() => setSelectedTechnicianId(null)}
+                    className={`p-3.5 rounded-xl border transition cursor-pointer flex items-start justify-between gap-3 ${
                       selectedTechnicianId === null
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-slate-300 bg-white"
+                        ? "bg-blue-50/60 border-blue-600 ring-1 ring-blue-600"
+                        : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60"
                     }`}
                   >
-                    {selectedTechnicianId === null && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                  </div>
-                </div>
-
-                {/* Option 2: Chọn từ danh sách đội thợ cũ với thông tin chi tiết */}
-                {loadingFormer ? (
-                  <div className="p-4 text-center text-xs text-slate-400">Đang tải danh sách thợ cũ...</div>
-                ) : formerTechnicians.length > 0 ? (
-                  <div className="space-y-2 pt-2">
-                    <span className="text-xs font-bold text-slate-700 block">
-                      Hoặc chọn đội thợ quen thuộc đã từng phục vụ bạn:
-                    </span>
-
-                    <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                      {formerTechnicians.map((tech) => {
-                        const isSelected = selectedTechnicianId === tech.userId;
-                        return (
-                          <div
-                            key={tech.userId}
-                            onClick={() => setSelectedTechnicianId(tech.userId)}
-                            className={`p-3.5 rounded-xl border transition cursor-pointer flex items-start justify-between gap-3 ${
-                              isSelected
-                                ? "bg-blue-50/60 border-blue-600 ring-1 ring-blue-600"
-                                : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60"
-                            }`}
-                          >
-                            <div className="flex items-start gap-3 min-w-0 flex-1">
-                              {/* Avatar */}
-                              {tech.avatar ? (
-                                <img
-                                  src={tech.avatar}
-                                  alt={tech.fullName || tech.username}
-                                  className="w-11 h-11 rounded-xl object-cover border border-slate-200 shrink-0"
-                                />
-                              ) : (
-                                <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center shrink-0 border border-slate-200">
-                                  {(tech.fullName || tech.username || "T").charAt(0).toUpperCase()}
-                                </div>
-                              )}
-
-                              {/* Chi tiết thợ cũ */}
-                              <div className="space-y-1 min-w-0 flex-1 text-xs">
-                                <div className="flex items-center gap-2 flex-wrap justify-between">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-bold text-slate-900 text-sm">
-                                      {tech.fullName || `@${tech.username}`}
-                                    </span>
-                                    {tech.fullName && (
-                                      <span className="text-slate-500 font-mono text-[11px]">
-                                        (@{tech.username})
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <span
-                                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                      tech.available
-                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                        : "bg-slate-100 text-slate-600 border border-slate-200"
-                                    }`}
-                                  >
-                                    {tech.available ? "Sẵn sàng nhận việc" : "Đang bận"}
-                                  </span>
-                                </div>
-
-                                {/* Rating, Kinh nghiệm & Chuyên môn */}
-                                <div className="flex items-center gap-2 flex-wrap text-slate-600 text-[11px]">
-                                  <span className="flex items-center font-bold text-amber-600">
-                                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 mr-0.5" />
-                                    {tech.rating ? Number(tech.rating).toFixed(1) : "5.0"}
-                                  </span>
-                                  <span>•</span>
-                                  <span>{tech.experienceYears || 3} năm kinh nghiệm</span>
-                                  <span>•</span>
-                                  <span className="font-medium text-slate-800">{tech.specialty || "Thi công sơn nhà"}</span>
-                                </div>
-
-                                {/* Địa bàn & SĐT */}
-                                <div className="flex items-center gap-3 flex-wrap text-slate-500 text-[11px]">
-                                  {tech.serviceArea && (
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3 text-slate-400" />
-                                      <span>Khu vực: {tech.serviceArea}</span>
-                                    </span>
-                                  )}
-                                  {tech.phoneNumber && (
-                                    <span className="flex items-center gap-1 font-mono text-slate-600">
-                                      <Phone className="w-3 h-3 text-slate-400" />
-                                      <span>{tech.phoneNumber}</span>
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Lịch sử làm việc với khách */}
-                                <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap text-[11px]">
-                                  <span className="text-blue-700 font-medium">
-                                    Đã hoàn thành <strong className="font-bold">{tech.bookingCountWithCustomer || 1}</strong> công trình cho bạn
-                                  </span>
-                                  {tech.lastServiceName && (
-                                    <span className="text-slate-400 truncate max-w-[200px]" title={tech.lastServiceName}>
-                                      Gần nhất: {tech.lastServiceName}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Radio check */}
-                            <div
-                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-1 ${
-                                isSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"
-                              }`}
-                            >
-                              {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-sm ${selectedTechnicianId === null ? "bg-[#1E3A8A] text-white" : "bg-slate-100 text-slate-600"}`}>
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 text-sm">Hệ thống tự động điều phối đội thợ tối ưu (Khuyên dùng)</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">Tự động</span>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Precision Paint sẽ chỉ định đội thợ có tay nghề cao, điểm đánh giá cao nhất và đang sẵn sàng gần công trình của bạn sau khi cọc 30%.
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-1 ${selectedTechnicianId === null ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>
+                      {selectedTechnicianId === null && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                     </div>
                   </div>
-                ) : (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
-                    Bạn chưa có đội thợ quen trong lịch sử. Hệ thống sẽ tự động phân công đội thợ tay nghề cao nhất khi bạn hoàn tất đặt cọc.
-                  </div>
-                )}
-              </div>
+
+                  {/* Option 2: Chọn từ danh sách đội thợ cũ */}
+                  {loadingFormer ? (
+                    <div className="p-4 text-center text-xs text-slate-400">Đang tải danh sách thợ cũ...</div>
+                  ) : formerTechnicians.length > 0 ? (
+                    <div className="space-y-2 pt-2">
+                      <span className="text-xs font-bold text-slate-700 block">Hoặc chọn đội thợ quen thuộc đã từng phục vụ bạn:</span>
+                      <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                        {formerTechnicians.map((tech) => {
+                          const isSelected = selectedTechnicianId === tech.userId;
+                          return (
+                            <div
+                              key={tech.userId}
+                              onClick={() => setSelectedTechnicianId(tech.userId)}
+                              className={`p-3.5 rounded-xl border transition cursor-pointer flex items-start justify-between gap-3 ${isSelected ? "bg-blue-50/60 border-blue-600 ring-1 ring-blue-600" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60"}`}
+                            >
+                              <div className="flex items-start gap-3 min-w-0 flex-1">
+                                {tech.avatar ? (
+                                  <img src={tech.avatar} alt={tech.fullName || tech.username} className="w-11 h-11 rounded-xl object-cover border border-slate-200 shrink-0" />
+                                ) : (
+                                  <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center shrink-0 border border-slate-200">
+                                    {(tech.fullName || tech.username || "T").charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="space-y-1 min-w-0 flex-1 text-xs">
+                                  <div className="flex items-center gap-2 flex-wrap justify-between">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-bold text-slate-900 text-sm">{tech.fullName || `@${tech.username}`}</span>
+                                      {tech.fullName && <span className="text-slate-500 font-mono text-[11px]">(@{tech.username})</span>}
+                                    </div>
+                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${tech.available ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>
+                                      {tech.available ? "Sẵn sàng nhận việc" : "Đang bận"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-wrap text-slate-600 text-[11px]">
+                                    <span className="flex items-center font-bold text-amber-600"><Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 mr-0.5" />{tech.rating ? Number(tech.rating).toFixed(1) : "5.0"}</span>
+                                    <span>•</span><span>{tech.experienceYears || 3} năm kinh nghiệm</span>
+                                    <span>•</span><span className="font-medium text-slate-800">{tech.specialty || "Thi công sơn nhà"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 flex-wrap text-slate-500 text-[11px]">
+                                    {tech.serviceArea && <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-400" /><span>Khu vực: {tech.serviceArea}</span></span>}
+                                    {tech.phoneNumber && <span className="flex items-center gap-1 font-mono text-slate-600"><Phone className="w-3 h-3 text-slate-400" /><span>{tech.phoneNumber}</span></span>}
+                                  </div>
+                                  <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap text-[11px]">
+                                    <span className="text-blue-700 font-medium">Đã hoàn thành <strong className="font-bold">{tech.bookingCountWithCustomer || 1}</strong> công trình cho bạn</span>
+                                    {tech.lastServiceName && <span className="text-slate-400 truncate max-w-[200px]" title={tech.lastServiceName}>Gần nhất: {tech.lastServiceName}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-1 ${isSelected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white"}`}>
+                                {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
+                      Bạn chưa có đội thợ quen trong lịch sử. Hệ thống sẽ tự động phân công đội thợ tay nghề cao nhất khi bạn hoàn tất đặt cọc.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -461,7 +671,7 @@ export default function QuoteResponseModal({
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                       <span className="font-bold text-slate-800 text-xs flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-blue-600" />
                         Đề xuất thương lượng đang chờ Admin phản hồi
                       </span>
                       <span className="text-[11px] font-semibold text-slate-600 bg-slate-200 px-2.5 py-0.5 rounded-full">

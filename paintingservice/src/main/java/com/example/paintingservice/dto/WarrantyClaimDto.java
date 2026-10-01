@@ -37,6 +37,11 @@ public class WarrantyClaimDto {
     private String previousTechnicianName;
     private String previousTechnicianPhone;
 
+    // Hạng mục dịch vụ cụ thể phát sinh sự cố (Quan hệ N - N)
+    private Long bookingServiceId;
+    private String bookingServiceName;
+    private java.util.List<java.util.Map<String, Object>> previousTechnicians;
+
     // Thông tin yêu cầu ban đầu của khách
     private String issueType;
     private String issueTitle;

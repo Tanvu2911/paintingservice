@@ -32,6 +32,11 @@ public interface BookingDispatchService {
     User autoAssignTechnician(Booking booking, java.util.List<Long> excludedUserIds);
 
     /**
+     * Tự động tìm kiếm và phân công Đội thợ cho từng hạng mục dịch vụ cụ thể.
+     */
+    User autoAssignTechnicianForService(Booking booking, com.example.paintingservice.entity.ServiceEntity service, java.util.List<Long> excludedUserIds);
+
+    /**
      * Tự động phân công thợ thi công sau khi đơn hoàn tất đặt cọc / Admin ký hợp đồng.
      */
     User handleWorkerAutoAssignmentAfterDeposit(Booking booking);

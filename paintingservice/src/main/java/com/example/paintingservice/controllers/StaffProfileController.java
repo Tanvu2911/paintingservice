@@ -1,8 +1,10 @@
 package com.example.paintingservice.controllers;
 
+import com.example.paintingservice.dto.BookingDto;
 import com.example.paintingservice.dto.FormerStaffDto;
 import com.example.paintingservice.dto.StaffProfileDto;
 import com.example.paintingservice.entity.Booking;
+import com.example.paintingservice.mapper.BookingMapper;
 import com.example.paintingservice.entity.Notification;
 import com.example.paintingservice.entity.StaffProfile;
 import com.example.paintingservice.entity.User;
@@ -202,46 +204,9 @@ public class StaffProfileController {
                 ? bookingService.findAllOrderByIdDesc()
                 : bookingService.findSurveyJobsForStaff(currentUser.getId());
 
-        List<Map<String, Object>> result = jobs.stream().map(b -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", b.getId());
-            map.put("status", b.getStatus() != null ? b.getStatus().name() : null);
-            map.put("address", b.getAddress());
-            map.put("appointmentDate", b.getAppointmentDate());
-            map.put("appointmentTime", b.getAppointmentTime());
-            map.put("description", b.getDescription());
-            map.put("serviceId", b.getService() != null ? b.getService().getId() : null);
-            map.put("serviceName", b.getService() != null ? b.getService().getName() : null);
-            map.put("customerId", b.getCustomer() != null ? b.getCustomer().getId() : null);
-            map.put("customerName", b.getCustomer() != null ? b.getCustomer().getUsername() : null);
-            map.put("customerPhone", b.getCustomer() != null ? b.getCustomer().getPhoneNumber() : null);
-            map.put("customerEmail", b.getCustomer() != null ? b.getCustomer().getEmail() : null);
-            map.put("customerAddress", b.getCustomer() != null ? b.getCustomer().getAddress() : null);
-            map.put("technicianId", b.getTechnician() != null ? b.getTechnician().getId() : null);
-            map.put("technicianName", b.getTechnician() != null ? b.getTechnician().getUsername() : null);
-            map.put("technicianPhone", b.getTechnician() != null ? b.getTechnician().getPhoneNumber() : null);
-            map.put("preferredTechnicianId", b.getPreferredTechnician() != null ? b.getPreferredTechnician().getId() : null);
-            map.put("preferredTechnicianName",
-                    b.getPreferredTechnician() != null ? b.getPreferredTechnician().getUsername() : null);
-            map.put("preferredSupervisorId", b.getPreferredSupervisor() != null ? b.getPreferredSupervisor().getId() : null);
-            map.put("preferredSupervisorName",
-                    b.getPreferredSupervisor() != null ? b.getPreferredSupervisor().getUsername() : null);
-            map.put("preferredSupervisorPhone",
-                    b.getPreferredSupervisor() != null ? b.getPreferredSupervisor().getPhoneNumber() : null);
-            map.put("surveyorId", b.getSurveyor() != null ? b.getSurveyor().getId() : null);
-            map.put("surveyorName", b.getSurveyor() != null ? b.getSurveyor().getUsername() : null);
-            map.put("surveyorPhone", b.getSurveyor() != null ? b.getSurveyor().getPhoneNumber() : null);
-            map.put("surveyFee", b.getSurveyFee());
-            map.put("totalAmount", b.getTotalAmount());
-            map.put("depositAmount", b.getDepositAmount());
-            map.put("remainingAmount", b.getRemainingAmount());
-            map.put("paymentStatus", b.getPaymentStatus() != null ? b.getPaymentStatus().name() : null);
-            map.put("estimatedDays", b.getEstimatedDays());
-            map.put("warrantyYears", b.getWarrantyYears());
-            map.put("expectedStartDate", b.getExpectedStartDate());
-            map.put("createdAt", b.getCreatedAt());
-            return map;
-        }).collect(Collectors.toList());
+        List<BookingDto> result = jobs.stream()
+                .map(BookingMapper::toDto)
+                .collect(Collectors.toList());
 
         return ResponseEntity.ok(result);
     }

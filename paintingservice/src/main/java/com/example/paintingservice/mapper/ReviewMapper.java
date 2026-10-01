@@ -15,7 +15,14 @@ public class ReviewMapper {
         User customer = review.getCustomer();
         User technician = (booking != null) ? (booking.getTechnician() != null ? booking.getTechnician() : booking.getPreferredTechnician()) : null;
         User surveyor = (booking != null) ? booking.getSurveyor() : null;
-        String serviceName = (booking != null && booking.getService() != null) ? booking.getService().getName() : null;
+        String serviceName = null;
+        if (booking != null && booking.getBookingServices() != null && !booking.getBookingServices().isEmpty()) {
+            serviceName = booking.getBookingServices().stream()
+                    .map(bs -> (bs != null && bs.getService() != null) ? bs.getService().getName() : "")
+                    .filter(s -> !s.isEmpty())
+                    .distinct()
+                    .collect(java.util.stream.Collectors.joining(", "));
+        }
         String address = (booking != null) ? booking.getAddress() : null;
         Double totalAmount = (booking != null && booking.getTotalAmount() != null) ? booking.getTotalAmount().doubleValue() : null;
         String customerPhone = (customer != null) ? customer.getPhoneNumber() : null;

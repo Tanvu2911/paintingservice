@@ -39,9 +39,7 @@ public class Booking extends BaseEntity {
     @JoinColumn(name = "technician_id")
     private User technician;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "service_id", nullable = false)
-    private ServiceEntity service;
+
 
     @Column(name = "appointment_date", nullable = false)
     private LocalDate appointmentDate;
@@ -85,6 +83,10 @@ public class Booking extends BaseEntity {
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<BookingDetail> details;
+
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<BookingServiceItem> bookingServices = new java.util.ArrayList<>();
 
     @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Contract contract;

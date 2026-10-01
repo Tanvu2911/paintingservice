@@ -33,6 +33,8 @@ public class WarrantyClaimController {
     public ResponseEntity<?> submitClaim(
             @PathVariable Long bookingId,
             @RequestParam(value = "issueType", required = false) String issueType,
+            @RequestParam(value = "issueTitle", required = false) String issueTitle,
+            @RequestParam(value = "bookingServiceId", required = false) Long bookingServiceId,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "preferredDate", required = false) String preferredDateStr,
             @RequestParam(value = "preferredTime", required = false) String preferredTime,
@@ -48,7 +50,9 @@ public class WarrantyClaimController {
             }
 
             WarrantyClaimDto req = WarrantyClaimDto.builder()
+                    .bookingServiceId(bookingServiceId)
                     .issueType(issueType != null && !issueType.isBlank() ? issueType : "BONG_TROC")
+                    .issueTitle(issueTitle)
                     .description(description != null && !description.isBlank() ? description : "Yêu cầu bảo hành")
                     .preferredDate(parsedDate)
                     .preferredTime(preferredTime)

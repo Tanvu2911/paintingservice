@@ -263,15 +263,33 @@ export default function OrderActionBanner({
       );
     }
 
+    const serviceItems = booking.bookingServices || [];
+    const hasMultipleServices = serviceItems.length > 0;
+    const itemsCompletedCount = serviceItems.filter((i) => Boolean(i.technicianCompleted)).length;
+    const itemsAcceptedCount = serviceItems.filter((i) => Boolean(i.supervisorAccepted)).length;
+    const allItemsCompleted = hasMultipleServices ? itemsCompletedCount === serviceItems.length : s === "WORKER_COMPLETED";
+    const allItemsAccepted = hasMultipleServices
+      ? itemsAcceptedCount === serviceItems.length
+      : Boolean(booking.supervisorAccepted || booking.detail?.supervisorAccepted);
+
     if (s === "PROCESSING") {
       return (
-        <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-3">
-            <Paintbrush className="w-5 h-5 text-blue-600 shrink-0" />
+        <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <Paintbrush className="w-5 h-5 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <h4 className="font-bold text-slate-900 text-sm">Công trình đang trong quá trình thi công sơn sửa</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-slate-900 text-sm">Công trình đang trong quá trình thi công sơn sửa</h4>
+                {hasMultipleServices && (
+                  <span className="text-[11px] font-bold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
+                    {itemsCompletedCount}/{serviceItems.length} gói xong
+                  </span>
+                )}
+              </div>
               <p className="text-slate-600 mt-0.5 leading-relaxed">
-                Giám sát và đội thợ sẽ cập nhật nhật ký, tỷ lệ % hoàn thành và hình ảnh thực tế mỗi ngày tại tab bên dưới.
+                {hasMultipleServices && itemsCompletedCount > 0
+                  ? `Đã có ${itemsCompletedCount}/${serviceItems.length} đội thợ báo hoàn thành khối lượng. ${itemsAcceptedCount > 0 ? `Giám sát đã nghiệm thu ${itemsAcceptedCount} gói.` : "Giám sát đang theo sát kiểm tra."}`
+                  : "Giám sát và các đội thợ cập nhật nhật ký, tỷ lệ % hoàn thành và hình ảnh thực tế mỗi ngày tại tab bên dưới."}
               </p>
             </div>
           </div>
@@ -279,15 +297,63 @@ export default function OrderActionBanner({
       );
     }
 
-    if (s === "WORKER_COMPLETED" && !booking.customerAccepted) {
+    const isCustomerAccepted = Boolean(
+      booking.customerAccepted ||
+      s === "WAITING_FINAL_PAYMENT" ||
+      s === "COMPLETED" ||
+      s === "PAID_TO_STAFF"
+    );
+
+    if (["PROCESSING", "WORKER_COMPLETED"].includes(s) && allItemsCompleted && !isCustomerAccepted && !isFinalPaid) {
+      if (!allItemsAccepted) {
+        return (
+          <div className="bg-amber-50/80 border border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+            <div className="flex items-start sm:items-center gap-3">
+              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    Đội thợ đã báo hoàn thành - Chuyên viên giám sát đang nghiệm thu kỹ thuật
+                  </h4>
+                  {hasMultipleServices && (
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                      Đã duyệt {itemsAcceptedCount}/{serviceItems.length} gói
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-600 mt-0.5 leading-relaxed">
+                  {hasMultipleServices
+                    ? `Đã nghiệm thu đạt chuẩn ${itemsAcceptedCount}/${serviceItems.length} gói dịch vụ. Chuyên viên giám sát đang kiểm tra chất lượng màng sơn các gói còn lại. Sau khi hoàn tất nghiệm thu kỹ thuật, quý khách sẽ có thể xác nhận nghiệm thu và bàn giao công trình.`
+                    : "Chuyên viên giám sát đang kiểm tra chất lượng thi công màng sơn tại hiện trường. Quý khách sẽ có thể xác nhận nghiệm thu ngay sau khi giám sát viên phê duyệt."}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <span className="text-xs font-semibold text-amber-800 bg-white px-3 py-1.5 rounded-xl border border-amber-200">
+                ⏳ Chờ Giám sát hoàn tất nghiệm thu
+              </span>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
           <div className="flex items-start sm:items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5 sm:mt-0" />
             <div>
-              <h4 className="font-bold text-slate-900 text-sm">Đội thợ đã báo hoàn thành - Mời quý khách nghiệm thu</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-slate-900 text-sm">
+                  Giám sát viên đã nghiệm thu đạt chuẩn kỹ thuật - Mời quý khách nghiệm thu
+                </h4>
+                {hasMultipleServices && (
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    ✓ Đủ {serviceItems.length}/{serviceItems.length} gói đạt chuẩn
+                  </span>
+                )}
+              </div>
               <p className="text-slate-600 mt-0.5 leading-relaxed">
-                Vui lòng kiểm tra thực tế chất lượng bề mặt sơn tại công trình và bấm nút Nghiệm thu để xác nhận bàn giao.
+                Toàn bộ hạng mục công trình đã được chuyên viên kỹ thuật kiểm tra và nghiệm thu đạt chuẩn chất lượng. Vui lòng kiểm tra thực tế và bấm nút Xác nhận Nghiệm thu để hoàn tất bàn giao &amp; thanh toán đợt cuối.
               </p>
             </div>
           </div>
@@ -297,32 +363,41 @@ export default function OrderActionBanner({
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
           >
             <Check className="w-4 h-4" />
-            <span>Xác nhận Nghiệm thu</span>
+            <span>Xác nhận Nghiệm thu Công trình</span>
           </button>
         </div>
       );
     }
 
-    if (s === "WAITING_FINAL_PAYMENT" || (booking.customerAccepted && !isFinalPaid)) {
+    if (s === "WAITING_FINAL_PAYMENT" || (isCustomerAccepted && !isFinalPaid)) {
       return (
-        <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+        <div className="bg-gradient-to-r from-blue-50 via-white to-amber-50/40 border-2 border-[#1E3A8A] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs shadow-md">
           <div className="flex items-start sm:items-center gap-3">
-            <CreditCard className="w-5 h-5 text-blue-700 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="relative flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+              <div className="relative w-9 h-9 rounded-xl bg-[#1E3A8A] text-white flex items-center justify-center shadow-xs">
+                <CreditCard className="w-4 h-4 text-amber-300" />
+              </div>
+            </div>
             <div>
-              <h4 className="font-bold text-slate-900 text-sm">
-                Đã nghiệm thu công trình đạt chuẩn - Mời tất toán 70% còn lại
-              </h4>
-              <p className="text-slate-600 mt-0.5 leading-relaxed">
-                Số tiền cần thanh toán: <strong className="text-slate-900 font-semibold">{formatMoney(remaining)}</strong>. Sau khi tất toán qua VNPay Sandbox, hợp đồng bảo hành chính hãng {booking.warrantyYears || 2} năm sẽ được kích hoạt.
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-bold text-slate-900 text-sm">
+                  Đã nghiệm thu công trình đạt chuẩn — Mời tất toán 70% còn lại
+                </h4>
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-300">
+                  Bước 6: Tất toán
+                </span>
+              </div>
+              <p className="text-slate-600 mt-1 leading-relaxed">
+                Số tiền cần tất toán: <strong className="text-[#1E3A8A] font-black font-mono text-sm">{formatMoney(remaining)}</strong>. Sau khi tất toán qua VNPay, hợp đồng bảo hành chính hãng {booking.warrantyYears || 2} năm sẽ được kích hoạt.
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onAction?.("pay_final")}
-            className="px-4 py-2.5 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+            className="w-full sm:w-auto px-5 py-3 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-black rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-md ring-2 ring-blue-400/40"
           >
-            <CreditCard className="w-4 h-4" />
+            <CreditCard className="w-4 h-4 text-amber-300" />
             <span>Tất toán 70% qua VNPay</span>
           </button>
         </div>

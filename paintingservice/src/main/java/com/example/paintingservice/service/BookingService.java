@@ -47,4 +47,13 @@ public interface BookingService extends BaseService<Booking, Long> {
     BookingDto startJob(Long id, String username);
 
     BookingDto completeJob(Long id, String username);
+
+    BookingDto assignTechnicianToService(Long bookingId, Long serviceItemId, Long technicianId);
+
+    BookingDto completeServiceItem(Long bookingId, Long serviceItemId, String username, String note);
+
+    BookingDto supervisorAcceptServiceItem(Long bookingId, Long serviceItemId, String username, String note);
+
+    BookingDto customerAcceptBooking(Long bookingId, String username);
+    BookingDto customerRejectServiceItem(Long bookingId, Long serviceItemId, String username);
 }

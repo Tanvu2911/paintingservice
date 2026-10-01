@@ -18,6 +18,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.example.paintingservice.entity.Booking;
+import com.example.paintingservice.entity.BookingServiceItem;
+import com.example.paintingservice.repository.BookingServiceItemRepository;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 @RestController
 @RequestMapping("/api/bookings")
 @RequiredArgsConstructor
@@ -25,6 +31,7 @@ public class BookingController {
 
     private final BookingService bookingService;
     private final BookingRepository bookingRepository;
+    private final BookingServiceItemRepository bookingServiceItemRepository;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -44,7 +51,15 @@ public class BookingController {
     @GetMapping("/technician")
     @PreAuthorize("hasRole('STAFF') or hasRole('TECHNICIAN')")
     public List<BookingDto> getTechnicianTasks(Authentication authentication) {
-        return bookingRepository.findAllByTechnician_Username(authentication.getName()).stream()
+        String username = authentication.getName();
+        Set<Booking> result = new LinkedHashSet<>(bookingRepository.findAllByTechnician_Username(username));
+        List<BookingServiceItem> serviceItems = bookingServiceItemRepository.findByTechnician_Username(username);
+        for (BookingServiceItem item : serviceItems) {
+            if (item.getBooking() != null) {
+                result.add(item.getBooking());
+            }
+        }
+        return result.stream()
                 .map(BookingMapper::toDto)
                 .collect(Collectors.toList());
     }
@@ -122,6 +137,24 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.assignTeam(id, technicianId));
     }
 
+    // ==================== PHÂN CÔNG ĐỘI THỢ CHO TỪNG DỊCH VỤ ====================
+    @PostMapping("/{id}/services/{serviceItemId}/assign-technician")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> assignTechnicianToService(
+            @PathVariable Long id,
+            @PathVariable Long serviceItemId,
+            @RequestBody Map<String, Object> payload) {
+        Object techIdObj = payload.get("technicianId");
+        if (techIdObj == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Thiếu technicianId"));
+        }
+        Long technicianId = Long.valueOf(techIdObj.toString());
+        BookingDto updated = bookingService.assignTechnicianToService(id, serviceItemId, technicianId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Phân công đội thợ cho dịch vụ thành công",
+                "booking", updated));
+    }
+
     // ==================== CÁC API CỦA ĐỘI THỢ & GIÁM SÁT ====================
     @PostMapping("/{id}/accept-job")
     public ResponseEntity<BookingDto> acceptJob(@PathVariable Long id, Principal principal) {
@@ -181,5 +214,44 @@ public class BookingController {
     @PreAuthorize("hasRole('STAFF') or hasRole('TECHNICIAN')")
     public ResponseEntity<BookingDto> completeJob(@PathVariable Long id, Principal principal) {
         return ResponseEntity.ok(bookingService.completeJob(id, principal.getName()));
+    }
+
+    @PostMapping("/{id}/services/{serviceItemId}/complete-job")
+    @PreAuthorize("hasRole('STAFF') or hasRole('TECHNICIAN') or hasRole('ADMIN')")
+    public ResponseEntity<BookingDto> completeServiceItem(
+            @PathVariable Long id,
+            @PathVariable Long serviceItemId,
+            @RequestBody(required = false) Map<String, String> body,
+            Principal principal) {
+        String note = (body != null) ? body.get("note") : null;
+        return ResponseEntity.ok(bookingService.completeServiceItem(id, serviceItemId, principal.getName(), note));
+    }
+
+    @PostMapping("/{id}/services/{serviceItemId}/supervisor-accept")
+    @PreAuthorize("hasRole('STAFF') or hasRole('SURVEYOR') or hasRole('ADMIN')")
+    public ResponseEntity<BookingDto> supervisorAcceptServiceItem(
+            @PathVariable Long id,
+            @PathVariable Long serviceItemId,
+            @RequestBody(required = false) Map<String, String> body,
+            Principal principal) {
+        String note = (body != null) ? body.get("note") : null;
+        return ResponseEntity.ok(bookingService.supervisorAcceptServiceItem(id, serviceItemId, principal.getName(), note));
+    }
+
+    @PostMapping("/{id}/customer-accept")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<BookingDto> customerAccept(
+            @PathVariable Long id,
+            Principal principal) {
+        return ResponseEntity.ok(bookingService.customerAcceptBooking(id, principal.getName()));
+    }
+
+    @PostMapping("/{id}/services/{serviceItemId}/reject")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<BookingDto> rejectServiceItem(
+            @PathVariable Long id,
+            @PathVariable Long serviceItemId,
+            Principal principal) {
+        return ResponseEntity.ok(bookingService.customerRejectServiceItem(id, serviceItemId, principal.getName()));
     }
 }

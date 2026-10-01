@@ -26,13 +26,18 @@ export default function AssignWarrantyTechnicianModal({
 
   const isCustomerFault = claim?.faultType === "CUSTOMER_FAULT" || Number(claim?.finalSupportPrice) > 0;
   const supportPrice = Number(claim?.finalSupportPrice) || Number(claim?.suggestedPrice) || 0;
-  const isSelectedPreviousTech = Boolean(
-    claim?.previousTechnicianId && String(claim.previousTechnicianId) === String(selectedTechnicianId)
-  );
+
+  const isPrevWorker = (tid) => {
+    if (!tid) return false;
+    if (claim?.previousTechnicianId && String(claim.previousTechnicianId) === String(tid)) return true;
+    return (claim?.previousTechnicians || []).some((pt) => String(pt.technicianId) === String(tid));
+  };
+
+  const isSelectedPreviousTech = Boolean(isPrevWorker(selectedTechnicianId));
 
   const handleSelectTech = (tid) => {
     setSelectedTechnicianId(tid);
-    const isPrev = claim?.previousTechnicianId && String(claim.previousTechnicianId) === String(tid);
+    const isPrev = isPrevWorker(tid);
     if (isCustomerFault) {
       if (supportPrice > 0) {
         setWorkerSalary(String(Math.round(supportPrice * 0.6)));
@@ -114,8 +119,10 @@ export default function AssignWarrantyTechnicianModal({
                   claimAddress &&
                   (claimAddress.includes(tArea) ||
                     tArea.split(",").some((part) => claimAddress.includes(part.trim())));
-                const isPreviousTech =
-                  claim?.previousTechnicianId && String(claim.previousTechnicianId) === tid;
+                const prevTechMatch = (claim?.previousTechnicians || []).find(
+                  (pt) => String(pt.technicianId) === tid
+                );
+                const isPreviousTech = isPrevWorker(tid);
 
                 return (
                   <div
@@ -151,8 +158,8 @@ export default function AssignWarrantyTechnicianModal({
                           </span>
 
                           {isPreviousTech && (
-                            <span className="text-[10px] font-semibold bg-blue-600 text-white px-1.5 py-0.5 rounded shrink-0 leading-none">
-                              ★ Đội thợ cũ của công trình
+                            <span className="text-[10px] font-semibold bg-emerald-600 text-white px-1.5 py-0.5 rounded shrink-0 leading-none">
+                              ★ Thợ đã thi công {prevTechMatch?.serviceName ? `: ${prevTechMatch.serviceName}` : "công trình"}
                             </span>
                           )}
 

@@ -4,6 +4,7 @@ import com.example.paintingservice.dto.BookingDto;
 import com.example.paintingservice.entity.Booking;
 import com.example.paintingservice.entity.ServiceEntity;
 import com.example.paintingservice.entity.User;
+import com.example.paintingservice.enums.BookingStatus;
 import com.example.paintingservice.enums.PaymentStatus;
 
 public class BookingMapper {
@@ -17,6 +18,16 @@ public class BookingMapper {
         boolean depositPaid = paymentStatus == PaymentStatus.DEPOSIT_PAID
                 || paymentStatus == PaymentStatus.FULLY_PAID;
         boolean finalPaid = paymentStatus == PaymentStatus.FULLY_PAID;
+
+        boolean customerAccepted = booking.getStatus() == BookingStatus.WAITING_FINAL_PAYMENT
+                || booking.getStatus() == BookingStatus.COMPLETED
+                || booking.getStatus() == BookingStatus.PAID_TO_STAFF;
+
+        boolean supervisorAccepted = customerAccepted;
+        if (!supervisorAccepted && booking.getBookingServices() != null && !booking.getBookingServices().isEmpty()) {
+            supervisorAccepted = booking.getBookingServices().stream()
+                    .allMatch(item -> Boolean.TRUE.equals(item.getSupervisorAccepted()));
+        }
 
         BookingDto dto = BookingDto.builder()
                 .id(booking.getId())
@@ -33,6 +44,8 @@ public class BookingMapper {
                 .paymentStatus(paymentStatus)
                 .depositPaid(depositPaid)
                 .finalPaid(finalPaid)
+                .customerAccepted(customerAccepted)
+                .supervisorAccepted(supervisorAccepted)
                 .depositPaidAt(booking.getDepositPaidAt())
                 .finalPaidAt(booking.getFinalPaidAt())
                 .completedAt(booking.getCompletedAt())
@@ -84,9 +97,54 @@ public class BookingMapper {
             dto.setPreferredSupervisorAvatar(booking.getPreferredSupervisor().getAvatar());
         }
 
-        if (booking.getService() != null) {
-            dto.setServiceId(booking.getService().getId());
-            dto.setServiceName(booking.getService().getName());
+        if (booking.getBookingServices() != null && !booking.getBookingServices().isEmpty()) {
+            java.util.List<com.example.paintingservice.dto.BookingServiceItemDto> serviceItemDtos = booking.getBookingServices().stream()
+                    .map(item -> com.example.paintingservice.dto.BookingServiceItemDto.builder()
+                            .id(item.getId())
+                            .bookingId(booking.getId())
+                            .serviceId(item.getService() != null ? item.getService().getId() : null)
+                            .serviceName(item.getService() != null ? item.getService().getName() : null)
+                            .servicePrice(item.getService() != null ? item.getService().getBasePrice() : null)
+                            .serviceDescription(item.getService() != null ? item.getService().getDescription() : null)
+                            .technicianId(item.getTechnician() != null ? item.getTechnician().getId() : null)
+                            .technicianName(getUserDisplayName(item.getTechnician()))
+                            .technicianPhone(item.getTechnician() != null ? item.getTechnician().getPhoneNumber() : null)
+                            .technicianAvatar(item.getTechnician() != null ? item.getTechnician().getAvatar() : null)
+                            .estimatedArea(item.getEstimatedArea())
+                            .price(item.getPrice())
+                            .note(item.getNote())
+                            .technicianAccepted(item.getTechnicianAccepted())
+                            .technicianAcceptedAt(item.getTechnicianAcceptedAt())
+                            .technicianStarted(item.getTechnicianStarted())
+                            .technicianStartedAt(item.getTechnicianStartedAt())
+                            .technicianCompleted(item.getTechnicianCompleted())
+                            .technicianCompletedAt(item.getTechnicianCompletedAt())
+                            .technicianNote(item.getTechnicianNote())
+                            .supervisorAccepted(item.getSupervisorAccepted())
+                            .supervisorAcceptedAt(item.getSupervisorAcceptedAt())
+                            .supervisorNote(item.getSupervisorNote())
+                            .cancelled(item.getCancelled())
+                            .cancelledAt(item.getCancelledAt())
+                            .build())
+                    .collect(java.util.stream.Collectors.toList());
+            dto.setBookingServices(serviceItemDtos);
+            dto.setServiceIds(serviceItemDtos.stream()
+                    .map(com.example.paintingservice.dto.BookingServiceItemDto::getServiceId)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toList()));
+
+            String combinedServiceName = serviceItemDtos.stream()
+                    .map(com.example.paintingservice.dto.BookingServiceItemDto::getServiceName)
+                    .filter(java.util.Objects::nonNull)
+                    .filter(s -> !s.isBlank())
+                    .distinct()
+                    .collect(java.util.stream.Collectors.joining(", "));
+            if (!combinedServiceName.isEmpty()) {
+                dto.setServiceName(combinedServiceName);
+            }
+            if (!dto.getServiceIds().isEmpty()) {
+                dto.setServiceId(dto.getServiceIds().get(0));
+            }
         }
 
         return dto;
@@ -138,9 +196,7 @@ public class BookingMapper {
             booking.setPreferredSupervisor(User.builder().id(dto.getPreferredSupervisorId()).build());
         }
 
-        if (dto.getServiceId() != null) {
-            booking.setService(ServiceEntity.builder().id(dto.getServiceId()).build());
-        }
+
 
         return booking;
     }
@@ -173,7 +229,7 @@ public class BookingMapper {
         if (dto.getPreferredSupervisorId() != null) {
             booking.setPreferredSupervisor(User.builder().id(dto.getPreferredSupervisorId()).build());
         }
-        if (dto.getServiceId() != null) booking.setService(ServiceEntity.builder().id(dto.getServiceId()).build());
+
     }
 
     private static String getUserDisplayName(User user) {

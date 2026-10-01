@@ -1,12 +1,8 @@
 import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import {
-  Calendar,
-  Clock,
   MapPin,
-  FileText,
   Check,
-  CheckCircle2,
   AlertCircle,
   ShieldCheck,
   Send,
@@ -17,15 +13,15 @@ import {
   ArrowRight,
   ClipboardList,
   Paintbrush,
-  Info,
-  User,
-  Star,
   Sparkles,
   Map,
+  Star,
+  Info,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import AddressMapModal from "../../components/common/AddressMapModal";
+import StaffDetailModal from "../../components/common/StaffDetailModal";
 import {
   HANOI_DISTRICTS,
   TIME_SLOT_GROUPS,
@@ -41,6 +37,7 @@ function formatTime(timeInput) {
 
 const DEFAULT_FORM = {
   selectedServiceId: "",
+  selectedServiceIds: [],
   newDesc: "",
   address: "",
   appointmentDate: new Date().toISOString().split("T")[0],
@@ -48,12 +45,12 @@ const DEFAULT_FORM = {
 };
 
 const QUICK_DESC_TAGS = [
-  "Sơn lại căn hộ chung cư",
-  "Tường ẩm mốc, bong tróc",
-  "Sơn nhà mới hoàn thiện",
-  "Sơn chống thấm ngoại thất",
-  "Dặm vá sơn phòng khách",
-  "Sơn bóng cao cấp dễ lau chùi",
+  "Sơn lại căn hộ",
+  "Tường ẩm mốc",
+  "Sơn nhà mới",
+  "Chống thấm",
+  "Dặm vá sơn",
+  "Sơn cao cấp",
 ];
 
 export default function CustomerBooking() {
@@ -76,13 +73,30 @@ export default function CustomerBooking() {
   const [streetAddress, setStreetAddress] = useState("");
   const [mapModalOpen, setMapModalOpen] = useState(false);
 
-  // Giám sát viên cũ
+  // Giám sát viên khảo sát (chỉ chọn giám sát viên để gửi yêu cầu khảo sát)
   const [formerSupervisors, setFormerSupervisors] = useState([]);
   const [selectedSupervisorId, setSelectedSupervisorId] = useState(null);
+  const [selectedStaffProfile, setSelectedStaffProfile] = useState(null);
 
   const setForm = (key, value) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const handleToggleService = (sId) => {
+    const currentIds = form.selectedServiceIds || [];
+    let newIds;
+    if (currentIds.some((id) => String(id) === String(sId))) {
+      if (currentIds.length <= 1) {
+        showToast?.("Vui lòng chọn ít nhất một gói dịch vụ", "info");
+        return;
+      }
+      newIds = currentIds.filter((id) => String(id) !== String(sId));
+    } else {
+      newIds = [...currentIds, sId];
+    }
+    setForm("selectedServiceIds", newIds);
+    setForm("selectedServiceId", newIds[0] || "");
   };
 
   useEffect(() => {
@@ -93,17 +107,18 @@ export default function CustomerBooking() {
         const srvList = srvRes.data || [];
         setServices(srvList);
 
-        // Kiểm tra xem có serviceId truyền từ trang Home qua state hoặc query param không
         const queryParams = new URLSearchParams(location.search);
         const preselectedId = location.state?.serviceId || queryParams.get("serviceId");
 
         if (preselectedId && srvList.some((s) => String(s.id) === String(preselectedId))) {
           setForm("selectedServiceId", preselectedId);
+          setForm("selectedServiceIds", [preselectedId]);
         } else if (srvList.length > 0) {
           setForm("selectedServiceId", srvList[0].id);
+          setForm("selectedServiceIds", [srvList[0].id]);
         }
 
-        // Điền trước địa chỉ khách hàng nếu có
+        // Điền trước địa chỉ nếu có trong hồ sơ
         if (profile?.address) {
           const parsed = parseHanoiAddress(profile.address);
           if (parsed.isHanoi) {
@@ -121,7 +136,7 @@ export default function CustomerBooking() {
           }
         }
 
-        // Lấy danh sách giám sát viên cũ đã từng phụ trách cho khách
+        // Lấy danh sách giám sát viên cũ đã từng phục vụ khách hàng
         try {
           const supRes = await AxiosConfig.get("/staff/former-supervisors");
           setFormerSupervisors(supRes.data || []);
@@ -188,9 +203,38 @@ export default function CustomerBooking() {
     if (group) setActiveTimeGroup(group);
   };
 
+  const handleViewSupervisorProfile = async (sup, e) => {
+    if (e) e.stopPropagation();
+    try {
+      if (sup.userId) {
+        const res = await AxiosConfig.get(`/staff/by-user/${sup.userId}`);
+        if (res.data) {
+          setSelectedStaffProfile(res.data);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch full staff profile", err);
+    }
+
+    setSelectedStaffProfile({
+      username: sup.username || "Chuyên viên",
+      fullName: sup.fullName || sup.username || "Giám sát viên khảo sát",
+      phoneNumber: sup.phoneNumber || "",
+      avatar: sup.avatar || "",
+      staffType: "SUPERVISOR",
+      specialty: "Giám sát & Khảo sát công trình, tư vấn màu sơn",
+      experienceYears: 5,
+      rating: sup.rating || 5.0,
+      serviceArea: "Hà Nội",
+    });
+  };
+
   const validateForm = () => {
     const newErrors = {};
-    if (!form.selectedServiceId) newErrors.selectedServiceId = "Vui lòng chọn dịch vụ";
+    if (!form.selectedServiceId && (!form.selectedServiceIds || form.selectedServiceIds.length === 0)) {
+      newErrors.selectedServiceId = "Vui lòng chọn ít nhất một dịch vụ";
+    }
     if (!form.appointmentDate) newErrors.appointmentDate = "Vui lòng chọn ngày khảo sát";
     if (!form.appointmentTime) newErrors.appointmentTime = "Vui lòng chọn giờ hẹn khảo sát";
 
@@ -199,7 +243,7 @@ export default function CustomerBooking() {
       : form.address;
 
     if (!fullAddr.trim()) {
-      newErrors.address = "Vui lòng chọn địa chỉ công trình tại Hà Nội";
+      newErrors.address = "Vui lòng nhập địa chỉ công trình";
     } else if (selectedDistrict && !selectedWard) {
       newErrors.address = "Vui lòng chọn Phường / Xã";
     } else if (selectedDistrict && !streetAddress.trim()) {
@@ -207,7 +251,7 @@ export default function CustomerBooking() {
     }
 
     if (!form.newDesc.trim()) {
-      newErrors.newDesc = "Vui lòng nhập mô tả hiện trạng công trình";
+      newErrors.newDesc = "Vui lòng nhập mô tả sơ bộ hiện trạng";
     }
 
     setErrors(newErrors);
@@ -237,11 +281,20 @@ export default function CustomerBooking() {
         ? formatHanoiAddress(streetAddress, selectedWard, selectedDistrict)
         : form.address;
 
+      const chosenServiceIds = (form.selectedServiceIds && form.selectedServiceIds.length > 0)
+        ? form.selectedServiceIds.map(Number)
+        : (form.selectedServiceId ? [Number(form.selectedServiceId)] : []);
+
+      const bookingServicesPayload = chosenServiceIds.map((sId) => ({
+        serviceId: sId,
+      }));
+
       const payload = {
         customerId: Number(profile.id),
-        serviceId: Number(form.selectedServiceId),
+        serviceId: chosenServiceIds[0] || Number(form.selectedServiceId),
+        serviceIds: chosenServiceIds,
+        bookingServices: bookingServicesPayload,
         preferredSupervisorId: selectedSupervisorId || null,
-        preferredTechnicianId: null,
         appointmentDate: form.appointmentDate,
         appointmentTime: formatTime(form.appointmentTime),
         address: finalAddress.trim(),
@@ -251,7 +304,7 @@ export default function CustomerBooking() {
 
       const res = await AxiosConfig.post("/bookings", payload);
       showToast?.(
-        "Gửi yêu cầu khảo sát thành công! Hệ thống sẽ điều phối giám sát viên phụ trách sớm nhất.",
+        "Gửi yêu cầu khảo sát thành công! Chuyên viên giám sát sẽ liên hệ sớm nhất.",
         "success"
       );
       handleResetForm();
@@ -274,8 +327,9 @@ export default function CustomerBooking() {
 
   if (loadingData) return <LoadingSpinner message="Đang chuẩn bị biểu mẫu đặt lịch..." />;
 
-  const selectedService = services.find(
-    (s) => String(s.id) === String(form.selectedServiceId)
+  const selectedServicesList = services.filter((s) =>
+    (form.selectedServiceIds || []).some((id) => String(id) === String(s.id))
+    || String(form.selectedServiceId) === String(s.id)
   );
 
   const districtObj = HANOI_DISTRICTS.find((d) => d.name === selectedDistrict);
@@ -295,243 +349,216 @@ export default function CustomerBooking() {
     : form.address?.trim() || "Chưa nhập địa chỉ";
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
-      {/* 1. Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/80">
+    <div className="space-y-5 max-w-6xl mx-auto pb-12">
+      {/* 1. Header Bar - Compact & Clean */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
-              ★ MIỄN PHÍ 100% KHẢO SÁT
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+              MIỄN PHÍ KHẢO SÁT 100%
             </span>
-            <span className="text-xs font-semibold text-slate-500">Toàn khu vực TP. Hà Nội</span>
+            <span className="text-xs text-slate-500">Khu vực Hà Nội</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Đăng Ký Khảo Sát &amp; Lập Dự Toán Sơn Nhà
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+            Đặt Lịch Khảo Sát &amp; Lập Dự Toán Sơn Nhà
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Chuyên viên đến tận nơi đo đạc diện tích thực tế, kiểm tra độ ẩm tường và tư vấn màu sắc hoàn toàn miễn phí.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Chuyên viên đến tận nơi đo đạc diện tích thực tế và tư vấn màu sắc hoàn toàn miễn phí.
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => navigate("/customer/ongoing")}
-          className="self-start sm:self-auto text-xs font-bold text-slate-700 hover:text-[#1E3A8A] bg-white hover:bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-2xl transition flex items-center gap-2 shadow-2xs cursor-pointer shrink-0"
+          className="self-start sm:self-auto text-xs font-bold text-slate-700 hover:text-[#1E3A8A] bg-white hover:bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
         >
           <ClipboardList className="w-4 h-4 text-[#1E3A8A]" />
-          <span>Quản lý công trình đã tạo</span>
+          <span>Danh sách công trình</span>
           <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
         </button>
       </div>
 
-      {/* Cảnh báo tài khoản khóa nếu có */}
       {profile?.status === "RESTRICTED" && (
-        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-          <div>
-            <h4 className="text-rose-900 font-bold text-xs sm:text-sm">Tài khoản đang bị hạn chế</h4>
-            <p className="text-rose-700 text-xs">Bạn tạm thời không thể gửi yêu cầu mới. Vui lòng liên hệ tổng đài hỗ trợ.</p>
-          </div>
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <p className="text-rose-700 text-xs font-medium">
+            Tài khoản của bạn đang bị hạn chế tạo yêu cầu mới. Vui lòng liên hệ hỗ trợ.
+          </p>
         </div>
       )}
 
-      {/* 2. Main 3-Step Form & Sticky Sidebar Layout */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Form: 7 Cols on Desktop */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* BƯỚC 1: DỊCH VỤ & HIỆN TRẠNG */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-5 sm:p-7 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-xl bg-[#1E3A8A] text-white font-black text-xs flex items-center justify-center shadow-xs">
+      {/* 2. Main 2-Column Form Layout (Left Form, Right Sticky Summary) */}
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Form: 8 Cols */}
+        <div className="lg:col-span-8 space-y-4">
+          {/* BƯỚC 1: DỊCH VỤ SƠN & MÔ TẢ HIỆN TRẠNG */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-[#1E3A8A] text-white font-bold text-xs flex items-center justify-center">
                   1
                 </span>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    Chọn Gói Dịch Vụ &amp; Hiện Trạng
-                  </h3>
-                  <p className="text-[11px] text-slate-400">Chọn giải pháp sơn phù hợp với nhu cầu của bạn</p>
-                </div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Chọn Gói Dịch Vụ &amp; Mô Tả Hiện Trạng
+                </h3>
               </div>
-              <span className="text-[11px] font-bold text-rose-500">* Bắt buộc</span>
+              <span className="text-[11px] font-semibold text-[#1E3A8A] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                Đã chọn {form.selectedServiceIds?.length || 1} gói
+              </span>
             </div>
 
-            {/* Service Grid Selector */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
-                Các gói dịch vụ tiêu chuẩn
-              </label>
-
-              {services.length === 0 ? (
-                <p className="text-xs text-slate-400 py-6 text-center border border-dashed border-slate-200 rounded-2xl">
-                  Đang tải danh mục dịch vụ...
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {services.map((s) => {
-                    const active = String(form.selectedServiceId) === String(s.id);
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setForm("selectedServiceId", s.id)}
-                        className={`text-left p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-3 relative ${
-                          active
-                            ? "border-[#1E3A8A] bg-blue-50/70 shadow-sm ring-2 ring-[#1E3A8A]/15"
-                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70"
+            {/* Service Selection Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {services.map((s) => {
+                const active =
+                  (form.selectedServiceIds || []).some((id) => String(id) === String(s.id)) ||
+                  String(form.selectedServiceId) === String(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleToggleService(s.id)}
+                    className={`text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
+                      active
+                        ? "border-[#1E3A8A] bg-blue-50/70 shadow-2xs"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          active ? "bg-[#1E3A8A] text-white" : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                            active ? "bg-[#1E3A8A] text-white shadow-xs" : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          <Paintbrush className="w-5 h-5" />
+                        <Paintbrush className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className={`text-xs font-bold truncate ${active ? "text-[#1E3A8A]" : "text-slate-900"}`}>
+                          {s.name}
                         </div>
-                        <div className="min-w-0 flex-1 pr-4">
-                          <div className={`text-xs font-bold leading-tight ${active ? "text-[#1E3A8A]" : "text-slate-900"}`}>
-                            {s.name}
+                        {(s.price || s.basePrice) && (
+                          <div className="text-[10.5px] text-slate-500 font-medium">
+                            {s.price || `Từ ${Number(s.basePrice).toLocaleString("vi-VN")} đ/m²`}
                           </div>
-                          {(s.price || s.basePrice) && (
-                            <div className="text-[11px] text-slate-500 mt-1 font-medium">
-                              {s.price || `Từ ${Number(s.basePrice).toLocaleString("vi-VN")} đ/m²`}
-                            </div>
-                          )}
-                        </div>
-
-                        {active && (
-                          <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 absolute top-3 right-3 shadow-xs">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                          </span>
                         )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {errors.selectedServiceId && (
-                <p className="text-[11px] text-rose-500 mt-1.5 font-bold">{errors.selectedServiceId}</p>
-              )}
+                      </div>
+                    </div>
+
+                    <span
+                      className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border ${
+                        active
+                          ? "bg-[#1E3A8A] border-[#1E3A8A] text-white"
+                          : "border-slate-300 bg-white"
+                      }`}
+                    >
+                      {active && <Check className="w-3 h-3 stroke-[3]" />}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+            {errors.selectedServiceId && (
+              <p className="text-[11px] text-rose-500 font-bold">{errors.selectedServiceId}</p>
+            )}
 
             {/* Description & Quick Suggestions */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                   Mô tả sơ bộ hiện trạng công trình
                 </label>
-                <span className="text-[10px] text-slate-400 font-medium">{form.newDesc.length}/500 ký tự</span>
+                <span className="text-[10px] text-slate-400">{form.newDesc.length}/500 ký tự</span>
               </div>
               <textarea
-                placeholder="Ví dụ: Căn hộ 75m2 tại Cầu Giấy, tường phòng ngủ bị ẩm mốc cần cạo bả và sơn lại; phòng khách sơn phủ màu trắng kem..."
+                placeholder="Ví dụ: Căn hộ 70m2, tường phòng ngủ bị ẩm mốc cần cạo bả và sơn lại; phòng khách sơn màu trắng kem..."
                 value={form.newDesc}
                 onChange={(e) => setForm("newDesc", e.target.value)}
-                rows={3}
-                className={`w-full px-4 py-3 text-xs border rounded-2xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition resize-none leading-relaxed ${
+                rows={2}
+                className={`w-full px-3 py-2 text-xs border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition resize-none leading-relaxed ${
                   errors.newDesc ? "border-rose-300 bg-rose-50/30" : "border-slate-200"
                 }`}
               />
 
-              {/* Quick Suggestion Chips */}
-              <div className="space-y-1.5 mt-2">
-                <span className="text-[10.5px] text-slate-400 font-semibold block">Gợi ý nhanh (bấm để thêm vào mô tả):</span>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {QUICK_DESC_TAGS.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => handleQuickTagClick(tag)}
-                      className="text-[10.5px] font-medium px-2.5 py-1 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-600 hover:text-[#1E3A8A] transition cursor-pointer"
-                    >
-                      + {tag}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                <span className="text-[10.5px] text-slate-400 font-medium">Gợi ý nhanh:</span>
+                {QUICK_DESC_TAGS.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => handleQuickTagClick(tag)}
+                    className="text-[10.5px] font-medium px-2 py-0.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-600 hover:text-[#1E3A8A] transition cursor-pointer"
+                  >
+                    + {tag}
+                  </button>
+                ))}
               </div>
               {errors.newDesc && (
-                <p className="text-[11px] text-rose-500 mt-1.5 font-bold">{errors.newDesc}</p>
+                <p className="text-[11px] text-rose-500 mt-1 font-bold">{errors.newDesc}</p>
               )}
             </div>
           </div>
 
-          {/* BƯỚC 2: THỜI GIAN & ĐỊA ĐIỂM */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-5 sm:p-7 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-xl bg-[#1E3A8A] text-white font-black text-xs flex items-center justify-center shadow-xs">
+          {/* BƯỚC 2: THỜI GIAN & ĐỊA ĐIỂM KHẢO SÁT */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-[#1E3A8A] text-white font-bold text-xs flex items-center justify-center">
                   2
                 </span>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    Thời Gian Hẹn &amp; Địa Điểm Khảo Sát
-                  </h3>
-                  <p className="text-[11px] text-slate-400">Chọn lịch hẹn thuận tiện nhất cho gia đình bạn</p>
-                </div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Thời Gian Hẹn &amp; Địa Chỉ Khảo Sát
+                </h3>
               </div>
               <span className="text-[11px] font-bold text-rose-500">* Bắt buộc</span>
             </div>
 
-            {/* Date & Period Selection */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Ngày hẹn khảo sát
-                  </label>
-                  <input
-                    type="date"
-                    value={form.appointmentDate}
-                    min={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => setForm("appointmentDate", e.target.value)}
-                    className={`w-full px-4 py-2.5 text-xs font-semibold border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition ${
-                      errors.appointmentDate ? "border-rose-300" : "border-slate-200"
-                    }`}
-                  />
-                  {errors.appointmentDate && (
-                    <p className="text-[11px] text-rose-500 mt-1 font-bold">{errors.appointmentDate}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Buổi khảo sát
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
-                    {TIME_SLOT_GROUPS.map((grp) => {
-                      const isActive = activeTimeGroup === grp.group;
-                      return (
-                        <button
-                          key={grp.group}
-                          type="button"
-                          onClick={() => {
-                            setActiveTimeGroup(grp.group);
-                            if (grp.slots.length > 0) {
-                              setForm("appointmentTime", grp.slots[0].time);
-                            }
-                          }}
-                          className={`py-2 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                            isActive
-                              ? "bg-white text-[#1E3A8A] shadow-xs font-black"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          {grp.group === "Sáng" && <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                          {grp.group === "Chiều" && <Sunset className="w-3.5 h-3.5 text-orange-500" />}
-                          {grp.group === "Tối" && <Moon className="w-3.5 h-3.5 text-indigo-500" />}
-                          <span>{grp.group}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+            {/* Date & Time Slot Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+              <div className="sm:col-span-5 space-y-1">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Ngày hẹn
+                </label>
+                <input
+                  type="date"
+                  value={form.appointmentDate}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setForm("appointmentDate", e.target.value)}
+                  className={`w-full px-3 py-2 text-xs font-semibold border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition ${
+                    errors.appointmentDate ? "border-rose-300" : "border-slate-200"
+                  }`}
+                />
+                {errors.appointmentDate && (
+                  <p className="text-[11px] text-rose-500 font-bold">{errors.appointmentDate}</p>
+                )}
               </div>
 
-              {/* Time Slots Pills */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-2">
-                  Chọn giờ chuyên viên đến ({activeTimeGroup}):
-                </label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <div className="sm:col-span-7 space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    Khung giờ ({activeTimeGroup})
+                  </label>
+                  <div className="flex gap-1">
+                    {TIME_SLOT_GROUPS.map((grp) => (
+                      <button
+                        key={grp.group}
+                        type="button"
+                        onClick={() => {
+                          setActiveTimeGroup(grp.group);
+                          if (grp.slots.length > 0) setForm("appointmentTime", grp.slots[0].time);
+                        }}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded transition cursor-pointer ${
+                          activeTimeGroup === grp.group
+                            ? "bg-[#1E3A8A] text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {grp.group}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
                   {TIME_SLOT_GROUPS.find((g) => g.group === activeTimeGroup)?.slots.map((slot) => {
                     const isSelected = form.appointmentTime === slot.time;
                     return (
@@ -539,72 +566,67 @@ export default function CustomerBooking() {
                         key={slot.time}
                         type="button"
                         onClick={() => handleSelectTimeSlot(slot.time, activeTimeGroup)}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold font-mono transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                        className={`py-1.5 px-2 rounded-lg border text-xs font-bold font-mono transition text-center cursor-pointer ${
                           isSelected
-                            ? "border-[#1E3A8A] bg-[#1E3A8A] text-white shadow-xs font-black"
-                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                            ? "border-[#1E3A8A] bg-[#1E3A8A] text-white shadow-2xs"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
                       >
-                        <span>{slot.time}</span>
-                        {isSelected && <Check className="w-3 h-3 text-amber-400 stroke-[3]" />}
+                        {slot.time}
                       </button>
                     );
                   })}
                 </div>
                 {errors.appointmentTime && (
-                  <p className="text-[11px] text-rose-500 mt-1 font-bold">{errors.appointmentTime}</p>
+                  <p className="text-[11px] text-rose-500 font-bold">{errors.appointmentTime}</p>
                 )}
               </div>
             </div>
 
-            {/* Address Cascading Selector (Hanoi) */}
-            <div className="space-y-3 pt-3 border-t border-slate-100">
+            {/* Address Form (Hanoi) */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Địa chỉ công trình (Hà Nội)
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  Địa chỉ công trình tại Hà Nội
                 </label>
                 {profile?.address && (
                   <button
                     type="button"
                     onClick={handleFillProfileAddress}
-                    className="text-[11px] font-bold text-[#1E3A8A] hover:underline cursor-pointer flex items-center gap-1"
+                    className="text-[11px] font-bold text-[#1E3A8A] hover:underline cursor-pointer"
                   >
-                    <span>Lấy từ hồ sơ cá nhân</span>
+                    Dùng địa chỉ hồ sơ
                   </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <select
-                    value={selectedDistrict}
-                    onChange={handleDistrictChange}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A]"
-                  >
-                    <option value="">-- Chọn Quận / Huyện --</option>
-                    {HANOI_DISTRICTS.map((d) => (
-                      <option key={d.name} value={d.name}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <select
+                  value={selectedDistrict}
+                  onChange={handleDistrictChange}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A]"
+                >
+                  <option value="">-- Chọn Quận / Huyện --</option>
+                  {HANOI_DISTRICTS.map((d) => (
+                    <option key={d.name} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
 
-                <div>
-                  <select
-                    value={selectedWard}
-                    onChange={handleWardChange}
-                    disabled={!selectedDistrict}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] disabled:bg-slate-100 disabled:text-slate-400"
-                  >
-                    <option value="">-- Chọn Phường / Xã --</option>
-                    {districtObj?.wards.map((w) => (
-                      <option key={w} value={w}>
-                        {w}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={selectedWard}
+                  onChange={handleWardChange}
+                  disabled={!selectedDistrict}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="">-- Chọn Phường / Xã --</option>
+                  {districtObj?.wards.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex gap-2">
@@ -613,27 +635,18 @@ export default function CustomerBooking() {
                   placeholder="Số nhà, tên ngõ / ngách / đường..."
                   value={streetAddress}
                   onChange={handleStreetChange}
-                  className={`flex-1 px-4 py-2.5 text-xs border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition ${
+                  className={`flex-1 px-3 py-2 text-xs border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A] transition ${
                     errors.address ? "border-rose-300" : "border-slate-200"
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setMapModalOpen(true)}
-                  className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-[#1E3A8A] font-bold text-xs rounded-xl border border-blue-200 transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-2xs"
+                  className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-[#1E3A8A] font-bold text-xs rounded-xl border border-blue-200 transition flex items-center gap-1 shrink-0 cursor-pointer"
                 >
-                  <Map className="w-4 h-4 text-[#1E3A8A]" />
+                  <Map className="w-3.5 h-3.5 text-[#1E3A8A]" />
                   <span>Bản đồ</span>
                 </button>
-              </div>
-
-              {/* Address preview badge */}
-              <div className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200/70 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#1E3A8A] shrink-0" />
-                <span className="truncate">
-                  <strong className="text-slate-900">Địa chỉ khảo sát:</strong>{" "}
-                  {computedFullAddress}
-                </span>
               </div>
 
               {errors.address && (
@@ -641,7 +654,6 @@ export default function CustomerBooking() {
               )}
             </div>
 
-            {/* Modal Map Selector */}
             <AddressMapModal
               isOpen={mapModalOpen}
               onClose={() => setMapModalOpen(false)}
@@ -663,116 +675,119 @@ export default function CustomerBooking() {
             />
           </div>
 
-          {/* BƯỚC 3: GIÁM SÁT VIÊN */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-5 sm:p-7 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-xl bg-[#1E3A8A] text-white font-black text-xs flex items-center justify-center shadow-xs">
+          {/* BƯỚC 3: GIÁM SÁT VIÊN KHẢO SÁT (BẤM ĐỂ XEM CHI TIẾT HỒ SƠ) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-[#1E3A8A] text-white font-bold text-xs flex items-center justify-center">
                   3
                 </span>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    Giám Sát Viên Khảo Sát
-                  </h3>
-                  <p className="text-[11px] text-slate-400">Chọn người phụ trách hoặc để hệ thống chọn tối ưu</p>
-                </div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Chuyên Viên Giám Sát Khảo Sát
+                </h3>
               </div>
-              <span className="text-[11px] text-slate-400 font-semibold">Tùy chọn</span>
+              <span className="text-[10.5px] text-slate-400">Tùy chọn</span>
             </div>
 
-            {/* Smart Auto-dispatch Option */}
             <button
               type="button"
               onClick={() => setSelectedSupervisorId(null)}
-              className={`w-full p-4 rounded-2xl border-2 text-left transition cursor-pointer flex items-center justify-between gap-3 ${
+              className={`w-full p-3 rounded-xl border text-left transition cursor-pointer flex items-center justify-between gap-2.5 ${
                 selectedSupervisorId === null
-                  ? "border-[#1E3A8A] bg-blue-50/70 shadow-xs ring-2 ring-[#1E3A8A]/15"
-                  : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70"
+                  ? "border-[#1E3A8A] bg-blue-50/70 shadow-2xs"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    selectedSupervisorId === null ? "bg-[#1E3A8A] text-white shadow-xs" : "bg-slate-100 text-slate-600"
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    selectedSupervisorId === null ? "bg-[#1E3A8A] text-white" : "bg-slate-100 text-slate-600"
                   }`}
                 >
-                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <Sparkles className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-900">
                       Tự động phân công tối ưu
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
                       Khuyên dùng
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                    Hệ thống tự động điều phối giám sát viên gần công trình nhất, đánh giá 5★ và trống lịch hẹn.
+                  <p className="text-[11px] text-slate-500 truncate">
+                    Hệ thống tự động điều phối chuyên viên gần công trình nhất.
                   </p>
                 </div>
               </div>
               <div
-                className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
+                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                   selectedSupervisorId === null ? "border-[#1E3A8A] bg-[#1E3A8A] text-white" : "border-slate-300 bg-white"
                 }`}
               >
-                {selectedSupervisorId === null && <Check className="w-3 h-3 stroke-[3]" />}
+                {selectedSupervisorId === null && <Check className="w-2.5 h-2.5 stroke-[3]" />}
               </div>
             </button>
 
-            {/* Danh sách giám sát viên cũ nếu có */}
             {formerSupervisors.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <div className="text-[11px] font-bold text-slate-700">
-                  Hoặc chọn lại chuyên viên đã từng phục vụ bạn:
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[11px] font-bold text-slate-600 block">
+                  Hoặc chọn chuyên viên từng phục vụ bạn (Bấm để chọn / xem hồ sơ):
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {formerSupervisors.map((sup) => {
                     const isSelected = selectedSupervisorId === sup.userId;
                     return (
-                      <button
+                      <div
                         key={sup.userId}
-                        type="button"
                         onClick={() => setSelectedSupervisorId(sup.userId)}
-                        className={`p-3.5 rounded-2xl border-2 text-left transition cursor-pointer flex items-center justify-between gap-3 ${
+                        className={`p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${
                           isSelected
-                            ? "bg-blue-50/80 border-[#1E3A8A] shadow-xs ring-2 ring-[#1E3A8A]/15"
-                            : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60"
+                            ? "bg-blue-50/80 border-[#1E3A8A]"
+                            : "bg-white border-slate-200 hover:bg-slate-50"
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           {sup.avatar ? (
                             <img
                               src={sup.avatar}
                               alt={sup.username}
-                              className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
+                              className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
                             />
                           ) : (
-                            <div className="w-9 h-9 rounded-xl bg-blue-100 text-[#1E3A8A] font-black text-xs flex items-center justify-center shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-blue-100 text-[#1E3A8A] font-bold text-xs flex items-center justify-center shrink-0">
                               {sup.username.charAt(0).toUpperCase()}
                             </div>
                           )}
-                          <div className="min-w-0">
-                            <div className="font-bold text-slate-900 text-xs truncate">
-                              @{sup.username}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500 mt-0.5">
-                              <span className="flex items-center text-amber-600 font-bold">
-                                <Star className="w-3 h-3 fill-amber-400 text-amber-500" /> {sup.rating || "5.0"}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-bold text-slate-900 text-xs truncate">
+                                @{sup.username}
                               </span>
-                              <span>• {sup.bookingCountWithCustomer} lần phục vụ</span>
+                              <button
+                                type="button"
+                                onClick={(e) => handleViewSupervisorProfile(sup, e)}
+                                className="text-[10px] text-blue-700 hover:underline font-bold px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 shrink-0 flex items-center gap-0.5"
+                                title="Xem chi tiết hồ sơ chuyên viên"
+                              >
+                                <Info className="w-2.5 h-2.5" />
+                                <span>Hồ sơ</span>
+                              </button>
                             </div>
+                            <span className="text-[10px] text-amber-600 font-bold flex items-center gap-0.5 mt-0.5">
+                              <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" /> {sup.rating || "5.0"}
+                              <span className="text-slate-400 font-normal">({sup.bookingCountWithCustomer || 1} lần phục vụ)</span>
+                            </span>
                           </div>
                         </div>
                         <div
-                          className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                             isSelected ? "border-[#1E3A8A] bg-[#1E3A8A] text-white" : "border-slate-300 bg-white"
                           }`}
                         >
-                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -781,87 +796,78 @@ export default function CustomerBooking() {
           </div>
         </div>
 
-        {/* Right Sticky Summary Sidebar: 5 Cols on Desktop */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 lg:sticky lg:top-24 space-y-5">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <div>
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                  Tóm Tắt Lịch Hẹn Khảo Sát
-                </h4>
-                <p className="text-[10px] text-slate-400">Kiểm tra thông tin trước khi gửi</p>
-              </div>
-              <span className="text-[10.5px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                Khảo sát tại nhà
+        {/* Right Sticky Summary Sidebar: 4 Cols */}
+        <div className="lg:col-span-4 space-y-3">
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-5 lg:sticky lg:top-24 space-y-4">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                Tóm Tắt Lịch Hẹn
+              </h4>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                Khảo sát 0đ
               </span>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between items-start gap-2">
-                <span className="text-slate-400 font-medium shrink-0">Gói dịch vụ:</span>
-                <span className="font-bold text-[#1E3A8A] text-right truncate">
-                  {selectedService?.name || "Chưa chọn"}
-                </span>
+            <div className="space-y-2.5 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[11px]">Dịch vụ yêu cầu ({selectedServicesList.length}):</span>
+                <div className="space-y-1 mt-1">
+                  {selectedServicesList.map((s) => (
+                    <div key={s.id} className="font-bold text-[#1E3A8A] flex items-center gap-1.5 text-xs">
+                      <Paintbrush className="w-3 h-3 text-[#1E3A8A] shrink-0" />
+                      <span className="truncate">{s.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-slate-400 font-medium">Ngày hẹn:</span>
+              <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                <span className="text-slate-400">Thời gian hẹn:</span>
                 <span className="font-bold text-slate-900">
-                  {form.appointmentDate || "Chưa chọn"}
+                  {form.appointmentDate} • {form.appointmentTime}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-slate-400 font-medium">Khung giờ:</span>
-                <span className="font-bold text-[#1E3A8A] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-lg font-mono">
-                  {form.appointmentTime ? `${form.appointmentTime} (${activeTimeGroup})` : "Chưa chọn"}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center gap-2">
-                <span className="text-slate-400 font-medium">Giám sát viên:</span>
-                <span className="font-bold text-slate-800 text-right truncate max-w-[160px]">
+              <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                <span className="text-slate-400">Giám sát viên:</span>
+                <span className="font-bold text-slate-800 truncate max-w-[140px]">
                   {selectedSupervisorId
                     ? `@${formerSupervisors.find((s) => s.userId === selectedSupervisorId)?.username || "Đã chọn"}`
-                    : "Tự động phân công tối ưu"}
+                    : "Tự động phân công"}
                 </span>
               </div>
 
               <div className="pt-2 border-t border-slate-100">
-                <span className="text-slate-400 font-medium block text-[11px] mb-1">Địa điểm công trình:</span>
-                <p className="text-slate-800 text-[11.5px] font-semibold bg-slate-50 p-3 rounded-xl border border-slate-200/70 break-words line-clamp-3">
+                <span className="text-slate-400 block text-[11px] mb-0.5">Địa điểm công trình:</span>
+                <p className="text-slate-800 text-[11px] font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 break-words line-clamp-2">
                   {computedFullAddress}
                 </p>
               </div>
-            </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-baseline justify-between">
-              <div>
-                <span className="text-xs text-slate-500 font-semibold block">Phí khảo sát &amp; lập dự toán:</span>
-                <span className="text-[10.5px] text-slate-400">Không có phụ phí ẩn</span>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-medium">Phí khảo sát:</span>
+                <span className="text-sm font-black text-emerald-600">0 đ (MIỄN PHÍ)</span>
               </div>
-              <span className="text-lg font-black text-emerald-600">0 đ (MIỄN PHÍ)</span>
             </div>
 
-            {/* Primary Submit Button */}
             <button
               type="submit"
               disabled={profile?.status === "RESTRICTED" || submitting}
-              className={`w-full py-4 text-white font-black rounded-2xl text-xs sm:text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2.5 ${
+              className={`w-full py-3.5 text-white font-black rounded-xl text-xs sm:text-sm shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2 ${
                 profile?.status === "RESTRICTED" || submitting
-                  ? "bg-slate-300 cursor-not-allowed shadow-none"
-                  : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-[0.99] shadow-amber-500/30 hover:shadow-lg"
+                  ? "bg-slate-300 cursor-not-allowed"
+                  : "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-[0.99]"
               }`}
             >
               {submitting ? (
                 <span className="inline-flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Đang gửi yêu cầu...
                 </span>
               ) : (
                 <>
                   <Send className="w-4 h-4 text-white" />
-                  <span>GỬI YÊU CẦU KHẢO SÁT NGAY</span>
+                  <span>GỬI YÊU CẦU KHẢO SÁT</span>
                 </>
               )}
             </button>
@@ -870,37 +876,32 @@ export default function CustomerBooking() {
               <button
                 type="button"
                 onClick={handleResetForm}
-                className="text-[11px] font-medium text-slate-400 hover:text-slate-600 flex items-center gap-1 transition cursor-pointer"
+                className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1 transition cursor-pointer"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Làm mới lại biểu mẫu</span>
+                <RotateCcw className="w-3 h-3" />
+                <span>Làm mới biểu mẫu</span>
               </button>
             </div>
 
-            {/* Reassurance & Commitments */}
-            <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100/90 text-[#1E3A8A] space-y-2 text-xs">
-              <div className="font-black flex items-center gap-2 text-xs text-[#1E3A8A]">
-                <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Cam kết dịch vụ Precision Paint</span>
+            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-[#1E3A8A] space-y-1 text-xs">
+              <div className="font-bold flex items-center gap-1.5 text-xs text-[#1E3A8A]">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Cam kết dịch vụ</span>
               </div>
-              <ul className="text-[11px] text-slate-600 space-y-1.5 pl-1">
-                <li className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Khảo sát, đo đạc &amp; lên dự toán miễn phí 100%</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Chuyên viên có mặt đúng khung giờ đã đăng ký</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Báo giá minh bạch, tuyệt đối không phát sinh chi phí</span>
-                </li>
-              </ul>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Đo đạc, tư vấn báo giá miễn phí 100%. Quý khách không phải trả bất kỳ khoản phí nào nếu không ký hợp đồng.
+              </p>
             </div>
           </div>
         </div>
       </form>
+
+      {/* Modal xem chi tiết hồ sơ chuyên viên */}
+      <StaffDetailModal
+        isOpen={Boolean(selectedStaffProfile)}
+        onClose={() => setSelectedStaffProfile(null)}
+        staff={selectedStaffProfile}
+      />
     </div>
   );
 }

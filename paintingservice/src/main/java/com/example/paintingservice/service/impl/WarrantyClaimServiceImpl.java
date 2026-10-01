@@ -48,6 +48,7 @@ public class WarrantyClaimServiceImpl implements WarrantyClaimService {
     private final UserRepository userRepository;
     private final SalaryHistoryRepository salaryHistoryRepository;
     private final StaffProfileRepository staffProfileRepository;
+    private final com.example.paintingservice.repository.BookingServiceItemRepository bookingServiceItemRepository;
 
     // Delegated services (SRP)
     private final WarrantyNotificationService warrantyNotificationService;
@@ -175,9 +176,17 @@ public class WarrantyClaimServiceImpl implements WarrantyClaimService {
                 ? request.getIssueTitle().trim()
                 : ("Yêu cầu bảo hành: " + (request.getIssueType() != null ? request.getIssueType() : "Sự cố sơn"));
 
+        com.example.paintingservice.entity.BookingServiceItem bsi = null;
+        if (request.getBookingServiceId() != null) {
+            bsi = bookingServiceItemRepository.findById(request.getBookingServiceId()).orElse(null);
+        } else if (booking.getBookingServices() != null && booking.getBookingServices().size() == 1) {
+            bsi = booking.getBookingServices().get(0);
+        }
+
         WarrantyClaim claim = WarrantyClaim.builder()
                 .booking(booking)
                 .customer(resolvedCustomer)
+                .bookingService(bsi)
                 .issueType(request.getIssueType() != null ? request.getIssueType() : "KHAC")
                 .issueTitle(issueTitle)
                 .description(request.getDescription() != null ? request.getDescription().trim() : "")

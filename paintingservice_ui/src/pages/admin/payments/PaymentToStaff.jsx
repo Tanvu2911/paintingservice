@@ -19,6 +19,7 @@ import StatusBadge from "../../../components/common/StatusBadge";
 import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import Modal from "../../../components/common/Modal";
 import QRCodePayment from "../../../components/common/QRCodePayment";
+import StaffBookingPayoutTab from "./components/StaffBookingPayoutTab";
 import StaffWarrantyPayoutTab from "./components/StaffWarrantyPayoutTab";
 import { formatMoney } from "../../../util/formatters";
 import { getVietQRBankCode, calculateFinancials } from "../../../util/orderFlowUtils";
@@ -262,7 +263,17 @@ export default function PaymentToStaff() {
       if (o.supervisorId && !supS.isPaid && (fin.isDepositPaid || fin.isFinalPaid)) {
         staffPending += supS.amount;
       }
-      if (o.technicianId && !worS.isPaid && (fin.isDepositPaid || fin.isFinalPaid)) {
+
+      const srvItems = (o.bookingServices || []).filter((bs) => bs.technicianId);
+      if (srvItems.length > 0) {
+        const uniqueTechIds = [...new Set(srvItems.map((bs) => bs.technicianId))];
+        uniqueTechIds.forEach((tId) => {
+          const s = getSalary(o.id, tId, "TECHNICIAN", Math.round(workerDefault / uniqueTechIds.length));
+          if (!s.isPaid && (fin.isDepositPaid || fin.isFinalPaid)) {
+            staffPending += s.amount;
+          }
+        });
+      } else if (o.technicianId && !worS.isPaid && (fin.isDepositPaid || fin.isFinalPaid)) {
         staffPending += worS.amount;
       }
     });
@@ -461,7 +472,70 @@ export default function PaymentToStaff() {
         });
       }
 
-      if (o.technicianId) {
+      // Kiểm tra xem đơn có chia thợ theo từng dịch vụ không (Quan hệ N - N)
+      const serviceItemsWithTech = (o.bookingServices || []).filter(
+        (bs) => bs.technicianId
+      );
+
+      if (serviceItemsWithTech.length > 0) {
+        // Nhóm theo từng thợ được phân công trong các dịch vụ con
+        const techMap = {};
+        serviceItemsWithTech.forEach((bs) => {
+          const tId = bs.technicianId;
+          if (!techMap[tId]) {
+            techMap[tId] = {
+              technicianId: tId,
+              technicianName: bs.technicianName,
+              services: [],
+              subtotalPrice: 0,
+            };
+          }
+          techMap[tId].services.push(bs.serviceName || "Dịch vụ");
+          techMap[tId].subtotalPrice += Number(bs.price || 0);
+        });
+
+        const totalServicePrice = Object.values(techMap).reduce(
+          (sum, t) => sum + t.subtotalPrice,
+          0
+        );
+
+        Object.values(techMap).forEach((tInfo) => {
+          let allocatedWage = workerDefault;
+          if (totalServicePrice > 0) {
+            allocatedWage = Math.round(
+              (workerDefault * tInfo.subtotalPrice) / totalServicePrice
+            );
+          } else {
+            allocatedWage = Math.round(
+              workerDefault / Object.keys(techMap).length
+            );
+          }
+
+          const worS = getSalary(
+            o.id,
+            tInfo.technicianId,
+            "TECHNICIAN",
+            allocatedWage
+          );
+          list.push({
+            id: `OUT-WOR-${o.id}-${tInfo.technicianId}`,
+            bookingId: o.id,
+            staffId: tInfo.technicianId,
+            role: "TECHNICIAN",
+            type: "OUT",
+            category: `Thù lao Kỹ thuật (${tInfo.services.join(", ")})`,
+            party: tInfo.technicianName || `Thợ #${tInfo.technicianId}`,
+            partyRole: "Đội thợ thi công",
+            amount: worS.amount,
+            status: worS.isPaid ? "COMPLETED" : "PENDING",
+            statusText: worS.isPaid ? "Đã chi trả" : "Chờ quyết toán",
+            date: worS.paidAt || o.createdAt,
+            rawDate: parseDate(worS.paidAt || o.createdAt),
+            order: o,
+            canPayout: !worS.isPaid,
+          });
+        });
+      } else if (o.technicianId) {
         const worS = getSalary(o.id, o.technicianId, "TECHNICIAN", workerDefault);
         list.push({
           id: `OUT-WOR-${o.id}-${o.technicianId}`,
@@ -882,167 +956,17 @@ export default function PaymentToStaff() {
 
           {/* ════════════════ TAB 2: QUYẾT TOÁN NHÂN VIÊN ════════════════ */}
           {activeTab === "STAFF" && (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr>
-                      <th className={thCls}>Đơn hàng &amp; Khách</th>
-                      <th className={thCls + " text-right"}>Tổng HĐ</th>
-                      <th className={thCls}>Giám sát (10% + VT)</th>
-                      <th className={thCls}>Đội thợ (60%)</th>
-                      <th className={thCls + " text-center"}>Trạng thái chi</th>
-                      <th className={thCls + " text-right"}>Thao tác chi trả VietQR</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 text-xs">
-                    {filteredOrders.length === 0 ? (
-                      <tr>
-                        <td colSpan="6" className="py-12 text-center text-slate-400">
-                          Không tìm thấy đơn hàng nào cần quyết toán.
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredOrders.map((o) => {
-                        const fin = calculateFinancials(o);
-                        const total = fin.total;
-                        const surveyDefault = total * 0.10;
-                        const workerDefault = total * 0.60;
-
-                        const supS = getSalary(o.id, o.supervisorId, "SURVEYOR", surveyDefault);
-                        const worS = getSalary(o.id, o.technicianId, "TECHNICIAN", workerDefault);
-
-                        const hasSupervisor = Boolean(o.supervisorId);
-                        const hasTechnician = Boolean(o.technicianId);
-
-                        const supPaid = !hasSupervisor || supS.isPaid;
-                        const worPaid = !hasTechnician || worS.isPaid;
-                        const isAllStaffPaid = (hasSupervisor || hasTechnician) && supPaid && worPaid;
-
-                        return (
-                          <tr
-                            key={o.id}
-                            onClick={() => navigate(`/admin/bookings/${o.id}`)}
-                            className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
-                          >
-                            <td className={tdCls}>
-                              <div className="font-bold text-slate-900 font-mono">#{o.id}</div>
-                              <div className="font-medium text-slate-600 truncate max-w-[140px]">
-                                {o.customerName || o.customer?.fullName || o.customer?.username || "—"}
-                              </div>
-                            </td>
-                            <td className={tdCls + " text-right font-bold text-slate-900 font-mono"}>
-                              {formatMoney(total)}
-                            </td>
-
-                            {/* Giám sát */}
-                            <td className={tdCls}>
-                              {hasSupervisor ? (
-                                <div>
-                                  <p className="font-semibold text-slate-800">{o.supervisorName || "Giám sát"}</p>
-                                  <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className="font-bold text-slate-900 font-mono">{formatMoney(supS.amount)}</span>
-                                    <Badge ok={supS.isPaid} okLabel="Đã chi" failLabel="Chưa chi" />
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-slate-300">—</span>
-                              )}
-                            </td>
-
-                            {/* Kỹ thuật */}
-                            <td className={tdCls}>
-                              {hasTechnician ? (
-                                <div>
-                                  <p className="font-semibold text-slate-800">{o.technicianName || "Đội thợ"}</p>
-                                  <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className="font-bold text-slate-900 font-mono">{formatMoney(worS.amount)}</span>
-                                    <Badge ok={worS.isPaid} okLabel="Đã chi" failLabel="Chưa chi" />
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-slate-300">—</span>
-                              )}
-                            </td>
-
-                            {/* Trạng thái chi */}
-                            <td className={tdCls + " text-center"}>
-                              {isAllStaffPaid ? (
-                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200 inline-flex items-center gap-1">
-                                  <Check className="w-3 h-3" /> Đã chi đủ
-                                </span>
-                              ) : (
-                                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
-                                  Chờ quyết toán
-                                </span>
-                              )}
-                            </td>
-
-                            {/* Thao tác thanh toán VietQR độc lập cho từng người */}
-                            <td className={tdCls + " text-right whitespace-nowrap"} onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/admin/bookings/${o.id}`)}
-                                  className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                                  title="Xem chi tiết đơn hàng"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                {hasSupervisor && !supS.isPaid && (
-                                  fin.isFinalPaid ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => openPayoutQR(o, o.supervisorId, o.supervisorName || "Giám sát", "SURVEYOR", supS.amount)}
-                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                                      title="Quét VietQR chi trả Giám sát"
-                                    >
-                                      <QrCode className="w-3 h-3" /> Trả GS
-                                    </button>
-                                  ) : (
-                                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                                      Chờ khách tất toán
-                                    </span>
-                                  )
-                                )}
-                                {hasTechnician && !worS.isPaid && (
-                                  fin.isFinalPaid ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => openPayoutQR(o, o.technicianId, o.technicianName || "Kỹ thuật viên", "TECHNICIAN", worS.amount)}
-                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-lg transition cursor-pointer"
-                                      title="Quét VietQR chi trả Đội thợ"
-                                    >
-                                      <QrCode className="w-3 h-3" /> Trả Thợ
-                                    </button>
-                                  ) : (
-                                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                                      Chờ khách tất toán
-                                    </span>
-                                  )
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Băng tổng kết Tab 2 */}
-              <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 flex flex-wrap items-center justify-between gap-4 text-xs">
-                <div className="flex flex-wrap gap-6 text-slate-600">
-                  <span>Đã chi nhân viên: <strong className="text-indigo-700 font-mono">{formatMoney(kpi.staffPaid)}</strong></span>
-                  <span>Chờ quyết toán nhân viên: <strong className="text-amber-700 font-mono">{formatMoney(kpi.staffPending)}</strong></span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-500 font-medium">Số dư hệ thống hiện tại:</span>
-                  <span className="text-sm font-black text-emerald-700 font-mono">{formatMoney(kpi.systemNetBalance)}</span>
-                </div>
-              </div>
-            </div>
+            <StaffBookingPayoutTab
+              filteredOrders={filteredOrders}
+              getSalary={getSalary}
+              openPayoutQR={openPayoutQR}
+              navigate={navigate}
+              kpi={kpi}
+              thCls={thCls}
+              tdCls={tdCls}
+              search={search}
+              handleClearSearch={() => setSearch("")}
+            />
           )}
 
           {/* ════════════════ TAB 3: QUYẾT TOÁN BẢO HÀNH ════════════════ */}

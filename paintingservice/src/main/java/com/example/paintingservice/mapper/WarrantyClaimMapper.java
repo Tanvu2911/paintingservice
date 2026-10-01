@@ -70,13 +70,57 @@ public class WarrantyClaimMapper {
             dto.setBookingId(b.getId());
             dto.setAddress(b.getAddress());
             dto.setWarrantyYears(b.getWarrantyYears() != null ? b.getWarrantyYears() : 2);
-            if (b.getService() != null) {
-                dto.setServiceName(b.getService().getName());
+            if (b.getBookingServices() != null && !b.getBookingServices().isEmpty()) {
+                String sNames = b.getBookingServices().stream()
+                        .map(bsi -> (bsi != null && bsi.getService() != null) ? bsi.getService().getName() : "")
+                        .filter(s -> !s.isEmpty())
+                        .distinct()
+                        .collect(java.util.stream.Collectors.joining(", "));
+                if (!sNames.isEmpty()) {
+                    dto.setServiceName(sNames);
+                }
             }
 
             // Map thợ cũ từng thi công đơn hàng gốc
             if (b.getTechnician() != null) {
                 User pt = b.getTechnician();
+                dto.setPreviousTechnicianId(pt.getId());
+                dto.setPreviousTechnicianName(pt.getUsername());
+                dto.setPreviousTechnicianPhone(pt.getPhoneNumber());
+            }
+
+            java.util.List<java.util.Map<String, Object>> prevTechList = new java.util.ArrayList<>();
+            if (b.getBookingServices() != null) {
+                for (com.example.paintingservice.entity.BookingServiceItem bsi : b.getBookingServices()) {
+                    if (bsi.getTechnician() != null) {
+                        java.util.Map<String, Object> map = new java.util.HashMap<>();
+                        map.put("technicianId", bsi.getTechnician().getId());
+                        map.put("technicianName", bsi.getTechnician().getUsername());
+                        map.put("technicianPhone", bsi.getTechnician().getPhoneNumber());
+                        map.put("serviceName", bsi.getService() != null ? bsi.getService().getName() : "");
+                        prevTechList.add(map);
+                    }
+                }
+            }
+            if (prevTechList.isEmpty() && b.getTechnician() != null) {
+                java.util.Map<String, Object> map = new java.util.HashMap<>();
+                map.put("technicianId", b.getTechnician().getId());
+                map.put("technicianName", b.getTechnician().getUsername());
+                map.put("technicianPhone", b.getTechnician().getPhoneNumber());
+                map.put("serviceName", "Toàn bộ công trình");
+                prevTechList.add(map);
+            }
+            dto.setPreviousTechnicians(prevTechList);
+        }
+
+        if (entity.getBookingService() != null) {
+            dto.setBookingServiceId(entity.getBookingService().getId());
+            if (entity.getBookingService().getService() != null) {
+                dto.setBookingServiceName(entity.getBookingService().getService().getName());
+                dto.setServiceName(entity.getBookingService().getService().getName());
+            }
+            if (entity.getBookingService().getTechnician() != null) {
+                User pt = entity.getBookingService().getTechnician();
                 dto.setPreviousTechnicianId(pt.getId());
                 dto.setPreviousTechnicianName(pt.getUsername());
                 dto.setPreviousTechnicianPhone(pt.getPhoneNumber());

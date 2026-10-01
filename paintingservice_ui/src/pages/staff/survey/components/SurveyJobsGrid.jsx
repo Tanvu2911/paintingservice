@@ -36,8 +36,15 @@ export default function SurveyJobsGrid({
           detail?.surveyNote || detail?.materialNote || detail?.materialShortage
         );
         const canDailyReport = ["CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(status);
-        const canSupervisorAccept =
-          status === "WORKER_COMPLETED" && (!detail || !detail.supervisorAccepted);
+        const services = job.bookingServices || [];
+        const hasMulti = services.length > 0;
+        const completedCount = services.filter((s) => s.technicianCompleted).length;
+        const acceptedCount = services.filter((s) => s.supervisorAccepted).length;
+        const pendingAcceptCount = services.filter((s) => s.technicianCompleted && !s.supervisorAccepted).length;
+        const allCompleted = hasMulti ? completedCount === services.length : status === "WORKER_COMPLETED";
+        const allAccepted = hasMulti ? acceptedCount === services.length : Boolean(detail?.supervisorAccepted);
+        const canSupervisorAccept = (status === "WORKER_COMPLETED" || (hasMulti && allCompleted)) && !allAccepted;
+
         const hasTeam = job.technicianName || job.preferredTechnicianName;
         const parsed = parseHanoiAddress(job.address);
         const supervisorPayout =
@@ -122,7 +129,21 @@ export default function SurveyJobsGrid({
                       </strong>
                     </span>
                   </div>
-                  {hasTeam ? (
+                  {hasMulti ? (
+                    pendingAcceptCount > 0 ? (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 shrink-0">
+                        ⚡ {pendingAcceptCount} gói chờ duyệt
+                      </span>
+                    ) : allAccepted && services.length > 0 ? (
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                        ✓ Đã duyệt {services.length}/{services.length}
+                      </span>
+                    ) : (
+                      <span className="text-[10.5px] font-semibold text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                        {services.length} đội thợ
+                      </span>
+                    )
+                  ) : hasTeam ? (
                     <span className="text-[10.5px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
                       @{hasTeam}
                     </span>

@@ -109,7 +109,7 @@ export default function SurveyDashboard() {
               <div className="text-left">
                 <p className="text-[10px] text-blue-200/80 font-bold uppercase tracking-wider">Trạng thái</p>
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${available ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
+                  <span className={`w-2 h-2 rounded-full ${available ? "bg-emerald-400" : "bg-rose-400"}`} />
                   <span>{available ? "Sẵn sàng nhận việc" : "Tạm nghỉ nhận việc"}</span>
                 </div>
               </div>

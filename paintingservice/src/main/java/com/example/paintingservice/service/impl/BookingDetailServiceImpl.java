@@ -34,6 +34,7 @@ public class BookingDetailServiceImpl implements BookingDetailService {
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
     private final NotificationService notificationService;
+    private final com.example.paintingservice.repository.BookingServiceItemRepository bookingServiceItemRepository;
 
     @Override
     public BookingDetailDto create(BookingDetailDto request, String username) {
@@ -101,6 +102,26 @@ public class BookingDetailServiceImpl implements BookingDetailService {
         Booking booking = detail.getBooking();
         ensureSurveyorOrAdmin(booking, username);
         ensureReadyForAcceptance(booking);
+
+        List<com.example.paintingservice.entity.BookingServiceItem> serviceItems = bookingServiceItemRepository.findByBookingId(booking.getId());
+        if (!serviceItems.isEmpty()) {
+            boolean anyNotCompleted = serviceItems.stream().anyMatch(i -> !Boolean.TRUE.equals(i.getTechnicianCompleted()));
+            if (anyNotCompleted) {
+                throw new IllegalStateException("Vẫn còn gói dịch vụ chưa được đội thợ thi công hoàn thành!");
+            }
+            // Đồng bộ supervisorAccepted cho tất cả các gói dịch vụ
+            for (com.example.paintingservice.entity.BookingServiceItem item : serviceItems) {
+                if (!Boolean.TRUE.equals(item.getSupervisorAccepted())) {
+                    item.setSupervisorAccepted(true);
+                    item.setSupervisorAcceptedAt(LocalDateTime.now());
+                    if (item.getSupervisorNote() == null || item.getSupervisorNote().isBlank()) {
+                        item.setSupervisorNote("Nghiệm thu đạt chuẩn kỹ thuật");
+                    }
+                    bookingServiceItemRepository.save(item);
+                }
+            }
+        }
+
         detail.setSupervisorAccepted(true);
         BookingDetail saved = bookingDetailRepository.save(detail);
         completeBookingWhenAllDetailsAccepted(booking);
@@ -122,7 +143,7 @@ public class BookingDetailServiceImpl implements BookingDetailService {
             notificationService.save(Notification.builder()
                     .user(booking.getCustomer())
                     .title("Giám sát đã nghiệm thu công trình #" + booking.getId())
-                    .content(String.format("Giám sát viên %s đã hoàn tất nghiệm thu kỹ thuật cho công trình #%d. Kính mời quý khách kiểm tra thực tế và xác nhận nghiệm thu.",
+                    .content(String.format("Giám sát viên %s đã hoàn tất nghiệm thu kỹ thuật cho toàn bộ công trình #%d. Kính mời quý khách kiểm tra thực tế và xác nhận nghiệm thu bàn giao.",
                             username, booking.getId()))
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
@@ -138,6 +159,24 @@ public class BookingDetailServiceImpl implements BookingDetailService {
         Booking booking = detail.getBooking();
         if (!isAdmin(username) && !isCustomer(booking, username)) throw new SecurityException("You are not the customer of this booking");
         ensureReadyForAcceptance(booking);
+
+        // BẮT BUỘC: Giám sát viên phải nghiệm thu đạt chuẩn xong thì khách hàng mới được nghiệm thu!
+        if (!Boolean.TRUE.equals(detail.getSupervisorAccepted())) {
+            throw new IllegalStateException("Giám sát viên chưa hoàn tất nghiệm thu kỹ thuật, khách hàng chưa thể nghiệm thu!");
+        }
+
+        List<com.example.paintingservice.entity.BookingServiceItem> serviceItems = bookingServiceItemRepository.findByBookingId(booking.getId());
+        if (!serviceItems.isEmpty()) {
+            boolean anyWorkerNotDone = serviceItems.stream().anyMatch(i -> !Boolean.TRUE.equals(i.getTechnicianCompleted()));
+            if (anyWorkerNotDone) {
+                throw new IllegalStateException("Còn gói dịch vụ chưa được đội thợ báo hoàn thành!");
+            }
+            boolean anySupervisorNotAccepted = serviceItems.stream().anyMatch(i -> !Boolean.TRUE.equals(i.getSupervisorAccepted()));
+            if (anySupervisorNotAccepted) {
+                throw new IllegalStateException("Giám sát viên chưa nghiệm thu đạt chuẩn cho tất cả các dịch vụ!");
+            }
+        }
+
         detail.setCustomerAccepted(true);
         BookingDetail saved = bookingDetailRepository.save(detail);
         completeBookingWhenAllDetailsAccepted(booking);
@@ -187,7 +226,8 @@ public class BookingDetailServiceImpl implements BookingDetailService {
 
     private void completeBookingWhenAllDetailsAccepted(Booking booking) {
         List<BookingDetail> details = bookingDetailRepository.findByBookingIdOrderByCreatedAtAsc(booking.getId());
-        if (!details.isEmpty() && details.stream().allMatch(detail -> Boolean.TRUE.equals(detail.getSupervisorAccepted()) && Boolean.TRUE.equals(detail.getCustomerAccepted()))) {
+        boolean anyAccepted = details.stream().anyMatch(detail -> Boolean.TRUE.equals(detail.getSupervisorAccepted()) && Boolean.TRUE.equals(detail.getCustomerAccepted()));
+        if (anyAccepted || details.isEmpty()) {
             if (booking.getPaymentStatus() == PaymentStatus.FULLY_PAID) {
                 booking.setStatus(BookingStatus.COMPLETED);
                 if (booking.getCompletedAt() == null) {
@@ -201,7 +241,20 @@ public class BookingDetailServiceImpl implements BookingDetailService {
     }
 
     private void ensureReadyForAcceptance(Booking booking) {
-        if (booking.getStatus() != BookingStatus.WORKER_COMPLETED) throw new IllegalStateException("Booking is not ready for acceptance");
+        if (booking.getStatus() == BookingStatus.WORKER_COMPLETED || booking.getStatus() == BookingStatus.PROCESSING) {
+            List<com.example.paintingservice.entity.BookingServiceItem> serviceItems = bookingServiceItemRepository.findByBookingId(booking.getId());
+            if (!serviceItems.isEmpty()) {
+                boolean anyNotDone = serviceItems.stream().anyMatch(i -> !Boolean.TRUE.equals(i.getTechnicianCompleted()));
+                if (anyNotDone) {
+                    throw new IllegalStateException("Vẫn còn gói dịch vụ chưa được đội thợ báo hoàn thành!");
+                }
+                return;
+            }
+            if (booking.getStatus() == BookingStatus.WORKER_COMPLETED) {
+                return;
+            }
+        }
+        throw new IllegalStateException("Đơn hàng chưa hoàn thành thi công, chưa thể nghiệm thu!");
     }
 
     private void ensureCanView(Booking booking, String username) {

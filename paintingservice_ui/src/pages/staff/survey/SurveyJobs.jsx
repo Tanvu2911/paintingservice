@@ -489,13 +489,19 @@ export default function SurveyJobs() {
 
     let currentDetail = detailsMap[job.id] || null;
     try {
-      const details = await bookingDetailApi.list(job.id);
-      if (details.length > 0) {
+      const [details, bookingRes] = await Promise.all([
+        bookingDetailApi.list(job.id).catch(() => []),
+        AxiosConfig.get(`/bookings/${job.id}`).catch(() => null),
+      ]);
+      if (details && details.length > 0) {
         currentDetail = details[0];
         setSelectedDetail(currentDetail);
         setDetailsMap((prev) => ({ ...prev, [job.id]: currentDetail }));
       } else {
         setSelectedDetail(null);
+      }
+      if (bookingRes?.data) {
+        setSelectedJob(bookingRes.data);
       }
     } catch (err) {
       // ignore
@@ -792,6 +798,25 @@ export default function SurveyJobs() {
     }
   };
 
+  const handleSupervisorAcceptServiceItem = async (serviceItemId, note) => {
+    if (!selectedJob) return;
+    try {
+      await AxiosConfig.post(
+        `/bookings/${selectedJob.id}/services/${serviceItemId}/supervisor-accept`,
+        { note: note || "Nghiệm thu đạt chuẩn kỹ thuật" }
+      );
+      showToast?.("Đã nghiệm thu đạt chuẩn gói dịch vụ thành công!", "success");
+      const res = await AxiosConfig.get(`/bookings/${selectedJob.id}`);
+      setSelectedJob(res.data);
+      loadJobs(false);
+    } catch (err) {
+      showToast?.(
+        err.response?.data?.message || "Lỗi khi nghiệm thu gói dịch vụ",
+        "error"
+      );
+    }
+  };
+
   // =========================================================
   // RENDER
   // =========================================================
@@ -1041,6 +1066,7 @@ export default function SurveyJobs() {
           onOpenDailyReport={(job) => openModal(job, "daily")}
           onOpenAgreement={(job) => openModal(job, "agreement")}
           onSupervisorAccept={handleSupervisorAccept}
+          onSupervisorAcceptServiceItem={handleSupervisorAcceptServiceItem}
         />
       )}
 

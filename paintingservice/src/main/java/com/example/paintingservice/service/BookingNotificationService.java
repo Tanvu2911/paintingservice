@@ -37,9 +37,16 @@ public interface BookingNotificationService {
 
     void notifyJobCompleted(Booking booking, String username);
 
+    void notifyServiceItemCompleted(Booking booking, String username, String serviceName);
+
+    void notifyAllServiceItemsAccepted(Booking booking, String supervisorUsername);
+
     void notifySurveyJobRejected(Booking booking, String username, String reason);
 
     void notifyQuoteRejected(Booking booking, String username, String reason, boolean isAdmin);
 
     void notifySurveyCancelled(Booking booking, String username, String reason);
+
+    void notifyCustomerAccepted(Booking booking, String customerUsername);
+    void notifyServiceItemRejected(Booking booking, String customerUsername, String serviceName, BigDecimal newTotal);
 }

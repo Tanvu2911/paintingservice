@@ -49,8 +49,15 @@ export default function SurveyJobsTable({
                 detail?.surveyNote || detail?.materialNote || detail?.materialShortage
               );
               const canDailyReport = ["CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(status);
-              const canSupervisorAccept =
-                status === "WORKER_COMPLETED" && (!detail || !detail.supervisorAccepted);
+              const services = job.bookingServices || [];
+              const hasMulti = services.length > 0;
+              const completedCount = services.filter((s) => s.technicianCompleted).length;
+              const acceptedCount = services.filter((s) => s.supervisorAccepted).length;
+              const pendingAcceptCount = services.filter((s) => s.technicianCompleted && !s.supervisorAccepted).length;
+              const allCompleted = hasMulti ? completedCount === services.length : status === "WORKER_COMPLETED";
+              const allAccepted = hasMulti ? acceptedCount === services.length : Boolean(detail?.supervisorAccepted);
+              const canSupervisorAccept = (status === "WORKER_COMPLETED" || (hasMulti && allCompleted)) && !allAccepted;
+
               const hasTeam = job.technicianName || job.preferredTechnicianName;
               const parsed = parseHanoiAddress(job.address);
               const supervisorPayout =
@@ -97,7 +104,7 @@ export default function SurveyJobsTable({
                     )}
                   </td>
 
-                  {/* 2. Khách hàng */}
+                  {/* 2. Khách hàng & Đội thợ */}
                   <td className="py-3.5 px-4 align-middle">
                     <div className="font-bold text-slate-800 flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -115,14 +122,36 @@ export default function SurveyJobsTable({
                         </a>
                       </div>
                     )}
-                    {hasTeam && (
+
+                    {/* Hiển thị tiến độ đội thợ đa dịch vụ */}
+                    {hasMulti ? (
+                      <div className="mt-1 space-y-0.5">
+                        <div className="text-[10px] text-slate-600 flex items-center gap-1">
+                          <Wrench className="w-3 h-3 text-slate-400" />
+                          <span>{services.length} đội/gói thi công</span>
+                        </div>
+                        {pendingAcceptCount > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                            ⚡ {pendingAcceptCount} gói chờ nghiệm thu
+                          </span>
+                        ) : allAccepted && services.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            ✓ Đã nghiệm thu {services.length}/{services.length}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 block">
+                            Tiến độ: {completedCount}/{services.length} gói xong
+                          </span>
+                        )}
+                      </div>
+                    ) : hasTeam ? (
                       <div className="text-[10px] text-slate-600 mt-1 flex items-center gap-1">
                         <Wrench className="w-3 h-3 text-slate-400" />
                         <span className="truncate max-w-[130px]" title={job.technicianName || job.preferredTechnicianName}>
                           Thợ: {job.technicianName || job.preferredTechnicianName}
                         </span>
                       </div>
-                    )}
+                    ) : null}
                   </td>
 
                   {/* 3. Địa chỉ & Khu vực */}

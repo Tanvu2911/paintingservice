@@ -31,8 +31,12 @@ export default function SendQuoteModal({
   const existingSig = contract?.adminSignatureImg || savedDefaultSig;
 
   const [useExisting, setUseExisting] = useState(Boolean(existingSig));
+  const [serviceItemsList, setServiceItemsList] = useState([]);
 
-  // Reset hoặc khởi tạo canvas khi mở modal
+  // Lưu giá trị tổng tiền ban đầu (không dùng state để tránh loop)
+  const initialTotalRef = React.useRef("");
+
+  // Reset hoặc khởi tạo canvas và danh sách dịch vụ khi mở modal
   useEffect(() => {
     if (!quoteModalOpen) return;
 
@@ -42,7 +46,44 @@ export default function SendQuoteModal({
       setUseExisting(false);
     }
     setHasDrawnSignature(false);
-  }, [quoteModalOpen, existingSig]);
+
+    // Lưu lại giá trị tổng ban đầu để dùng khi chỉ có 1 dịch vụ
+    initialTotalRef.current = String(order?.totalAmount || quoteTotal || "");
+
+    if (order?.bookingServices && order.bookingServices.length > 0) {
+      // Chỉ hiển thị gói dịch vụ chưa bị hủy
+      const activeServices = order.bookingServices.filter((s) => !s.cancelled);
+      setServiceItemsList(
+        activeServices.map((s) => ({
+          id: s.id,
+          serviceName: s.serviceName || "Dịch vụ sơn",
+          servicePrice: s.servicePrice,
+          serviceDescription: s.serviceDescription,
+          price: s.price !== undefined && s.price !== null && Number(s.price) > 0
+            ? String(s.price)
+            : (activeServices.length === 1 ? initialTotalRef.current : ""),
+        }))
+      );
+    } else {
+      setServiceItemsList([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteModalOpen, existingSig, order]);
+
+  const handleItemChange = (index, field, value) => {
+    setServiceItemsList((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      if (field === "price") {
+        const sum = next.reduce((acc, it) => acc + (Number(it.price) || 0), 0);
+        if (sum > 0) {
+          setQuoteTotal(String(sum));
+          setQuoteDeposit(String(Math.round(sum * 0.3)));
+        }
+      }
+      return next;
+    });
+  };
 
   // Init canvas drawing listeners
   useEffect(() => {
@@ -150,7 +191,12 @@ export default function SendQuoteModal({
       return;
     }
 
-    handleSendQuote(finalSignature);
+    let itemsToSend = [...serviceItemsList];
+    if (itemsToSend.length === 1 && (!itemsToSend[0].price || Number(itemsToSend[0].price) === 0)) {
+      itemsToSend[0] = { ...itemsToSend[0], price: quoteTotal };
+    }
+
+    handleSendQuote(finalSignature, itemsToSend);
   };
 
   return (
@@ -168,7 +214,7 @@ export default function SendQuoteModal({
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-3 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <span className="font-bold text-slate-900 flex items-center gap-1.5 text-xs uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-blue-600"></span>
                 Đề xuất điều chỉnh từ Khách hàng
               </span>
               {negInfo.proposedPrice && (
@@ -229,8 +275,59 @@ export default function SendQuoteModal({
         )}
 
         <p className="text-xs text-slate-500 leading-relaxed">
-          Admin nhập tổng dự toán, số ngày thi công, thời hạn bảo hành và ký tên đại diện Công ty (Bên B). Hợp đồng điện tử sẽ được tạo với chữ ký sẵn của Công ty để gửi khách hàng ký duyệt và thanh toán cọc.
+          Admin nhập báo giá chi tiết từng dịch vụ, tổng dự toán, số ngày thi công, thời hạn bảo hành và ký tên đại diện Công ty (Bên B).
         </p>
+
+        {/* Báo giá chi tiết từng gói dịch vụ */}
+        {serviceItemsList.length > 0 && (
+          <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5 uppercase tracking-wide">
+                <span>📋</span>
+                <span>Báo giá chi tiết từng dịch vụ ({serviceItemsList.length} gói)</span>
+              </span>
+              <span className="text-[10px] text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded-full">
+                Nhập từng gói sẽ tự động tính tổng
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {serviceItemsList.map((item, idx) => (
+                <div key={item.id || idx} className="bg-white p-3 rounded-xl border border-blue-100 shadow-2xs space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <span className="font-bold text-slate-900 text-xs">
+                      {idx + 1}. {item.serviceName}
+                    </span>
+                    {item.servicePrice && (
+                      <span className="text-[10.5px] text-slate-500 font-medium">
+                        Giá niêm yết: {formatMoney(item.servicePrice)}
+                      </span>
+                    )}
+                  </div>
+
+                  {item.serviceDescription && (
+                    <p className="text-[11px] text-slate-500 italic leading-relaxed">
+                      {item.serviceDescription}
+                    </p>
+                  )}
+
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-slate-700 mb-0.5">
+                      Đơn giá báo cho khách (VNĐ) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) => handleItemChange(idx, "price", e.target.value)}
+                      placeholder="VD: 5000000"
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:bg-white focus:border-blue-600 outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
           <div>

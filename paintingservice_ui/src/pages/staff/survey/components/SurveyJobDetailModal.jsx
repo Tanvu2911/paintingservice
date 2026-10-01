@@ -24,6 +24,8 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
+  Mail,
+  Star,
 } from "lucide-react";
 import StatusBadge from "../../../../components/common/StatusBadge";
 import { formatMoney } from "../../../../util/formatters";
@@ -48,8 +50,13 @@ export default function SurveyJobDetailModal({
   onOpenDailyReport,
   onOpenAgreement,
   onSupervisorAccept,
+  onSupervisorAcceptServiceItem,
 }) {
   const [copied, setCopied] = useState("");
+  const [acceptItemModal, setAcceptItemModal] = useState(null);
+  const [acceptItemNote, setAcceptItemNote] = useState("");
+  const [submittingItemAccept, setSubmittingItemAccept] = useState(false);
+
   const handleOpenDaily = onOpenDailyReport || onOpenDaily;
 
   const handleCopy = (text, type) => {
@@ -59,12 +66,32 @@ export default function SurveyJobDetailModal({
     setTimeout(() => setCopied(""), 2000);
   };
 
+  const handleConfirmAcceptItem = async (e) => {
+    e?.preventDefault();
+    if (!acceptItemModal || !onSupervisorAcceptServiceItem) return;
+    try {
+      setSubmittingItemAccept(true);
+      await onSupervisorAcceptServiceItem(acceptItemModal.id, acceptItemNote);
+      setAcceptItemModal(null);
+      setAcceptItemNote("");
+    } finally {
+      setSubmittingItemAccept(false);
+    }
+  };
+
   if (!selectedJob) return null;
 
   const status = selectedJob.status || "PENDING";
   const totalAmount = Number(selectedJob.totalAmount) || 0;
   const supervisorPayout = totalAmount > 0 ? totalAmount * 0.1 : 0;
   const workerPayout = totalAmount * 0.6;
+
+  const serviceItems = selectedJob.bookingServices || [];
+  const hasMultipleServices = serviceItems.length > 0;
+  const itemsCompletedCount = serviceItems.filter((i) => Boolean(i.technicianCompleted)).length;
+  const itemsAcceptedCount = serviceItems.filter((i) => Boolean(i.supervisorAccepted)).length;
+  const allItemsCompleted = hasMultipleServices ? itemsCompletedCount === serviceItems.length : status === "WORKER_COMPLETED";
+  const allItemsAccepted = hasMultipleServices ? itemsAcceptedCount === serviceItems.length : Boolean(selectedDetail?.supervisorAccepted);
 
   // Quyền thao tác
   const canAccept = ["PENDING", "SURVEY_ASSIGNED"].includes(status);
@@ -73,7 +100,8 @@ export default function SurveyJobDetailModal({
   const canAgreement = ["ACCEPTED", "SURVEYING"].includes(status);
   const canDailyReport = ["CONTRACT_APPROVED", "ASSIGNED", "PROCESSING"].includes(status);
   const canSupervisorAccept =
-    status === "WORKER_COMPLETED" && (!selectedDetail || !selectedDetail.supervisorAccepted);
+    (status === "WORKER_COMPLETED" || (hasMultipleServices && allItemsCompleted)) &&
+    (!selectedDetail || !selectedDetail.supervisorAccepted || !allItemsAccepted);
 
   const surveyImages = splitImageUrls ? splitImageUrls(selectedDetail?.surveyImages) : [];
 
@@ -164,6 +192,30 @@ export default function SurveyJobDetailModal({
             }`}
           >
             Hợp đồng &amp; Thù lao
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewTab("teams")}
+            className={`py-3 border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+              viewTab === "teams"
+                ? "border-blue-600 text-blue-600 font-bold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span>Nghiệm thu Đội thợ</span>
+            {hasMultipleServices && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold transition ${
+                  itemsAcceptedCount === serviceItems.length && serviceItems.length > 0
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    : itemsCompletedCount > itemsAcceptedCount
+                    ? "bg-amber-500 text-white"
+                    : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                {itemsAcceptedCount}/{serviceItems.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -402,27 +454,103 @@ export default function SurveyJobDetailModal({
                 </div>
               </div>
 
-              {/* 1.4 Đội thợ phụ trách (nếu có) */}
-              {(selectedJob.technicianName || selectedJob.preferredTechnicianName) && (
-                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <Wrench className="w-4 h-4 text-slate-500" />
-                    <span className="text-slate-600">Đội thợ thi công:</span>
-                    <strong className="text-slate-900 font-semibold">
-                      {selectedJob.technicianName || selectedJob.preferredTechnicianName}
-                    </strong>
+              {/* 1.4 Đội thợ phụ trách */}
+              {selectedJob.bookingServices && selectedJob.bookingServices.length > 0 ? (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 text-sm">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                    <span className="font-bold text-slate-800 flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-blue-600" />
+                      <span>Các đội thợ phụ trách theo gói ({selectedJob.bookingServices.length} đội/gói):</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setViewTab("teams")}
+                      className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <span>Xem nghiệm thu từng gói</span>
+                      <span>({itemsAcceptedCount}/{serviceItems.length}) →</span>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {selectedJob.bookingServices.map((bs, i) => (
+                      <div key={bs.id || i} className="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-bold text-slate-900 block truncate text-xs">{bs.serviceName}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[11px] font-semibold text-slate-700">@{bs.technicianName || "Chưa gán thợ"}</span>
+                              {bs.technicianPhone && (
+                                <a href={`tel:${bs.technicianPhone}`} className="text-[10px] text-blue-600 font-mono">
+                                  ({bs.technicianPhone})
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          {bs.technicianCompleted ? (
+                            <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                              {bs.supervisorAccepted ? "✓ Đã nghiệm thu" : "Thợ đã xong"}
+                            </span>
+                          ) : bs.technicianStarted ? (
+                            <span className="text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded shrink-0">
+                              Đang thi công
+                            </span>
+                          ) : bs.technicianAccepted ? (
+                            <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded shrink-0">
+                              Đã nhận việc
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded shrink-0">
+                              Chờ thợ nhận
+                            </span>
+                          )}
+                        </div>
+                        {(bs.technicianSpecialty || bs.technicianRating) && (
+                          <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-1 border-t border-slate-100">
+                            {bs.technicianSpecialty && <span>{bs.technicianSpecialty}</span>}
+                            {bs.technicianRating && (
+                              <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                                ★ {Number(bs.technicianRating).toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (selectedJob.technicianName || selectedJob.preferredTechnicianName) ? (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-blue-600" />
+                      <span className="text-slate-600">Đội thợ thi công:</span>
+                      <strong className="text-slate-900 font-bold">
+                        @{selectedJob.technicianName || selectedJob.preferredTechnicianName}
+                      </strong>
+                    </div>
+                    {(selectedJob.technicianSpecialty || selectedJob.technicianRating) && (
+                      <div className="flex items-center gap-3 text-xs text-slate-500 pl-6">
+                        {selectedJob.technicianSpecialty && <span>{selectedJob.technicianSpecialty}</span>}
+                        {selectedJob.technicianRating && (
+                          <span className="text-amber-600 font-bold">★ {Number(selectedJob.technicianRating).toFixed(1)}</span>
+                        )}
+                        {selectedJob.technicianExperienceYears && (
+                          <span>{selectedJob.technicianExperienceYears} năm KN</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {selectedJob.technicianPhone && (
                     <a
                       href={`tel:${selectedJob.technicianPhone}`}
-                      className="text-slate-800 hover:text-blue-600 flex items-center gap-1.5 font-mono font-medium bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-sm"
+                      className="text-slate-800 hover:text-blue-600 flex items-center gap-1.5 font-mono font-medium bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-sm self-start sm:self-auto"
                     >
                       <Phone className="w-3.5 h-3.5" />
                       <span>{selectedJob.technicianPhone}</span>
                     </a>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -557,6 +685,273 @@ export default function SurveyJobDetailModal({
               </div>
             </div>
           )}
+
+          {/* TAB 4: NGHIỆM THU ĐỘI THỢ & TỪNG GÓI DỊCH VỤ */}
+          {viewTab === "teams" && (
+            <div className="space-y-4">
+              {/* Progress Summary Header */}
+              <div className="p-4 bg-blue-50/90 border border-blue-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
+                    <span className="font-bold text-blue-950 text-sm">
+                      Tiến Độ Nghiệm Thu Kỹ Thuật Từng Gói Dịch Vụ
+                    </span>
+                  </div>
+                  <p className="text-blue-800 leading-relaxed">
+                    Giám sát viên kiểm tra chất lượng màng sơn từng gói. Khi tất cả các gói dịch vụ đều được nghiệm thu đạt chuẩn, công trình sẽ sẵn sàng để khách hàng nghiệm thu tổng thể.
+                  </p>
+                </div>
+                {hasMultipleServices && (
+                  <div className="bg-white p-3 rounded-xl border border-blue-200 shrink-0 text-center min-w-[140px] shadow-2xs">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase block">Đã Nghiệm Thu</span>
+                    <span className="text-lg font-black text-blue-700 font-mono block mt-0.5">
+                      {itemsAcceptedCount} / {serviceItems.length}
+                    </span>
+                    <div className="w-full bg-slate-200 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                      <div
+                        className="bg-blue-600 h-full transition-all duration-300"
+                        style={{
+                          width: `${serviceItems.length > 0 ? (itemsAcceptedCount / serviceItems.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedJob.bookingServices && selectedJob.bookingServices.length > 0 ? (
+                <div className="space-y-3.5">
+                  {selectedJob.bookingServices.map((item, idx) => {
+                    const isCompletedByWorker = Boolean(item.technicianCompleted);
+                    const isAcceptedBySupervisor = Boolean(item.supervisorAccepted);
+
+                    return (
+                      <div
+                        key={item.id || idx}
+                        className={`bg-white p-4 sm:p-5 rounded-2xl border transition shadow-2xs space-y-3.5 ${
+                          isAcceptedBySupervisor
+                            ? "border-emerald-200 bg-emerald-50/10"
+                            : isCompletedByWorker
+                            ? "border-amber-300 ring-2 ring-amber-400/20"
+                            : "border-slate-200"
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-6 h-6 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <span className="font-bold text-slate-900 text-sm sm:text-base block">
+                                {item.serviceName || `Gói dịch vụ #${idx + 1}`}
+                              </span>
+                              {item.servicePrice && (
+                                <span className="text-xs text-slate-500 font-medium">
+                                  Đơn giá gói: {Number(item.servicePrice).toLocaleString("vi-VN")} đ
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {isCompletedByWorker ? (
+                              <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1">
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Thợ đã báo xong</span>
+                              </span>
+                            ) : item.technicianStarted ? (
+                              <span className="text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Đang thi công</span>
+                              </span>
+                            ) : item.technicianAccepted ? (
+                              <span className="text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                <Check className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Đã nhận việc</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">
+                                Chờ thợ nhận việc
+                              </span>
+                            )}
+
+                            {isAcceptedBySupervisor ? (
+                              <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-1 rounded-lg border border-blue-200 flex items-center gap-1">
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                <span>Giám sát đã duyệt</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg">
+                                Chờ nghiệm thu
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                          {/* Card: Thông tin đội thợ chi tiết */}
+                          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-slate-400 font-bold uppercase text-[10px]">
+                                Đội thợ phụ trách thi công
+                              </span>
+                              {item.technicianRating && (
+                                <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                                  ★ {Number(item.technicianRating).toFixed(1)}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center shrink-0">
+                                {item.technicianName ? item.technicianName.charAt(0).toUpperCase() : "?"}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 text-sm">
+                                  @{item.technicianName || "Chưa phân công thợ"}
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-500 text-[11px] mt-0.5 flex-wrap">
+                                  {item.technicianPhone && (
+                                    <a
+                                      href={`tel:${item.technicianPhone}`}
+                                      className="text-blue-600 hover:underline font-mono font-bold flex items-center gap-1"
+                                    >
+                                      <Phone className="w-3 h-3" />
+                                      <span>{item.technicianPhone}</span>
+                                    </a>
+                                  )}
+                                  {item.technicianEmail && (
+                                    <span className="flex items-center gap-1 truncate max-w-[140px]" title={item.technicianEmail}>
+                                      <Mail className="w-3 h-3 text-slate-400" />
+                                      <span>{item.technicianEmail}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {(item.technicianSpecialty || item.technicianExperienceYears || item.technicianServiceArea) && (
+                              <div className="flex items-center gap-2 text-[11px] text-slate-600 pt-1.5 border-t border-slate-200/60 flex-wrap">
+                                {item.technicianSpecialty && (
+                                  <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-medium">
+                                    {item.technicianSpecialty}
+                                  </span>
+                                )}
+                                {item.technicianExperienceYears && (
+                                  <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-medium">
+                                    {item.technicianExperienceYears} năm KN
+                                  </span>
+                                )}
+                                {item.technicianServiceArea && (
+                                  <span className="bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-500">
+                                    KV: {item.technicianServiceArea}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {item.technicianAcceptedAt && (
+                              <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                                Nhận việc: <strong className="text-slate-800">{new Date(item.technicianAcceptedAt).toLocaleString("vi-VN")}</strong>
+                              </div>
+                            )}
+                            {item.technicianStartedAt && (
+                              <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                                Bắt đầu làm: <strong className="text-slate-800">{new Date(item.technicianStartedAt).toLocaleString("vi-VN")}</strong>
+                              </div>
+                            )}
+                            {item.technicianCompletedAt && (
+                              <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                                Báo hoàn thành: <strong className="text-slate-800">{new Date(item.technicianCompletedAt).toLocaleString("vi-VN")}</strong>
+                              </div>
+                            )}
+
+                            {item.technicianNote && (
+                              <div className="text-[11px] text-slate-700 italic bg-white p-2.5 rounded-lg border border-slate-200">
+                                Báo cáo từ thợ: "{item.technicianNote}"
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card: Nghiệm thu của Giám sát */}
+                          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-2 flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <span className="text-slate-400 font-bold uppercase text-[10px] block">
+                                Kết quả kiểm tra &amp; Nghiệm thu kỹ thuật
+                              </span>
+
+                              {isAcceptedBySupervisor ? (
+                                <div className="space-y-1.5 bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-200">
+                                  <div className="font-bold text-emerald-800 flex items-center gap-1.5 text-xs">
+                                    <Check className="w-4 h-4 text-emerald-600" />
+                                    <span>Đạt tiêu chuẩn kỹ thuật &amp; Chất lượng bề mặt</span>
+                                  </div>
+                                  {item.supervisorAcceptedAt && (
+                                    <div className="text-[11px] text-emerald-700">
+                                      Thời điểm duyệt: {new Date(item.supervisorAcceptedAt).toLocaleString("vi-VN")}
+                                    </div>
+                                  )}
+                                  {item.supervisorNote && (
+                                    <div className="text-[11px] text-slate-700 bg-white p-2 rounded border border-emerald-100">
+                                      Ghi chú giám sát: "{item.supervisorNote}"
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="text-slate-600 text-xs leading-relaxed">
+                                    {isCompletedByWorker
+                                      ? "⚡ Đội thợ đã báo hoàn thành thi công gói này. Mời Giám sát viên kiểm tra hiện trường (độ phẳng, độ bám dính, đều màu) và bấm nghiệm thu bên dưới."
+                                      : "⏳ Đội thợ đang tiến hành thi công. Giám sát viên có thể nghiệm thu ngay sau khi thợ báo hoàn tất."}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Nút nghiệm thu cho gói */}
+                            {isCompletedByWorker && !isAcceptedBySupervisor && (
+                              <div className="pt-2 border-t border-slate-200">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAcceptItemModal(item);
+                                    setAcceptItemNote("Nghiệm thu đạt chuẩn kỹ thuật: màng sơn phẳng mịn, đều màu, đúng số lớp.");
+                                  }}
+                                  className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  <span>Nghiệm thu đạt chuẩn gói này</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Đơn 1 thợ truyền thống */
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <span className="font-bold text-slate-900 text-sm">
+                      {selectedJob.serviceName || "Gói sơn hoàn thiện"}
+                    </span>
+                    <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                      Đơn thợ duy nhất
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    Đội thợ phụ trách: <strong>@{selectedJob.technicianName || "Chưa phân công"}</strong>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Bạn có thể sử dụng nút <strong>"Xác nhận Nghiệm thu"</strong> ở góc dưới để nghiệm thu toàn bộ công trình khi thợ báo hoàn thành.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 5. Footer: Nút hành động trực tiếp */}
@@ -623,6 +1018,13 @@ export default function SurveyJobDetailModal({
               </button>
             )}
 
+            {hasMultipleServices && !allItemsCompleted && (status === "PROCESSING" || status === "WORKER_COMPLETED") && (
+              <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Chờ {serviceItems.length - itemsCompletedCount} đội thợ báo xong ({itemsCompletedCount}/{serviceItems.length})</span>
+              </span>
+            )}
+
             {canSupervisorAccept && (
               <button
                 type="button"
@@ -630,15 +1032,88 @@ export default function SurveyJobDetailModal({
                   closeModal();
                   onSupervisorAccept?.(selectedJob.id);
                 }}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition shadow-sm cursor-pointer"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition shadow-sm cursor-pointer flex items-center gap-1.5"
               >
-                Xác nhận Nghiệm thu
+                <Check className="w-4 h-4" />
+                <span>
+                  {hasMultipleServices && allItemsAccepted
+                    ? "Xác nhận Nghiệm thu Tổng thể"
+                    : "Nghiệm thu Toàn bộ Công trình"}
+                </span>
               </button>
+            )}
+
+            {allItemsAccepted && (selectedDetail?.supervisorAccepted || status === "WAITING_FINAL_PAYMENT" || status === "COMPLETED") && (
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>✓ Đã nghiệm thu kỹ thuật</span>
+              </span>
             )}
           </div>
         </div>
 
       </div>
+
+      {/* Modal xác nhận nghiệm thu gói dịch vụ */}
+      {acceptItemModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="font-bold text-slate-900 text-sm">
+                Xác nhận Nghiệm thu Kỹ thuật
+              </span>
+              <button
+                type="button"
+                onClick={() => setAcceptItemModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 space-y-1">
+              <div>
+                Hạng mục: <strong>{acceptItemModal.serviceName}</strong>
+              </div>
+              <div>
+                Đội thợ: <strong>@{acceptItemModal.technicianName}</strong>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmAcceptItem} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Biên bản đánh giá kỹ thuật hiện trường:
+                </label>
+                <textarea
+                  rows={3}
+                  value={acceptItemNote}
+                  onChange={(e) => setAcceptItemNote(e.target.value)}
+                  placeholder="Ghi nhận bề mặt đạt chuẩn, màng sơn đồng đều..."
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-blue-500 text-slate-800 leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAcceptItemModal(null)}
+                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 font-bold rounded-xl text-slate-700"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingItemAccept}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50"
+                >
+                  {submittingItemAccept ? "Đang xử lý..." : "✓ Xác nhận Nghiệm thu"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

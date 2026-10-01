@@ -22,6 +22,7 @@ import {
 import StatusBadge from "../../../../components/common/StatusBadge";
 import { formatMoney } from "../../../../util/formatters";
 import { formatDate } from "../../../../util/orderFlowUtils";
+import { getTechWorkflowState } from "../../../../util/technicianWorkflow";
 
 export default function TechnicianJobDetailModal({
   selectedJob,
@@ -36,8 +37,13 @@ export default function TechnicianJobDetailModal({
   onReject,
   onStart,
   onComplete,
+  currentUser,
+  onCompleteServiceItem,
 }) {
   const [copied, setCopied] = useState("");
+  const [completingItemModal, setCompletingItemModal] = useState(null);
+  const [completingItemNote, setCompletingItemNote] = useState("");
+  const [submittingItemComplete, setSubmittingItemComplete] = useState(false);
 
   const handleCopy = (text, type) => {
     if (!text) return;
@@ -46,21 +52,36 @@ export default function TechnicianJobDetailModal({
     setTimeout(() => setCopied(""), 2000);
   };
 
+  const handleConfirmCompleteItem = async (e) => {
+    e?.preventDefault();
+    if (!completingItemModal || !onCompleteServiceItem) return;
+    try {
+      setSubmittingItemComplete(true);
+      await onCompleteServiceItem(completingItemModal.id, completingItemNote);
+      setCompletingItemModal(null);
+      setCompletingItemNote("");
+    } finally {
+      setSubmittingItemComplete(false);
+    }
+  };
+
   if (!selectedJob) return null;
 
-  const status = selectedJob.status || "";
+  const user = currentUser || JSON.parse(localStorage.getItem("user") || "{}");
+  const techState = getTechWorkflowState(selectedJob, user);
+  const {
+    myStatus,
+    canAccept,
+    canReject,
+    canStart,
+    canComplete,
+    isWaitingAcceptance,
+    isDone,
+  } = techState;
+
+  const status = myStatus || selectedJob.status || "";
   const totalAmount = Number(selectedJob.totalAmount) || 0;
   const workerPayout = totalAmount > 0 ? totalAmount * 0.6 : 0;
-
-  // Quyền thao tác của Đội thợ
-  const canAccept = ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED"].includes(status);
-  const canReject = ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED", "ACCEPTED"].includes(
-    status
-  );
-  const canStart = status === "ACCEPTED";
-  const canComplete = status === "PROCESSING";
-  const isWaitingAcceptance = status === "WORKER_COMPLETED";
-  const isDone = ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(status);
 
   const supervisorName = selectedJob.surveyorName || selectedJob.supervisorName;
   const supervisorPhone = selectedJob.surveyorPhone || selectedJob.supervisorPhone;
@@ -255,6 +276,132 @@ export default function TechnicianJobDetailModal({
                   <span className="text-slate-400 italic">Hotline công ty</span>
                 )}
               </div>
+
+              {/* BẢNG TIẾN ĐỘ THI CÔNG TỪNG GÓI DỊCH VỤ */}
+              {selectedJob.bookingServices && selectedJob.bookingServices.length > 0 && (
+                <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-amber-600" />
+                      <span>Hạng Mục Dịch Vụ &amp; Phân Công Thi Công ({selectedJob.bookingServices.length} gói)</span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {selectedJob.bookingServices.map((bs, idx) => {
+                      const isMyJob =
+                        (currentUser?.username && bs.technicianName?.toLowerCase() === currentUser.username.toLowerCase()) ||
+                        (currentUser?.id && bs.technicianId && String(bs.technicianId) === String(currentUser.id)) ||
+                        (!bs.technicianId && selectedJob.technicianName === currentUser?.username);
+
+                      const isDone = Boolean(bs.technicianCompleted);
+                      const isAccepted = Boolean(bs.supervisorAccepted);
+
+                      return (
+                        <div
+                          key={bs.id || idx}
+                          className={`p-3.5 rounded-xl border transition ${
+                            isMyJob
+                              ? "bg-blue-50/50 border-blue-200"
+                              : "bg-slate-50 border-slate-200"
+                          } space-y-2`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                                {bs.serviceName || `Gói dịch vụ #${idx + 1}`}
+                              </span>
+                              {isMyJob && (
+                                <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                                  Phần việc của bạn
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {isDone ? (
+                                <span className="text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                                  ✓ Đã hoàn thành
+                                </span>
+                              ) : bs.technicianStarted ? (
+                                <span className="text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded">
+                                  Đang thi công
+                                </span>
+                              ) : bs.technicianAccepted ? (
+                                <span className="text-[11px] font-medium bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded">
+                                  Đã nhận việc
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                                  Chờ thợ nhận
+                                </span>
+                              )}
+
+                              {isAccepted ? (
+                                <span className="text-[11px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                                  ✓ Giám sát đã duyệt
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">
+                                  Chờ GS duyệt
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
+                            <div className="text-slate-500">
+                              Đội thợ: <strong className="text-slate-800">@{bs.technicianName || "Chưa gán"}</strong>
+                              {bs.technicianPhone && <span className="ml-1 text-slate-500 font-mono">({bs.technicianPhone})</span>}
+                              {bs.technicianCompletedAt && (
+                                <span className="ml-2 text-slate-400">
+                                  (Báo xong: {new Date(bs.technicianCompletedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} {new Date(bs.technicianCompletedAt).toLocaleDateString("vi-VN")})
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Nút báo hoàn thành gói riêng cho thợ phụ trách */}
+                            {isMyJob && !isDone && (bs.technicianStarted || status === "PROCESSING") && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCompletingItemModal(bs);
+                                  setCompletingItemNote("Đã hoàn tất toàn bộ khối lượng thi công gói này.");
+                                }}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition cursor-pointer shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Báo Hoàn Thành Gói Này</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Ghi chú báo cáo của thợ hoặc biên bản nghiệm thu của Giám sát */}
+                          {(bs.technicianNote || bs.supervisorNote) && (
+                            <div className="space-y-1 pt-1 border-t border-slate-100 text-[11px]">
+                              {bs.technicianNote && (
+                                <div className="text-slate-600 italic">
+                                  <span className="font-semibold text-slate-700 not-italic">Ghi chú thợ: </span>
+                                  "{bs.technicianNote}"
+                                </div>
+                              )}
+                              {bs.supervisorNote && (
+                                <div className="text-emerald-800 font-medium bg-emerald-50/60 p-2 rounded-lg border border-emerald-100">
+                                  <span className="font-bold">✓ Giám sát nghiệm thu: </span>
+                                  "{bs.supervisorNote}"
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -478,6 +625,67 @@ export default function TechnicianJobDetailModal({
         </div>
 
       </div>
+
+      {/* Modal xác nhận báo hoàn thành gói dịch vụ */}
+      {completingItemModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="font-bold text-slate-900 text-sm">
+                Báo Hoàn Thành Gói Dịch Vụ
+              </span>
+              <button
+                type="button"
+                onClick={() => setCompletingItemModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-blue-900 space-y-1">
+              <div>
+                Hạng mục: <strong>{completingItemModal.serviceName}</strong>
+              </div>
+              <p className="text-[11px] text-blue-700 leading-relaxed">
+                Bạn xác nhận đã thi công xong hạng mục này? Hệ thống sẽ gửi thông báo để Giám sát viên đến nghiệm thu hiện trường.
+              </p>
+            </div>
+
+            <form onSubmit={handleConfirmCompleteItem} className="space-y-3">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Ghi chú hoàn thành thi công (tùy chọn):
+                </label>
+                <textarea
+                  rows={3}
+                  value={completingItemNote}
+                  onChange={(e) => setCompletingItemNote(e.target.value)}
+                  placeholder="Đã sơn đủ 1 lót 2 phủ, bề mặt khô ráo hoàn thiện..."
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-blue-500 text-slate-800 leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setCompletingItemModal(null)}
+                  className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 font-bold rounded-xl text-slate-700 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingItemComplete}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingItemComplete ? "Đang gửi..." : "✓ Xác nhận Hoàn thành"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,14 +32,17 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         private final ServiceEntityRepository serviceEntityRepository;
 
         private String getServiceName(Booking booking) {
-                if (booking.getService() != null && booking.getService().getName() != null) {
-                        return booking.getService().getName();
+                if (booking != null && booking.getBookingServices() != null && !booking.getBookingServices().isEmpty()) {
+                        String names = booking.getBookingServices().stream()
+                                        .map(bs -> (bs != null && bs.getService() != null) ? bs.getService().getName() : "")
+                                        .filter(s -> !s.isEmpty())
+                                        .distinct()
+                                        .collect(java.util.stream.Collectors.joining(", "));
+                        if (!names.isEmpty()) {
+                                return names;
+                        }
                 }
-                if (booking.getService() != null && booking.getService().getId() != null) {
-                        return serviceEntityRepository.findById(booking.getService().getId())
-                                        .map(ServiceEntity::getName).orElse("Dịch vụ");
-                }
-                return "Dịch vụ";
+                return "Dịch vụ sơn";
         }
 
         private String mapBookingStatusToVietnamese(BookingStatus status) {
@@ -529,6 +532,41 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
         }
 
         @Override
+        public void notifyServiceItemCompleted(Booking booking, String username, String serviceName) {
+                Long id = booking.getId();
+                String sName = (serviceName != null && !serviceName.isBlank()) ? serviceName : "Hạng mục";
+
+                if (booking.getSurveyor() != null) {
+                        notificationService.save(Notification.builder()
+                                        .user(booking.getSurveyor())
+                                        .title(String.format("Đội thợ đã xong gói '%s' (#%d)", sName, id))
+                                        .content(String.format(
+                                                        "Đội thợ %s đã hoàn thành thi công gói '%s' trong đơn #%d. Mời Giám sát viên đến kiểm tra hiện trường và nghiệm thu hạng mục này.",
+                                                        username, sName, id))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                }
+        }
+
+        @Override
+        public void notifyAllServiceItemsAccepted(Booking booking, String supervisorUsername) {
+                Long id = booking.getId();
+
+                if (booking.getCustomer() != null) {
+                        notificationService.save(Notification.builder()
+                                        .user(booking.getCustomer())
+                                        .title("Giám sát đã nghiệm thu đạt chuẩn đơn #" + id)
+                                        .content(String.format(
+                                                        "Giám sát viên %s đã hoàn tất nghiệm thu kỹ thuật đạt chuẩn toàn bộ các dịch vụ cho công trình #%d. Kính mời quý khách kiểm tra thực tế và xác nhận nghiệm thu.",
+                                                        supervisorUsername, id))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                }
+        }
+
+        @Override
         public void notifySurveyJobRejected(Booking booking, String username, String reason) {
                 Long bookingId = booking.getId();
                 userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
@@ -626,6 +664,59 @@ public class BookingNotificationServiceImpl implements BookingNotificationServic
                                         .content(String.format(
                                                         "Bạn đã hủy thành công yêu cầu khảo sát công trình #%d.",
                                                         bookingId))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                }
+        }
+
+        @Override
+        public void notifyCustomerAccepted(Booking booking, String customerUsername) {
+                Long id = booking.getId();
+                userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+                        notificationService.save(Notification.builder()
+                                        .user(admin)
+                                        .title("Khách hàng đã nghiệm thu đơn #" + id)
+                                        .content(String.format("Khách hàng %s đã xác nhận nghiệm thu hài lòng công trình #%d. Đơn đã chuyển sang trạng thái chờ tất toán 70%%.",
+                                                        customerUsername, id))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                });
+
+                if (booking.getTechnician() != null) {
+                        notificationService.save(Notification.builder()
+                                        .user(booking.getTechnician())
+                                        .title("Khách hàng đã nghiệm thu công trình #" + id)
+                                        .content(String.format("Khách hàng %s đã nghiệm thu hoàn tất công trình #%d của bạn. Chờ tất toán để nhận thù lao thi công.",
+                                                        customerUsername, id))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                }
+        }
+
+        @Override
+        public void notifyServiceItemRejected(Booking booking, String customerUsername, String serviceName, BigDecimal newTotal) {
+                Long id = booking.getId();
+                String formattedTotal = NumberFormat.getInstance(new Locale("vi", "VN")).format(newTotal.longValue());
+                userRepository.findAllByRole_Name(AppConstants.ROLE_ADMIN).forEach(admin -> {
+                        notificationService.save(Notification.builder()
+                                        .user(admin)
+                                        .title("Khách hàng điều chỉnh gói dịch vụ #" + id)
+                                        .content(String.format("Khách hàng %s đã từ chối/bỏ gói dịch vụ '%s' khỏi đơn hàng #%d. Tổng dự toán mới đã được cập nhật thành %s VNĐ.",
+                                                        customerUsername, serviceName, id, formattedTotal))
+                                        .createdAt(LocalDateTime.now())
+                                        .isRead(false)
+                                        .build());
+                });
+
+                if (booking.getCustomer() != null) {
+                        notificationService.save(Notification.builder()
+                                        .user(booking.getCustomer())
+                                        .title("Đã huỷ gói dịch vụ: " + serviceName)
+                                        .content(String.format("Bạn đã bỏ gói dịch vụ '%s' khỏi đơn hàng #%d. Tổng dự toán và tiền cọc đã được tự động tính toán lại.",
+                                                        serviceName, id))
                                         .createdAt(LocalDateTime.now())
                                         .isRead(false)
                                         .build());

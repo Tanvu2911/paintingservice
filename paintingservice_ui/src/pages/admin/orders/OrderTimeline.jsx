@@ -9,7 +9,6 @@ export default function OrderTimeline({ status, history = [] }) {
     <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
           <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
             Tiến trình thực hiện đơn hàng
           </h3>

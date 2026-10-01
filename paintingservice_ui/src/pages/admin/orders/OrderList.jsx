@@ -32,6 +32,31 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+function getOrderTechnicians(o) {
+  const techs = [];
+  if (o.bookingServices && o.bookingServices.length > 0) {
+    o.bookingServices.forEach((s) => {
+      const name = s.technicianName || s.technician?.username;
+      if (name && !techs.includes(name)) {
+        techs.push(name);
+      }
+    });
+  }
+  if (techs.length === 0 && (o.technicianName || o.technician?.username)) {
+    techs.push(o.technicianName || o.technician?.username);
+  }
+  return techs;
+}
+
+function getOrderServices(o) {
+  if (o.bookingServices && o.bookingServices.length > 0) {
+    const list = o.bookingServices.map((s) => s.serviceName).filter(Boolean);
+    if (list.length > 0) return list;
+  }
+  const name = o.serviceName || o.service?.name;
+  return name ? [name] : ["Sơn nhà"];
+}
+
 export default function OrderList() {
   const { user, showToast } = useOutletContext();
   const navigate = useNavigate();
@@ -205,11 +230,12 @@ export default function OrderList() {
 
         // 3. Lọc theo dịch vụ
         if (selectedService) {
-          const sName = (o.serviceName || o.service?.name || "").toLowerCase();
           const target = selectedService.toLowerCase();
-          if (!sName.includes(target) && String(o.serviceId) !== selectedService) {
-            return false;
-          }
+          const sServices = getOrderServices(o);
+          const hasServiceMatch = sServices.some((sn) =>
+            sn.toLowerCase().includes(target)
+          ) || String(o.serviceId) === selectedService || (o.bookingServices || []).some(s => String(s.serviceId) === selectedService);
+          if (!hasServiceMatch) return false;
         }
 
         // 4. Tìm kiếm từ khóa
@@ -224,11 +250,15 @@ export default function OrderList() {
           const matchSupervisor =
             o.supervisorName?.toLowerCase().includes(term) ||
             o.surveyorName?.toLowerCase().includes(term);
-          const matchTechnician = o.technicianName?.toLowerCase().includes(term);
+          const orderTechs = getOrderTechnicians(o);
+          const matchTechnician = orderTechs.some((tn) =>
+            tn.toLowerCase().includes(term)
+          );
           const matchAddress = o.address?.toLowerCase().includes(term);
-          const matchService = (o.serviceName || o.service?.name || "")
-            .toLowerCase()
-            .includes(term);
+          const orderServices = getOrderServices(o);
+          const matchService = orderServices.some((sn) =>
+            sn.toLowerCase().includes(term)
+          );
 
           if (
             !matchId &&
@@ -682,7 +712,9 @@ export default function OrderList() {
                     o.depositPaid;
 
                   const supName = o.supervisorName || o.supervisor?.username || o.surveyorName;
-                  const techName = o.technicianName || o.technician?.username;
+                  const techList = getOrderTechnicians(o);
+                  const orderServices = getOrderServices(o);
+                  const firstService = orderServices[0] || "Sơn nhà";
 
                   return (
                     <tr
@@ -692,14 +724,19 @@ export default function OrderList() {
                     >
                       {/* 1. Mã đơn & Dịch vụ */}
                       <td className="py-3.5 px-5 align-top">
-                        <div className="flex items-center gap-1.5 font-bold">
+                        <div className="flex items-center gap-1.5 font-bold flex-wrap">
                           <span className="font-mono text-slate-900 group-hover:text-emerald-700 transition">
                             #{o.id}
                           </span>
                           <span className="text-slate-400">·</span>
                           <span className="text-slate-800 truncate max-w-[150px]">
-                            {srvName}
+                            {firstService}
                           </span>
+                          {orderServices.length > 1 && (
+                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                              +{orderServices.length - 1} gói
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5">
                           Ngày tạo: {o.createdAt ? new Date(o.createdAt).toLocaleDateString("vi-VN") : "—"}
@@ -741,10 +778,19 @@ export default function OrderList() {
                             <span className="text-slate-400 italic font-normal text-[11px]">Chưa báo giá</span>
                           )}
                         </div>
-                        <div className="text-[10.5px] text-slate-500 mt-0.5 space-x-1.5">
+                        <div className="text-[10.5px] text-slate-500 mt-0.5 space-x-1.5 flex flex-wrap items-center gap-y-0.5">
                           <span>GS: <strong className={supName ? "text-blue-900" : "text-amber-700"}>{supName ? `@${supName}` : "Chưa gán"}</strong></span>
                           <span>·</span>
-                          <span>Thợ: <strong className={techName ? "text-emerald-900" : "text-slate-400"}>{techName ? `@${techName}` : "Chưa gán"}</strong></span>
+                          <span>
+                            Thợ:{" "}
+                            {techList.length > 0 ? (
+                              <strong className="text-emerald-900 font-semibold" title={techList.join(", ")}>
+                                {techList.map((t) => `@${t}`).join(", ")}
+                              </strong>
+                            ) : (
+                              <strong className="text-slate-400 font-normal">Chưa gán</strong>
+                            )}
+                          </span>
                         </div>
                       </td>
 
@@ -868,8 +914,8 @@ export default function OrderList() {
                       <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
                         <span className="text-[10px] text-slate-400 font-bold uppercase block">Đội thợ</span>
                         <div className="font-bold text-slate-900 truncate text-[11.5px]">
-                          {o.technicianName || o.technician?.username ? (
-                            `@${o.technicianName || o.technician?.username}`
+                          {getOrderTechnicians(o).length > 0 ? (
+                            getOrderTechnicians(o).map((t) => `@${t}`).join(", ")
                           ) : (
                             <span className="text-slate-400 italic text-[10.5px]">Chưa gán thợ</span>
                           )}

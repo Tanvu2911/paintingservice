@@ -5,7 +5,7 @@ import AxiosConfig from "../../../util/AxiosConfig";
 // Reusable Components
 import DashboardHeader from "../../../components/layout/DashboardHeader";
 import StatusBadge from "../../../components/common/StatusBadge";
-import LoadingState from "../../../components/common/LoadingState";
+import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import Modal from "../../../components/common/Modal";
 import ContractModal from "../../../components/common/ContractModal";
 import Pagination from "../../../components/common/Pagination";
@@ -208,7 +208,7 @@ export default function ContractManagement() {
       </div>
 
       {loading ? (
-        <LoadingState message="Đang tải danh sách hợp đồng..." />
+        <LoadingSpinner message="Đang tải danh sách hợp đồng..." />
       ) : (
         <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">

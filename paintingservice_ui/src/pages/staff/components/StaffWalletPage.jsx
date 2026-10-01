@@ -127,7 +127,7 @@ function StaffWalletPage({ title, accent = "blue", roleLabel }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               {title || "Ví Thu Nhập & Thù Lao"}
             </h1>

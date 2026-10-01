@@ -18,10 +18,11 @@ import {
 } from "lucide-react";
 import { formatMoney } from "../../../util/formatters";
 import { formatDate } from "../../../util/orderFlowUtils";
+import { getTechWorkflowState } from "../../../util/technicianWorkflow";
 
 /**
- * Luồng đội thợ thi công:
- * CONTRACT_APPROVED / DEPOSIT_CONFIRMED / ASSIGNED  → Nhận việc / Từ chối
+ * Luồng đội thợ thi công độc lập cho từng dịch vụ:
+ * ASSIGNED / CONTRACT_APPROVED / DEPOSIT_CONFIRMED  → Nhận việc / Từ chối
  * ACCEPTED                                          → Bắt đầu thi công
  * PROCESSING                                        → Báo hoàn thành
  */
@@ -32,16 +33,20 @@ export default function JobCard({
   onStart,
   onComplete,
   onViewDetail,
+  currentUser,
 }) {
-  const status = job.status || "";
-  const canAccept = ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED"].includes(status);
-  const canReject = ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED", "ACCEPTED"].includes(status);
-  const canStart = status === "ACCEPTED";
-  const canComplete = status === "PROCESSING";
-
-  const isWaitingAcceptance = status === "WORKER_COMPLETED";
-  const isDone = ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(status);
-  const isCancelled = status === "CANCELLED" || status === "WORKER_REJECTED";
+  const user = currentUser || JSON.parse(localStorage.getItem("user") || "{}");
+  const {
+    myStatus,
+    canAccept,
+    canReject,
+    canStart,
+    canComplete,
+    isWaitingAcceptance,
+    isDone,
+    isCancelled,
+  } = getTechWorkflowState(job, user);
+  const status = myStatus || job.status || "";
 
   return (
     <div

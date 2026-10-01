@@ -301,10 +301,6 @@ export default function CustomerOngoing() {
                 >
                   {count}
                 </span>
-
-                {showAlert && !isActive && (
-                  <span className="w-2 h-2 rounded-full bg-amber-500 absolute top-2 right-2 animate-ping" />
-                )}
               </button>
             );
           })}
@@ -385,6 +381,7 @@ export default function CustomerOngoing() {
 
             const isPendingSignature = ["WAITING_CUSTOMER_SIGNATURE", "CUSTOMER_ACCEPTED_QUOTE"].includes(b.status);
             const isWaitingDeposit = b.status === "WAITING_DEPOSIT";
+            const isWaitingFinal = b.status === "WAITING_FINAL_PAYMENT";
             const isCompleted = ["COMPLETED", "PAID_TO_STAFF"].includes(b.status);
             const isCancelled = ["CANCELLED", "SURVEY_REJECTED", "WORKER_REJECTED"].includes(b.status);
             const isProcessing = ["PROCESSING", "ASSIGNED"].includes(b.status);
@@ -409,8 +406,10 @@ export default function CustomerOngoing() {
                         <span className="font-black text-slate-900 text-sm group-hover:text-[#1E3A8A] transition-colors">
                           #{b.id}
                         </span>
-                        <span className="text-[11px] font-bold text-[#1E3A8A] bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200 truncate max-w-[150px]">
-                          {b.serviceName || b.service?.name || "Sơn sửa nhà"}
+                        <span className="text-[11px] font-bold text-[#1E3A8A] bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200 truncate max-w-[150px]" title={b.bookingServices?.map(s => s.serviceName).join(", ") || b.serviceName}>
+                          {b.bookingServices && b.bookingServices.length > 1
+                            ? `${b.bookingServices.length} gói dịch vụ`
+                            : (b.serviceName || b.service?.name || "Sơn sửa nhà")}
                         </span>
                       </div>
                       <div className="text-[10.5px] text-slate-400 mt-1 flex items-center gap-1">
@@ -481,12 +480,33 @@ export default function CustomerOngoing() {
                             <span className="font-bold text-[#1E3A8A]">@{b.supervisorName}</span>
                           </div>
                         )}
-                        {b.technicianName && (
-                          <div className="flex items-center justify-between text-slate-600">
-                            <span>Đội thợ thi công:</span>
-                            <span className="font-bold text-emerald-800">@{b.technicianName}</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const techNames = Array.from(
+                            new Set(
+                              (b.bookingServices || [])
+                                .map((s) => s.technicianName)
+                                .filter(Boolean)
+                            )
+                          );
+                          const displayName =
+                            techNames.length > 0
+                              ? techNames.map((t) => `@${t}`).join(", ")
+                              : b.technicianName
+                              ? `@${b.technicianName}`
+                              : b.preferredTechnicianName
+                              ? `@${b.preferredTechnicianName} (Ưu tiên)`
+                              : null;
+                          return (
+                            displayName && (
+                              <div className="flex items-center justify-between text-slate-600">
+                                <span>Đội thợ thi công:</span>
+                                <span className="font-bold text-emerald-800 truncate max-w-[200px]" title={displayName}>
+                                  {displayName}
+                                </span>
+                              </div>
+                            )
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -575,7 +595,7 @@ export default function CustomerOngoing() {
                     className={`px-4 py-2 font-black rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
                       isPendingSignature
                         ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/20"
-                        : isWaitingDeposit
+                        : isWaitingDeposit || isWaitingFinal
                           ? "bg-amber-500 hover:bg-amber-600 text-white"
                           : isProcessing
                             ? "bg-[#1E3A8A] hover:bg-[#1e40af] text-white"
@@ -589,9 +609,11 @@ export default function CustomerOngoing() {
                         ? "Duyệt báo giá & Ký HĐ"
                         : isWaitingDeposit
                           ? "Thanh toán cọc 30%"
-                          : isProcessing
-                            ? "Xem tiến độ thi công"
-                            : "Xem chi tiết"}
+                          : isWaitingFinal
+                            ? "Tất toán 70% VNPay"
+                            : isProcessing
+                              ? "Xem tiến độ thi công"
+                              : "Xem chi tiết"}
                     </span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>

@@ -4,32 +4,36 @@ import { ORDER_STAGES, getActiveStageIndex } from "../../util/orderFlowUtils";
 
 export default function OrderStepper({
   status,
+  booking = null,
   compact = false,
   title = "Tiến trình thực hiện công trình",
   className = "",
 }) {
-  const activeStage = getActiveStageIndex(status);
+  const activeStage = getActiveStageIndex(status, booking);
+  const isCompletedAll =
+    status === "COMPLETED" ||
+    status === "PAID_TO_STAFF" ||
+    Boolean(booking?.finalPaid || booking?.paymentStatus === "FULLY_PAID");
 
   return (
     <div className={`bg-white rounded-3xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3 ${className}`}>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            {title}
-          </h3>
-        </div>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          {title}
+        </h3>
         <span className="text-xs font-bold text-slate-800 bg-slate-100 px-3 py-0.5 rounded-full border border-slate-200">
           {status === "CANCELLED"
             ? "Đã hủy"
+            : isCompletedAll
+            ? "✓ Hoàn tất 6/6 giai đoạn"
             : `Giai đoạn ${activeStage + 1} / 6`}
         </span>
       </div>
 
       <div className={`grid grid-cols-2 ${compact ? "sm:grid-cols-3 lg:grid-cols-6" : "sm:grid-cols-3 md:grid-cols-6"} gap-2`}>
         {ORDER_STAGES.map((stg, idx) => {
-          const isPassed = idx < activeStage;
-          const isCurrent = idx === activeStage;
+          const isPassed = isCompletedAll ? true : idx < activeStage;
+          const isCurrent = !isCompletedAll && idx === activeStage;
 
           return (
             <div
@@ -59,7 +63,7 @@ export default function OrderStepper({
                     {isPassed ? (
                       <Check className="w-3.5 h-3.5 text-[#1E3A8A] stroke-[3]" />
                     ) : isCurrent ? (
-                      "●"
+                      <span className="text-amber-300 text-xs">●</span>
                     ) : (
                       "○"
                     )}
@@ -79,10 +83,18 @@ export default function OrderStepper({
                 </div>
               </div>
 
-              {!compact && (
+              {isCurrent && (
+                <div className="mt-1 flex items-center gap-1">
+                  <span className="inline-flex items-center text-[9px] font-bold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30">
+                    <span>Đang ở bước này</span>
+                  </span>
+                </div>
+              )}
+
+              {!compact && !isCurrent && (
                 <div
                   className={`text-[10px] mt-0.5 line-clamp-1 ${
-                    isCurrent ? "text-slate-300" : "text-slate-400"
+                    isPassed ? "text-slate-400" : "text-slate-400"
                   }`}
                 >
                   {stg.desc}

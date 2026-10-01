@@ -50,9 +50,10 @@ public class BookingDto {
     private String preferredSupervisorPhone;
     private String preferredSupervisorAvatar;
 
-    @NotNull(message = "serviceId is required")
     private Long serviceId;
     private String serviceName;
+    private java.util.List<Long> serviceIds;
+    private java.util.List<BookingServiceItemDto> bookingServices;
 
     @NotNull(message = "appointmentDate is required")
     private LocalDate appointmentDate;
@@ -78,6 +79,8 @@ public class BookingDto {
     /** Tiện cho frontend BookingDetail */
     private Boolean depositPaid;
     private Boolean finalPaid;
+    private Boolean customerAccepted;
+    private Boolean supervisorAccepted;
     private LocalDateTime depositPaidAt;
     private LocalDateTime finalPaidAt;
     private LocalDateTime completedAt;

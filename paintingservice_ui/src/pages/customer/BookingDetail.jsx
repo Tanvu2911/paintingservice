@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   FileText,
   RefreshCw,
-  Home,
   CreditCard,
   User,
   Phone,
@@ -12,33 +11,25 @@ import {
   Calendar,
   Clock,
   FileSignature,
-  Sparkles,
   Printer,
   Check,
   AlertTriangle,
-  XCircle,
   Star,
-  DollarSign,
   ShieldAlert,
-  Wrench,
-  Layers,
   Paintbrush,
   CheckCircle2,
-  ChevronRight,
-  MapPin,
-  Send,
-  Edit,
   Trash2,
+  Layers,
+  Info,
+  MapPin,
 } from "lucide-react";
 import AxiosConfig from "../../util/AxiosConfig";
 import StatusBadge from "../../components/common/StatusBadge";
 import OrderStepper from "../../components/common/OrderStepper";
-import OrderActionBanner from "../../components/common/OrderActionBanner";
 import SurveyReportCard from "../../components/common/SurveyReportCard";
 import ContractModal from "../../components/common/ContractModal";
 import ImageLightboxModal from "../../components/common/ImageLightboxModal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
-import RejectQuoteModal from "../../components/common/RejectQuoteModal";
 import ReviewModal from "../../components/review/ReviewModal";
 import ReviewCard from "../../components/review/ReviewCard";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -65,18 +56,14 @@ export default function BookingDetail(props) {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Tab management: 'overview' | 'contract_quote' | 'reports' | 'warranty_review'
+  // Tabs: 'overview' | 'contract_quote' | 'reports' | 'warranty_review'
   const [activeTab, setActiveTab] = useState("overview");
 
   const [contractModal, setContractModal] = useState(false);
-  const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [rejecting, setRejecting] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
-  const [selectedStartDate, setSelectedStartDate] = useState("");
-  const [acceptingQuote, setAcceptingQuote] = useState(false);
+  const [, setSelectedStartDate] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedStaffProfile, setSelectedStaffProfile] = useState(null);
-  const [loadingStaffProfile, setLoadingStaffProfile] = useState(false);
   const [quoteResponseModalOpen, setQuoteResponseModalOpen] = useState(false);
   const [warrantyClaims, setWarrantyClaims] = useState([]);
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
@@ -180,19 +167,11 @@ export default function BookingDetail(props) {
     setConfirmDialog({
       title: "Xác nhận Nghiệm Thu Công Trình",
       message:
-        "Bạn xác nhận công trình đã được thi công hoàn thiện đạt yêu cầu chất lượng?\n\nSau khi nghiệm thu, bạn có thể tiến hành thanh toán phần tất toán còn lại (70%) qua VNPay Sandbox.",
+        "Bạn xác nhận công trình đã được thi công hoàn thiện đạt yêu cầu chất lượng?\n\nSau khi nghiệm thu, bạn có thể tiến hành thanh toán phần tất toán còn lại (70%) qua VNPay.",
       onConfirm: async () => {
         try {
-          const res = await AxiosConfig.get(`/booking-details/booking/${id}`);
-          const details = Array.isArray(res.data) ? res.data : [];
-          const pending = details.filter((d) => !d.customerAccepted);
-          if (pending.length > 0) {
-            await Promise.all(
-              pending.map((d) => AxiosConfig.post(`/booking-details/${d.id}/customer-accept`))
-            );
-          }
-
-          showToast?.("Nghiệm thu công trình thành công! Đã chuyển sang trạng thái chờ tất toán 70%.", "success");
+          await AxiosConfig.post(`/bookings/${id}/customer-accept`);
+          showToast?.("Nghiệm thu công trình thành công! Chuyển sang bước tất toán 70%.", "success");
           await refreshData();
         } catch (error) {
           showToast?.(error.response?.data?.message || "Không thể nghiệm thu công trình!", "error");
@@ -201,21 +180,6 @@ export default function BookingDetail(props) {
         }
       },
     });
-  };
-
-  // Từ chối báo giá
-  const handleRejectQuote = async (reason) => {
-    try {
-      setRejecting(true);
-      await AxiosConfig.post(`/bookings/${id}/reject-quote`, { reason });
-      showToast?.("Đã từ chối báo giá và hủy yêu cầu thành công!", "success");
-      setRejectModalOpen(false);
-      await refreshData();
-    } catch (error) {
-      showToast?.(error.response?.data?.message || "Không thể từ chối báo giá!", "error");
-    } finally {
-      setRejecting(false);
-    }
   };
 
   // Thương lượng giá
@@ -236,7 +200,7 @@ export default function BookingDetail(props) {
         ...booking,
         description: newDescription,
       });
-      showToast?.("Đề xuất thương lượng đã được gửi tới Admin! Họ sẽ liên hệ lại với bạn sớm.", "success");
+      showToast?.("Đề xuất thương lượng đã được gửi tới Admin! Quản trị viên sẽ phản hồi sớm.", "success");
       await refreshData();
     } catch (error) {
       showToast?.(error.response?.data?.message || "Không thể gửi đề xuất thương lượng!", "error");
@@ -266,12 +230,44 @@ export default function BookingDetail(props) {
     }
   };
 
+  // Hủy một gói dịch vụ đã đăng ký (luôn gọi endpoint reject - backend xử lý hủy đơn khi hết gói)
+  const handleCancelServiceItem = (item) => {
+    const services = booking?.bookingServices || [];
+    // Chỉ đếm các gói chưa bị hủy
+    const activeServices = services.filter((s) => !s.cancelled);
+    const isOnlyOneService = activeServices.length <= 1;
+    const sName = item?.serviceName || "Gói dịch vụ";
+    const itemPriceText = item?.price && Number(item.price) > 0 ? ` (${formatMoney(item.price)})` : "";
+
+    setConfirmDialog({
+      title: isOnlyOneService ? "Xác nhận hủy đơn hàng" : "Xác nhận hủy gói dịch vụ",
+      message: isOnlyOneService
+        ? `Đây là gói dịch vụ duy nhất trong công trình ("${sName}"). Hủy gói này đồng nghĩa với việc hủy toàn bộ đơn hàng. Bạn có chắc chắn muốn hủy không?`
+        : `Bạn có chắc chắn muốn hủy gói "${sName}"${itemPriceText} khỏi công trình? Tổng dự toán và tiền cọc sẽ được tính lại tự động cho các dịch vụ còn lại.`,
+      onConfirm: async () => {
+        try {
+          await AxiosConfig.post(`/bookings/${id}/services/${item.id}/reject`);
+          showToast?.(
+            isOnlyOneService
+              ? "Đã hủy đơn hàng thành công!"
+              : `Đã hủy gói "${sName}" khỏi công trình thành công!`,
+            "success"
+          );
+          setConfirmDialog(null);
+          await refreshData();
+        } catch (error) {
+          showToast?.(error.response?.data?.message || "Không thể hủy gói dịch vụ!", "error");
+        }
+      },
+    });
+  };
+
   // Xóa đánh giá
   const handleDeleteReview = () => {
     if (!review) return;
     setConfirmDialog({
       title: "Xác nhận xóa đánh giá",
-      message: "Bạn có chắc chắn muốn xóa bài đánh giá & góp ý này không?",
+      message: "Bạn có chắc chắn muốn xóa bài đánh giá này không?",
       onConfirm: async () => {
         try {
           await AxiosConfig.delete(`/reviews/${review.id}`);
@@ -286,12 +282,12 @@ export default function BookingDetail(props) {
     });
   };
 
-  // Xử lý các hành động từ Banner
+  // Xử lý các hành động
   const handleBannerAction = async (actionType) => {
     if (actionType === "cancel_survey") {
       setConfirmDialog({
         title: "Xác nhận hủy yêu cầu khảo sát",
-        message: "Bạn có chắc chắn muốn hủy yêu cầu khảo sát cho công trình này không? Chuyên viên khảo sát sẽ không đến hiện trường nữa.",
+        message: "Bạn có chắc chắn muốn hủy yêu cầu khảo sát này không?",
         onConfirm: async () => {
           try {
             await AxiosConfig.post(`/bookings/${id}/cancel-survey`, {
@@ -308,8 +304,6 @@ export default function BookingDetail(props) {
       });
     } else if (actionType === "respond_quote") {
       setQuoteResponseModalOpen(true);
-    } else if (actionType === "reject_quote") {
-      setRejectModalOpen(true);
     } else if (actionType === "open_contract") {
       setContractModal(true);
     } else if (actionType === "open_review") {
@@ -333,27 +327,34 @@ export default function BookingDetail(props) {
     } else if (actionType === "export_pdf") {
       if (contract) {
         exportContractPDF(contract, booking);
-        showToast?.("Đã tải xuống file PDF hợp đồng thành công!", "success");
+        showToast?.("Đã xuất file PDF hợp đồng thành công!", "success");
       } else {
-        showToast?.("Chưa có hợp đồng để xuất file PDF!", "warning");
+        showToast?.("Chưa có hợp đồng để xuất PDF!", "warning");
       }
     }
   };
 
   // Xem thông tin chi tiết nhân sự (Giám sát / Thợ)
-  const handleOpenStaffModal = async (type) => {
+  const handleOpenStaffModal = async (type, staffItem = null) => {
     const isSupervisor = type === "supervisor";
-    const userId = isSupervisor ? (booking.supervisorId || booking.surveyorId) : booking.technicianId;
-    const username = isSupervisor ? (booking.supervisorName || booking.surveyorName) : booking.technicianName;
-    const phone = isSupervisor ? booking.supervisorPhone : booking.technicianPhone;
-    const avatar = isSupervisor ? (booking.supervisorAvatar || booking.surveyorAvatar) : booking.technicianAvatar;
+    const userId = isSupervisor
+      ? (booking.supervisorId || booking.surveyorId)
+      : (staffItem?.technicianId || booking.technicianId || booking.preferredTechnicianId);
+    const username = isSupervisor
+      ? (booking.supervisorName || booking.surveyorName)
+      : (staffItem?.technicianName || booking.technicianName || booking.preferredTechnicianName);
+    const phone = isSupervisor
+      ? booking.supervisorPhone
+      : (staffItem?.technicianPhone || booking.technicianPhone || booking.preferredTechnicianPhone);
+    const avatar = isSupervisor
+      ? (booking.supervisorAvatar || booking.surveyorAvatar)
+      : (staffItem?.technicianAvatar || booking.technicianAvatar || booking.preferredTechnicianAvatar);
 
     if (!userId && !username) {
       showToast?.("Chưa có nhân sự được phân công cho vị trí này!", "info");
       return;
     }
 
-    setLoadingStaffProfile(true);
     try {
       if (userId) {
         const res = await AxiosConfig.get(`/staff/by-user/${userId}`);
@@ -363,9 +364,7 @@ export default function BookingDetail(props) {
         }
       }
     } catch (e) {
-      console.warn("Could not fetch full staff profile, falling back to booking fields", e);
-    } finally {
-      setLoadingStaffProfile(false);
+      console.warn("Could not fetch full staff profile", e);
     }
 
     setSelectedStaffProfile({
@@ -385,16 +384,16 @@ export default function BookingDetail(props) {
 
   if (!booking) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center p-4">
-        <div className="text-center bg-white p-8 rounded-3xl border border-slate-200 shadow-sm max-w-sm w-full">
-          <div className="text-4xl mb-3">📋</div>
-          <h2 className="font-bold text-slate-800 text-base">Không tìm thấy công trình #{id}</h2>
+      <div className="min-h-[50vh] flex items-center justify-center p-4">
+        <div className="text-center bg-white p-7 rounded-2xl border border-slate-200 shadow-2xs max-w-sm w-full">
+          <div className="text-3xl mb-2">📋</div>
+          <h2 className="font-bold text-slate-800 text-sm">Không tìm thấy công trình #{id}</h2>
           <button
             type="button"
             onClick={() => navigate("/customer/ongoing")}
-            className="mt-4 px-5 py-2.5 rounded-xl bg-[#1E3A8A] text-white text-xs font-bold cursor-pointer"
+            className="mt-4 px-4 py-2 rounded-xl bg-[#1E3A8A] text-white text-xs font-bold cursor-pointer"
           >
-            Về Danh sách công trình
+            Về danh sách công trình
           </button>
         </div>
       </div>
@@ -410,167 +409,107 @@ export default function BookingDetail(props) {
     booking.paymentStatus === "FULLY_PAID" ||
     ["DEPOSIT_CONFIRMED", "ASSIGNED", "PROCESSING", "WORKER_COMPLETED", "WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(booking.status)
   );
-  const isFinalPaid = Boolean(booking.finalPaid || booking.paymentStatus === "FULLY_PAID");
+  const isFinalPaid = Boolean(
+    booking.finalPaid ||
+    booking.paymentStatus === "FULLY_PAID" ||
+    ["COMPLETED", "PAID_TO_STAFF"].includes(booking.status)
+  );
+  const isAccepted = Boolean(
+    booking.customerAccepted ||
+    ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(booking.status)
+  );
+  const isWorkerCompleted = Boolean(booking.status === "WORKER_COMPLETED");
+  const needsAcceptance = isWorkerCompleted && !isAccepted;
+  const needsFinalPayment = isAccepted && !isFinalPaid;
+  const isAllCompleted = isAccepted && isFinalPaid;
 
   const canAcceptQuote =
     ["WAITING_CUSTOMER_SIGNATURE", "WAITING_ADMIN_QUOTE", "CUSTOMER_ACCEPTED_QUOTE"].includes(booking.status) &&
     total > 0 &&
     (!contract || !contract.customerSigned);
-  const surveyDetail = bookingDetails && bookingDetails.length > 0 ? bookingDetails[0] : null;
 
+  const canCancelServices =
+    !isDepositPaid &&
+    ["PENDING", "SURVEY_ASSIGNED", "SURVEYING", "ACCEPTED", "WAITING_CUSTOMER_SIGNATURE", "WAITING_ADMIN_QUOTE", "WAITING_CUSTOMER_QUOTE_APPROVAL", "CUSTOMER_ACCEPTED_QUOTE", "WAITING_DEPOSIT"].includes(booking.status) &&
+    (!contract || !contract.customerSigned);
+
+  const surveyDetail = bookingDetails && bookingDetails.length > 0 ? bookingDetails[0] : null;
   const negInfo = parseNegotiationInfo(booking?.description);
-  const displayDesc = negInfo.initialDesc || (!negInfo.hasNegotiation ? booking?.description : "") || "Khách hàng không ghi chú mô tả ban đầu.";
+  const displayDesc = negInfo.initialDesc || (!negInfo.hasNegotiation ? booking?.description : "") || "Không có ghi chú thêm.";
   const pastHistory = negInfo.history.filter((h) => !h.isCurrent);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/customer/ongoing")}
-            className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold transition cursor-pointer shrink-0"
-            title="Quay lại danh sách công trình"
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-700" />
-          </button>
-          <div>
+    <div className="space-y-5 max-w-6xl mx-auto pb-12">
+      {/* 1. Top Header Card */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/customer/ongoing")}
+              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition cursor-pointer shrink-0"
+              title="Quay lại danh sách"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+              <h1 className="text-lg sm:text-xl font-black text-slate-900">
                 Công Trình #{booking.id}
               </h1>
               <StatusBadge status={booking.status} />
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Khởi tạo: {formatDate(booking.createdAt || booking.appointmentDate)} • Gói:{" "}
-              <strong className="text-slate-800">{booking.serviceName || booking.service?.name || "Sơn sửa nhà"}</strong>
-            </p>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
-          {["PENDING", "SURVEY_ASSIGNED", "SURVEY_REJECTED", "ACCEPTED"].includes(booking.status) && (
-            <button
-              type="button"
-              onClick={() => handleBannerAction("cancel_survey")}
-              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition flex items-center gap-1.5 border border-rose-200 cursor-pointer shadow-2xs"
-              title="Hủy yêu cầu khảo sát hiện tại"
-            >
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
-              <span>Hủy yêu cầu</span>
-            </button>
-          )}
-
-          {contract && (
-            <button
-              type="button"
-              onClick={() => setContractModal(true)}
-              className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black rounded-xl text-xs transition flex items-center gap-2 shadow-xs shadow-amber-500/20 cursor-pointer"
-            >
-              <FileSignature className="w-4 h-4 text-white" />
-              <span>{contract.customerSigned ? "Xem Hợp Đồng" : "Ký Hợp Đồng Ngay"}</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={refreshData}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
-            title="Cập nhật lại dữ liệu mới nhất"
-          >
-            <RefreshCw className="w-4 h-4 text-slate-700" />
-          </button>
-        </div>
-      </div>
-
-      {/* 2. 6-Stage Progress Stepper */}
-      <OrderStepper status={booking.status} />
-
-      {/* 2.5 Bảng thông tin nhanh (Quick Info Strip) - Thiết kế trung tính, trang nhã, dễ nhìn */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 bg-white rounded-2xl border border-slate-200 py-3.5 px-4 text-center shadow-xs">
-        <div className="p-1.5">
-          <span className="text-xs text-slate-500 font-medium block">Dịch vụ yêu cầu</span>
-          <strong className="text-slate-900 text-sm block mt-0.5 truncate" title={booking.serviceName}>
-            {booking.serviceName || booking.service?.name || "Dịch vụ sơn nhà"}
-          </strong>
-        </div>
-
-        <div className="p-1.5">
-          <span className="text-xs text-slate-500 font-medium block">Địa chỉ công trình</span>
-          <span className="font-medium text-slate-700 text-sm block mt-0.5 truncate" title={booking.address}>
-            {booking.address || "Chưa có địa chỉ"}
-          </span>
-        </div>
-
-        <div className="p-1.5">
-          <span className="text-xs text-slate-500 font-medium block">
-            {booking.expectedStartDate ? "Ngày khởi công" : "Lịch hẹn khảo sát"}
-          </span>
-          <strong className="text-slate-900 text-sm block mt-0.5">
-            {booking.expectedStartDate
-              ? formatDate(booking.expectedStartDate)
-              : `${formatDate(booking.appointmentDate)} • ${booking.appointmentTime || "08:00"}`}
-          </strong>
-        </div>
-
-        <div className="p-1.5">
-          <span className="text-xs text-slate-500 font-medium block">Tổng dự toán</span>
-          <div className="font-bold text-slate-900 font-mono text-sm block mt-0.5">
-            {total > 0 ? (
-              <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                <span>{formatMoney(total)}</span>
-                {isFinalPaid ? (
-                  <span className="text-[11px] font-sans font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">Đã tất toán</span>
-                ) : isDepositPaid ? (
-                  <span className="text-[11px] font-sans font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">Đã cọc 30%</span>
-                ) : (
-                  <span className="text-[11px] font-sans font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">Chờ cọc</span>
-                )}
-              </div>
-            ) : (
-              <span className="text-slate-400 font-sans font-normal text-xs">Chờ lập dự toán</span>
+          {/* Action Bar */}
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
+            {["PENDING", "SURVEY_ASSIGNED", "SURVEY_REJECTED", "ACCEPTED"].includes(booking.status) && (
+              <button
+                type="button"
+                onClick={() => handleBannerAction("cancel_survey")}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg text-xs transition border border-rose-200 cursor-pointer"
+              >
+                Hủy yêu cầu
+              </button>
             )}
+
+            {contract && (
+              <button
+                type="button"
+                onClick={() => setContractModal(true)}
+                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <FileSignature className="w-3.5 h-3.5" />
+                <span>{contract.customerSigned ? "Xem Hợp Đồng" : "Ký Hợp Đồng"}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={refreshData}
+              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs transition cursor-pointer"
+              title="Làm mới"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Hero Action Guidance Banner */}
-      <OrderActionBanner
-        role="customer"
-        booking={booking}
-        contract={contract}
-        review={review}
-        canAcceptQuote={canAcceptQuote}
-        onAction={handleBannerAction}
-      />
+      {/* 2. Visual Progress Stepper */}
+      <OrderStepper status={booking.status} booking={booking} />
 
-      {/* 4. Alert if Cancelled */}
       {booking.status === "CANCELLED" && (
-        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 sm:p-6 shadow-xs flex items-start gap-4 text-rose-900">
-          <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5 text-rose-600" />
-          </div>
-          <div className="space-y-1 flex-1">
-            <h3 className="text-sm font-black text-rose-950 uppercase tracking-wider">
-              Yêu cầu công trình này đã kết thúc / Hủy bỏ
-            </h3>
-            <p className="text-xs text-rose-800 leading-relaxed">
-              Hồ sơ khảo sát này đã được đóng lại. Nếu quý khách có nhu cầu khảo sát lại hoặc tư vấn phương án mới, vui lòng đăng ký một yêu cầu mới hoặc liên hệ tổng đài hỗ trợ Precision Paint.
-            </p>
-          </div>
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center gap-3 text-rose-900 text-xs">
+          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+          <p>Hồ sơ yêu cầu này đã được đóng lại hoặc hủy bỏ.</p>
         </div>
       )}
 
-      {/* 5. Modern Tabbed Navigation Bar */}
-      <div className="bg-white p-2 rounded-3xl border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+      {/* 3. Tab Navigation */}
+      <div className="bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {[
-            {
-              id: "overview",
-              label: "1. Tổng quan & Tiến độ",
-              icon: Layers,
-            },
+            { id: "overview", label: "1. Tổng quan & Tiến độ", icon: Layers },
             {
               id: "contract_quote",
               label: "2. Dự toán & Hợp đồng",
@@ -584,9 +523,12 @@ export default function BookingDetail(props) {
             },
             {
               id: "warranty_review",
-              label: "4. Nghiệm thu & Bảo hành",
+              label: "4. Nghiệm thu & Tất toán",
               icon: ShieldCheck,
-              alert: ["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) && !review,
+              alert:
+                needsAcceptance ||
+                needsFinalPayment ||
+                (["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) && !review),
             },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
@@ -596,15 +538,16 @@ export default function BookingDetail(props) {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap relative ${isActive
-                  ? "bg-[#1E3A8A] text-white shadow-sm shadow-[#1E3A8A]/30 font-black"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer whitespace-nowrap relative ${
+                  isActive
+                    ? "bg-[#1E3A8A] text-white shadow-2xs"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-amber-400" : "text-slate-400"}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? "text-amber-300" : "text-slate-400"}`} />
                 <span>{tab.label}</span>
                 {tab.alert && (
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping absolute top-2 right-2" />
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-amber-500 rounded-full" />
                 )}
               </button>
             );
@@ -612,177 +555,285 @@ export default function BookingDetail(props) {
         </div>
       </div>
 
-      {/* 6. TAB CONTENT PANELS */}
+      {/* 5. TAB CONTENT PANELS */}
 
-      {/* ========================================================================= */}
-      {/* TAB 1: TỔNG QUAN & TIẾN ĐỘ                                                */}
-      {/* ========================================================================= */}
+      {/* TAB 1: TỔNG QUAN & TIẾN ĐỘ */}
       {activeTab === "overview" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            {/* Left 2 Cols: Project Info & Survey Report */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Card: Yêu cầu thi công & Ghi chú của bạn */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-[#1E3A8A]" />
-                    <span>Yêu Cầu Thi Công &amp; Ghi Chú Của Bạn</span>
-                  </h3>
-                  {booking.warrantyYears && (
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                      🛡️ Cam kết bảo hành {booking.warrantyYears} năm
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
-                    <span className="text-slate-400 font-bold block uppercase text-[10px]">
-                      Thời gian gửi yêu cầu
-                    </span>
-                    <span className="text-slate-800 font-bold text-sm">
-                      {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString("vi-VN") : "Hôm nay"}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
-                    <span className="text-slate-400 font-bold block uppercase text-[10px]">
-                      Thời gian thi công dự kiến
-                    </span>
-                    <span className="text-slate-800 font-bold text-sm">
-                      {booking.estimatedDays ? `${booking.estimatedDays} ngày hoàn thiện` : "Chờ chuyên viên khảo sát thực tế"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Initial Description */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs space-y-1.5">
-                  <span className="text-slate-400 font-bold block uppercase text-[10px]">
-                    Nội dung mô tả yêu cầu ban đầu
-                  </span>
-                  <p className="text-slate-800 leading-relaxed font-medium whitespace-pre-wrap">
-                    {displayDesc || "Không có ghi chú thêm."}
-                  </p>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Cột trái: Thông tin dịch vụ & Báo cáo khảo sát */}
+          <div className="lg:col-span-8 space-y-4">
+            {/* Gói dịch vụ đã đăng ký kèm nút Hủy trực tiếp */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Paintbrush className="w-4 h-4 text-[#1E3A8A]" />
+                  <span>Các Gói Dịch Vụ Sơn Đăng Ký</span>
+                </h3>
+                <span className="text-[11px] font-bold text-[#1E3A8A] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  {booking.bookingServices?.length || 1} gói
+                </span>
               </div>
 
-              {/* Card: Báo cáo khảo sát thực tế từ chuyên viên */}
-              <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
-                <SurveyReportCard
-                  surveyDetail={surveyDetail}
-                  supervisorName={booking.supervisorName}
-                  onPreviewImage={setPreviewImage}
-                />
+              <div className="space-y-2.5">
+                {(booking.bookingServices && booking.bookingServices.length > 0
+                  ? booking.bookingServices
+                  : [
+                      {
+                        id: 1,
+                        serviceName: booking.serviceName || "Dịch vụ sơn chính",
+                        price: booking.totalAmount,
+                        technicianName: booking.technicianName,
+                      },
+                    ]
+                ).map((item, idx) => {
+                  const isWorkerDone = Boolean(item.technicianCompleted);
+                  const isSuperAccepted = Boolean(item.supervisorAccepted);
+                  const isCancelled = Boolean(item.cancelled);
+
+                  return (
+                    <div
+                      key={item.id || idx}
+                      className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition ${
+                        isCancelled
+                          ? "bg-rose-50/60 border-rose-200 opacity-70"
+                          : "bg-slate-50/80 border-slate-200"
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 h-5 rounded font-bold text-[11px] flex items-center justify-center shrink-0 ${isCancelled ? "bg-rose-100 text-rose-500" : "bg-blue-100 text-[#1E3A8A]"}`}>
+                            {idx + 1}
+                          </span>
+                          <span className={`font-bold text-xs sm:text-sm truncate ${isCancelled ? "line-through text-slate-400" : "text-slate-900"}`}>
+                            {item.serviceName}
+                          </span>
+                        </div>
+                        {item.price && Number(item.price) > 0 && (
+                          <span className={`font-mono font-bold block pl-7 mt-0.5 ${isCancelled ? "line-through text-slate-400" : "text-[#1E3A8A]"}`}>
+                            Dự toán: {formatMoney(item.price)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 pl-7 sm:pl-0 flex-wrap">
+                        {isCancelled ? (
+                          <span className="text-[10.5px] font-bold bg-rose-100 text-rose-600 px-2 py-0.5 rounded border border-rose-200 flex items-center gap-1">
+                            <Trash2 className="w-3 h-3" />
+                            Đã hủy
+                          </span>
+                        ) : isSuperAccepted ? (
+                          <span className="text-[10.5px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-200">
+                            ✓ Giám sát đã duyệt
+                          </span>
+                        ) : isWorkerDone ? (
+                          <span className="text-[10.5px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                            Thợ đã xong
+                          </span>
+                        ) : (
+                          <span className="text-[10.5px] font-medium bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
+                            Đang xử lý
+                          </span>
+                        )}
+
+                        {/* Nút hủy dịch vụ trực tiếp - chỉ hiện khi chưa hủy */}
+                        {canCancelServices && !isCancelled && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelServiceItem(item)}
+                            className="px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:text-white hover:bg-rose-600 bg-rose-50 border border-rose-200 rounded-lg transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                            title="Hủy không làm dịch vụ này nữa"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Hủy gói này</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Right 1 Col: Đội ngũ phụ trách */}
-            <div className="space-y-6">
-              <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <User className="w-4 h-4 text-[#1E3A8A]" />
-                  <span>Đội Ngũ Phụ Trách Công Trình</span>
+            {/* Yêu cầu mô tả ban đầu */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-2">
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-[#1E3A8A]" />
+                <span>Mô Tả Yêu Cầu Hiện Trạng</span>
+              </h3>
+              <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed font-medium">
+                {displayDesc}
+              </p>
+            </div>
+
+            {/* Báo cáo khảo sát thực tế */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
+              <SurveyReportCard
+                surveyDetail={surveyDetail}
+                supervisorName={booking.supervisorName}
+                onPreviewImage={setPreviewImage}
+              />
+            </div>
+          </div>
+
+          {/* Cột phải: Thông tin công trình & Đội ngũ phụ trách */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* Thẻ Thông tin công trình */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-[#1E3A8A]" />
+                  <span>Thông Tin Công Trình</span>
                 </h3>
+              </div>
 
-                <div className="space-y-3 text-xs">
-                  {/* Giám sát viên */}
-                  <div
-                    onClick={() => (booking.supervisorName || booking.surveyorName) && handleOpenStaffModal("supervisor")}
-                    className={`p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3 transition ${booking.supervisorName || booking.surveyorName
-                      ? "hover:bg-slate-100 cursor-pointer group shadow-2xs"
-                      : "opacity-80"
-                      }`}
-                  >
-                    {booking.supervisorAvatar || booking.surveyorAvatar ? (
-                      <img
-                        src={booking.supervisorAvatar || booking.surveyorAvatar}
-                        alt={booking.supervisorName || booking.surveyorName}
-                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center shrink-0 border border-slate-300">
-                        {(booking.supervisorName || booking.surveyorName || "S").charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="space-y-0.5 flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-slate-500 block">
-                          Giám sát viên khảo sát
-                        </span>
-                        {(booking.supervisorName || booking.surveyorName) && (
-                          <span className="text-[10px] text-blue-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                            Hồ sơ →
-                          </span>
-                        )}
-                      </div>
-                      <div className="font-bold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
-                        {booking.supervisorName || booking.surveyorName
-                          ? `@${booking.supervisorName || booking.surveyorName}`
-                          : "Đang phân bổ chuyên viên..."}
-                      </div>
-                      {booking.supervisorPhone && (
-                        <a
-                          href={`tel:${booking.supervisorPhone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1.5 text-blue-700 font-medium hover:underline text-xs mt-0.5"
-                        >
-                          <Phone className="w-3 h-3" />
-                          <span>{booking.supervisorPhone}</span>
-                        </a>
-                      )}
-                    </div>
+              <div className="space-y-3 text-xs">
+                {/* Địa chỉ */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <MapPin className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10.5px] font-medium text-slate-400 block">Địa chỉ thi công</span>
+                    <span className="font-semibold text-slate-800 leading-snug block mt-0.5">
+                      {booking.address || "Hà Nội"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Ngày tạo yêu cầu */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10.5px] font-medium text-slate-400 block">Thời gian tạo yêu cầu</span>
+                    <span className="font-semibold text-slate-800 block mt-0.5">
+                      {formatDate(booking.createdAt || booking.appointmentDate)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Lịch hẹn / Khởi công */}
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#1E3A8A] flex items-center justify-center shrink-0 mt-0.5">
+                    <Clock className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10.5px] font-medium text-slate-400 block">
+                      {booking.expectedStartDate ? "Dự kiến khởi công" : "Lịch hẹn khảo sát"}
+                    </span>
+                    <span className="font-semibold text-slate-800 block mt-0.5">
+                      {booking.expectedStartDate
+                        ? formatDate(booking.expectedStartDate)
+                        : `${formatDate(booking.appointmentDate)} (${booking.appointmentTime || "08:00"})`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tổng dự toán & Tiến độ cọc */}
+                <div className="pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2">
+                  <div className="bg-slate-50 p-2.5 rounded-xl">
+                    <span className="text-slate-400 block text-[10.5px]">Tổng dự toán</span>
+                    <span className="font-bold text-[#1E3A8A] font-mono block mt-0.5">
+                      {total > 0 ? formatMoney(total) : "Chờ khảo sát"}
+                    </span>
                   </div>
 
-                  {/* Đội thợ sơn */}
-                  <div
-                    onClick={() => booking.technicianName && handleOpenStaffModal("technician")}
-                    className={`p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3 transition ${booking.technicianName
-                      ? "hover:bg-slate-100 cursor-pointer group shadow-2xs"
-                      : "opacity-80"
-                      }`}
-                  >
-                    {booking.technicianAvatar ? (
-                      <img
-                        src={booking.technicianAvatar}
-                        alt={booking.technicianName}
-                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-700 font-bold text-sm flex items-center justify-center shrink-0 border border-slate-300">
-                        {(booking.technicianName || booking.preferredTechnicianName || "T").charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className="space-y-0.5 flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-slate-500 block">
-                          Đội thợ thi công
-                        </span>
-                        {booking.technicianName && (
-                          <span className="text-[10px] text-blue-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                            Hồ sơ →
-                          </span>
-                        )}
-                      </div>
-                      <div className="font-bold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
-                        {booking.technicianName
-                          ? `@${booking.technicianName}`
-                          : booking.preferredTechnicianName
-                            ? `@${booking.preferredTechnicianName} (Ưu tiên)`
-                            : "Sẽ gán sau khi cọc 30%"}
-                      </div>
-                      {booking.technicianPhone && (
-                        <a
-                          href={`tel:${booking.technicianPhone}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1.5 text-blue-700 font-medium hover:underline text-xs mt-0.5"
-                        >
-                          <Phone className="w-3 h-3" />
-                          <span>{booking.technicianPhone}</span>
-                        </a>
+                  <div className="bg-slate-50 p-2.5 rounded-xl">
+                    <span className="text-slate-400 block text-[10.5px]">Thanh toán</span>
+                    <span className="font-bold text-slate-800 block mt-0.5 text-[11px]">
+                      {isFinalPaid ? (
+                        <span className="text-emerald-700">Đã tất toán</span>
+                      ) : isDepositPaid ? (
+                        <span className="text-blue-700">Đã cọc 30%</span>
+                      ) : (
+                        <span className="text-slate-500">Chưa cọc</span>
                       )}
-                    </div>
+                    </span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Thẻ Đội ngũ phụ trách */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-[#1E3A8A]" />
+                  <span>Đội Ngũ Phụ Trách</span>
+                </h3>
+                <span className="text-[10px] text-slate-400">Bấm để xem hồ sơ</span>
+              </div>
+
+              {/* Giám sát viên */}
+              <div
+                onClick={() => (booking.supervisorName || booking.surveyorName) && handleOpenStaffModal("supervisor")}
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 transition hover:bg-slate-100 cursor-pointer group"
+              >
+                <div className="w-9 h-9 rounded-lg bg-blue-100 text-[#1E3A8A] font-bold text-xs flex items-center justify-center shrink-0">
+                  {(booking.supervisorName || "S").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Giám sát viên
+                    </span>
+                    {(booking.supervisorName || booking.surveyorName) && (
+                      <span className="text-[10px] text-blue-700 font-bold flex items-center gap-0.5 group-hover:underline">
+                        <Info className="w-2.5 h-2.5" />
+                        <span>Chi tiết</span>
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-bold text-slate-900 text-xs truncate block group-hover:text-blue-700">
+                    {booking.supervisorName ? `@${booking.supervisorName}` : "Đang điều phối..."}
+                  </span>
+                  {booking.supervisorPhone && (
+                    <a
+                      href={`tel:${booking.supervisorPhone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[11px] text-blue-700 font-medium hover:underline flex items-center gap-1 mt-0.5"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>{booking.supervisorPhone}</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Thợ thi công */}
+              <div
+                onClick={() => booking.technicianName && handleOpenStaffModal("technician")}
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 transition hover:bg-slate-100 cursor-pointer group"
+              >
+                <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0">
+                  {(booking.technicianName || "T").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Đội thợ thi công
+                    </span>
+                    {booking.technicianName && (
+                      <span className="text-[10px] text-blue-700 font-bold flex items-center gap-0.5 group-hover:underline">
+                        <Info className="w-2.5 h-2.5" />
+                        <span>Chi tiết</span>
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-bold text-slate-900 text-xs truncate block group-hover:text-emerald-700">
+                    {booking.technicianName ? `@${booking.technicianName}` : "Sẽ điều phối sau khi cọc"}
+                  </span>
+                  {booking.technicianPhone && (
+                    <a
+                      href={`tel:${booking.technicianPhone}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[11px] text-blue-700 font-medium hover:underline flex items-center gap-1 mt-0.5"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>{booking.technicianPhone}</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -790,342 +841,355 @@ export default function BookingDetail(props) {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 2: DỰ TOÁN & HỢP ĐỒNG                                                 */}
-      {/* ========================================================================= */}
+      {/* TAB 2: DỰ TOÁN & HỢP ĐỒNG */}
       {activeTab === "contract_quote" && (
-        <div className="space-y-6">
-          {/* Card: Báo giá & Dự toán thi công */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#1E3A8A]" />
-                  <span>Báo Giá Dịch Vụ &amp; Dự Toán Chi Phí Thi Công</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Bảng kê minh bạch đã bao gồm toàn bộ vật tư sơn chính hãng và công thợ
-                </p>
-              </div>
-
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-[#1E3A8A]" />
+                <span>Báo Giá &amp; Dự Toán Chi Phí</span>
+              </h3>
               {booking.warrantyYears && (
-                <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 self-start sm:self-auto">
-                  🛡️ Bảo hành chính hãng {booking.warrantyYears} năm
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
+                  Bảo hành chính hãng {booking.warrantyYears} năm
                 </span>
               )}
             </div>
 
             {total === 0 ? (
-              <div className="p-8 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 border border-slate-200/80 space-y-2">
-                <Clock className="w-8 h-8 text-amber-500 mx-auto" />
-                <p className="font-bold text-slate-700">Dự toán đang được lập sau buổi khảo sát thực tế.</p>
-                <p className="text-slate-400">Giám sát viên sẽ hoàn tất bóc tách khối lượng và gửi báo giá chi tiết lên hệ thống sớm nhất.</p>
+              <div className="p-6 bg-slate-50 rounded-xl text-center text-xs text-slate-500 space-y-1">
+                <Clock className="w-6 h-6 text-amber-500 mx-auto" />
+                <p className="font-bold text-slate-700">Dự toán đang được lập sau khi hoàn tất khảo sát.</p>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {/* 3 Metrics */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                      Tổng chi phí thi công
-                    </span>
-                    <span className="text-xl sm:text-2xl font-black text-[#1E3A8A] block">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    <span className="text-slate-400 block text-[10.5px]">Tổng dự toán</span>
+                    <span className="text-xl font-black text-[#1E3A8A] font-mono block mt-0.5">
                       {formatMoney(total)}
                     </span>
-                    <span className="text-[11px] text-slate-500 block">Trọn gói vật tư &amp; nhân công</span>
                   </div>
 
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                      Thời gian thi công dự kiến
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    <span className="text-slate-400 block text-[10.5px]">Thời gian dự kiến</span>
+                    <span className="text-sm font-bold text-slate-800 block mt-0.5">
+                      {booking.estimatedDays ? `${booking.estimatedDays} ngày làm việc` : "3-5 ngày"}
                     </span>
-                    <span className="text-lg font-black text-slate-900 block flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-[#1E3A8A]" />
-                      <span>{booking.estimatedDays || 3} ngày làm việc</span>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    <span className="text-slate-400 block text-[10.5px]">Lịch khởi công</span>
+                    <span className="text-sm font-bold text-slate-800 block mt-0.5">
+                      {booking.expectedStartDate ? formatDate(booking.expectedStartDate) : "Chờ chốt ngày"}
                     </span>
-                    <span className="text-[11px] text-slate-500 block">Kể từ ngày khởi công</span>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                      Lịch khởi công dự kiến
-                    </span>
-                    <span className="text-lg font-black text-slate-900 block flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-[#1E3A8A]" />
-                      <span className="truncate">
-                        {booking.expectedStartDate ? formatDate(booking.expectedStartDate) : "Chờ chốt ngày"}
-                      </span>
-                    </span>
-                    <span className="text-[11px] text-slate-500 block">Theo thỏa thuận hợp đồng</span>
                   </div>
                 </div>
 
-                {/* Split Deposit vs Final */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-600">1. Đợt 1 - Cọc 30% ký hợp đồng:</span>
-                      <strong className="text-slate-900 font-bold">{formatMoney(deposit)}</strong>
-                      {isDepositPaid ? (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">✓ Đã cọc</span>
-                      ) : (
-                        <span className="text-[10px] font-medium text-slate-600 bg-slate-200 px-2 py-0.5 rounded">Chưa thanh toán</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-600">2. Đợt 2 - Tất toán 70% nghiệm thu:</span>
-                      <strong className="text-slate-900 font-bold">{formatMoney(remaining)}</strong>
-                      {isFinalPaid ? (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">✓ Đã tất toán</span>
-                      ) : (
-                        <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Sau khi nghiệm thu</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {canAcceptQuote && (
-                    <button
-                      type="button"
-                      onClick={() => setQuoteResponseModalOpen(true)}
-                      className="px-5 py-2.5 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition cursor-pointer whitespace-nowrap self-start sm:self-auto shadow-xs"
-                    >
-                      Duyệt Báo Giá &amp; Chọn Ngày Khởi Công
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Đề xuất thương lượng giá nếu có */}
-          {negInfo.hasNegotiation && (
-            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-                <span className="font-bold text-slate-900 flex items-center gap-2 text-xs sm:text-sm">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                  Đề xuất thương lượng giá đang chờ Admin phản hồi ({negInfo.negotiateTime || "Mới nhất"})
-                </span>
-                <span className="text-[11px] font-semibold bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full">
-                  Đang xử lý
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-[11px] text-slate-500 font-medium block">Báo giá gốc từ hệ thống</span>
-                  <span className="font-bold text-slate-900 text-base block mt-0.5">
-                    {negInfo.originalQuotePrice || formatMoney(total)}
-                  </span>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-blue-200">
-                  <span className="text-[11px] text-blue-600 font-medium block">Mức giá bạn đề xuất</span>
-                  <span className="font-bold text-blue-700 text-base block mt-0.5">
-                    {negInfo.proposedPrice || "Không nêu mức giá cụ thể"}
-                  </span>
-                </div>
-              </div>
-
-              {negInfo.message && (
-                <div className="text-slate-800 text-xs bg-white p-3 rounded-xl border border-slate-200 leading-relaxed">
-                  <span className="text-[11px] text-slate-400 font-medium block mb-0.5">Lý do thương lượng gửi Admin:</span>
-                  "{negInfo.message}"
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setQuoteResponseModalOpen(true)}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs border border-slate-200 transition cursor-pointer flex items-center gap-1.5"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  <span>Sửa đề xuất</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelNegotiation}
-                  className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl text-xs border border-rose-200 transition cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Hủy thương lượng</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Lịch sử thương lượng giá trước đó */}
-          {pastHistory.length > 0 && (
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-3">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                <span>📜</span> Lịch sử thương lượng giá ({pastHistory.length} lượt trước):
-              </span>
-              <div className="space-y-2">
-                {pastHistory.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-700 font-medium"
-                  >
-                    • {item.rawText}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Thẻ Hợp đồng điện tử */}
-          {contract ? (
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <FileSignature className="w-5 h-5 text-[#1E3A8A]" />
-                  <span>Hợp Đồng Điện Tử Thi Công Sơn Nhà</span>
-                </h3>
-                <span className="text-xs font-bold text-slate-500 font-mono">
-                  Mã HĐ: {contract.contractCode || `HD-${booking.id}`}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Khách hàng ký kết:</span>
-                  <span className={`font-black ${contract.customerSigned ? "text-emerald-700" : "text-amber-600"}`}>
-                    {contract.customerSigned ? "✓ Đã ký điện tử" : "Chưa ký"}
-                  </span>
-                </div>
-
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Đại diện Precision Paint:</span>
-                  <span className={`font-black ${contract.adminSigned ? "text-emerald-700" : "text-slate-400"}`}>
-                    {contract.adminSigned ? "✓ Đã ký duyệt" : "Chờ cọc 30%"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setContractModal(true)}
-                  className="flex-1 py-3 bg-[#1E3A8A] hover:bg-[#1e40af] text-white font-black rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                >
-                  <FileText className="w-4 h-4 text-white" />
-                  <span>{contract.customerSigned ? "Xem Chi Tiết Hợp Đồng & Điều Khoản" : "Ký Hợp Đồng Ngay"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    exportContractPDF(contract, booking);
-                    showToast?.("Đã tải xuống file PDF hợp đồng thành công!", "success");
-                  }}
-                  className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Xuất File PDF / In Hợp Đồng</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center text-xs text-slate-500 space-y-2">
-              <FileSignature className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="font-bold text-slate-700">Hợp đồng điện tử sẽ được tạo ngay khi bạn duyệt báo giá.</p>
-              <p className="text-slate-400">Hợp đồng có giá trị pháp lý đầy đủ và được ký duyệt trực tuyến nhanh chóng.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 3: NHẬT KÝ THI CÔNG                                                  */}
-      {/* ========================================================================= */}
-      {activeTab === "reports" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#1E3A8A]" />
-                  <span>Nhật Ký &amp; Tiến Độ Thi Công Hàng Ngày</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Đội thợ và giám sát cập nhật hình ảnh và khối lượng công việc mỗi ngày
-                </p>
-              </div>
-              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
-                {dailyReports.length} báo cáo
-              </span>
-            </div>
-
-            {dailyReports.length === 0 ? (
-              <div className="p-10 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 border border-slate-200/80 space-y-2">
-                <Paintbrush className="w-8 h-8 text-slate-300 mx-auto" />
-                <p className="font-bold text-slate-700 text-sm">Chưa có báo cáo thi công nào được cập nhật.</p>
-                <p className="text-slate-400 max-w-md mx-auto leading-relaxed">
-                  Ngay khi công trình bắt đầu khởi công, các hình ảnh thi công từng phòng, tiến độ % hoàn thành và ghi chú kỹ thuật sẽ xuất hiện đầy đủ tại đây.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {dailyReports.map((report, idx) => {
-                  const imgs = parseImageUrls(report.progressImages);
-                  return (
+                {/* Danh sách bóc tách từng gói dịch vụ kèm nút Hủy trực tiếp */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-700 block">Chi tiết các gói dịch vụ trong dự toán:</span>
+                  {(booking.bookingServices && booking.bookingServices.length > 0
+                    ? booking.bookingServices
+                    : [
+                        {
+                          id: 1,
+                          serviceName: booking.serviceName || "Dịch vụ sơn chính",
+                          price: booking.totalAmount,
+                        },
+                      ]
+                  ).map((item, idx) => (
                     <div
-                      key={idx}
-                      className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3.5 hover:bg-slate-50 transition"
+                      key={item.id || idx}
+                      className="p-3 bg-slate-50/80 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-[#1E3A8A]" />
-                          <span className="font-black text-slate-900 text-xs sm:text-sm">
-                            Ngày {formatDate(report.createdAt || report.reportDate)}
-                          </span>
-                        </div>
-                        {report.progressPercentage != null && (
-                          <span className="text-xs font-black text-[#1E3A8A] bg-blue-100 px-3 py-1 rounded-lg">
-                            {report.progressPercentage}% hoàn thành
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-slate-900 block truncate">
+                          {idx + 1}. {item.serviceName}
+                        </span>
+                        {item.price && Number(item.price) > 0 && (
+                          <span className="font-mono text-[#1E3A8A] font-bold text-xs mt-0.5 block">
+                            {formatMoney(item.price)}
                           </span>
                         )}
                       </div>
 
-                      <p className="text-xs text-slate-700 leading-relaxed font-medium bg-white p-3.5 rounded-xl border border-slate-200/60">
-                        {report.content || report.description || "Đang thi công sơn sửa theo kế hoạch kỹ thuật."}
-                      </p>
-
-                      {imgs.length > 0 && (
-                        <div>
-                          <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                            Hình ảnh thực tế tại công trình ({imgs.length} ảnh):
-                          </span>
-                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5">
-                            {imgs.map((imgUrl, imgIdx) => (
-                              <div
-                                key={imgIdx}
-                                onClick={() => setPreviewImage(imgUrl)}
-                                className="aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white hover:scale-105 transition cursor-pointer group relative shadow-2xs"
-                              >
-                                <img src={imgUrl} alt="Tiến độ" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-bold">
-                                  🔍 Phóng to
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                      {canCancelServices && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelServiceItem(item)}
+                          className="px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:text-white hover:bg-rose-600 bg-rose-50 border border-rose-200 rounded-lg transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                          title="Hủy không làm dịch vụ này nữa"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Hủy gói này</span>
+                        </button>
                       )}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+
+                {/* Split Deposit vs Final */}
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <div>
+                      <span className="text-slate-500">Đợt 1 - Cọc 30%: </span>
+                      <strong className="text-slate-900 font-bold">{formatMoney(deposit)}</strong>
+                      {isDepositPaid ? (
+                        <span className="ml-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">✓ Đã nộp</span>
+                      ) : (
+                        <span className="ml-2 text-[10px] font-medium text-slate-600 bg-slate-200 px-1.5 py-0.2 rounded">Chờ cọc</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Đợt 2 - Tất toán 70%: </span>
+                      <strong className="text-slate-900 font-bold">{formatMoney(remaining)}</strong>
+                      {isFinalPaid ? (
+                        <span className="ml-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">✓ Đã xong</span>
+                      ) : (
+                        <span className="ml-2 text-[10px] font-medium text-slate-400">Sau nghiệm thu</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {canAcceptQuote && (
+                      <button
+                        type="button"
+                        onClick={() => setQuoteResponseModalOpen(true)}
+                        className="px-4 py-2 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                      >
+                        Duyệt Báo Giá
+                      </button>
+                    )}
+
+                    {booking.status === "WAITING_DEPOSIT" && !isDepositPaid && (
+                      <button
+                        type="button"
+                        onClick={() => handleBannerAction("pay_deposit")}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span>Thanh toán Cọc 30%</span>
+                      </button>
+                    )}
+
+                    {(booking.status === "WAITING_FINAL_PAYMENT" || (booking.customerAccepted && !isFinalPaid)) && !isFinalPaid && (
+                      <button
+                        type="button"
+                        onClick={() => handleBannerAction("pay_final")}
+                        className="px-4 py-2 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        <span>Tất toán 70% VNPay</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
+
+          {/* Hợp đồng */}
+          {contract ? (
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileSignature className="w-4 h-4 text-[#1E3A8A]" />
+                  <span>Hợp Đồng Điện Tử (#{contract.contractCode || `HD-${booking.id}`})</span>
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
+                  <span className="text-slate-500">Khách hàng ký:</span>
+                  <span className={`font-bold ${contract.customerSigned ? "text-emerald-700" : "text-amber-600"}`}>
+                    {contract.customerSigned ? "✓ Đã ký" : "Chưa ký"}
+                  </span>
+                </div>
+                <div className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
+                  <span className="text-slate-500">Precision Paint:</span>
+                  <span className={`font-bold ${contract.adminSigned ? "text-emerald-700" : "text-slate-400"}`}>
+                    {contract.adminSigned ? "✓ Đã duyệt" : "Chờ cọc 30%"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setContractModal(true)}
+                  className="flex-1 py-2.5 bg-[#1E3A8A] hover:bg-[#1e40af] text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  {contract.customerSigned ? "Xem Chi Tiết Hợp Đồng" : "Ký Hợp Đồng Ngay"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportContractPDF(contract, booking);
+                    showToast?.("Đã xuất file PDF hợp đồng thành công!", "success");
+                  }}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Tải PDF</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 text-center text-xs text-slate-400">
+              Hợp đồng điện tử sẽ được khởi tạo khi bạn duyệt báo giá.
+            </div>
+          )}
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB 4: NGHIỆM THU & BẢO HÀNH                                              */}
-      {/* ========================================================================= */}
+      {/* TAB 3: NHẬT KÝ THI CÔNG */}
+      {activeTab === "reports" && (
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Paintbrush className="w-4 h-4 text-[#1E3A8A]" />
+              <span>Nhật Ký Thi Công Hằng Ngày ({dailyReports.length})</span>
+            </h3>
+          </div>
+
+          {dailyReports.length === 0 ? (
+            <div className="p-8 bg-slate-50 rounded-xl text-center text-xs text-slate-400 space-y-1">
+              <Paintbrush className="w-6 h-6 text-slate-300 mx-auto" />
+              <p>Chưa có báo cáo thi công nào được cập nhật.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dailyReports.map((report, idx) => {
+                const imgs = parseImageUrls(report.progressImages);
+                return (
+                  <div key={idx} className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900">
+                        Ngày {formatDate(report.createdAt || report.reportDate)}
+                      </span>
+                      {report.progressPercentage != null && (
+                        <span className="font-bold text-[#1E3A8A] bg-blue-100 px-2 py-0.5 rounded text-[11px]">
+                          {report.progressPercentage}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-700 leading-relaxed font-medium bg-white p-2.5 rounded-lg border border-slate-200/60">
+                      {report.content || report.description || "Thi công theo kế hoạch."}
+                    </p>
+                    {imgs.length > 0 && (
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-1">
+                        {imgs.map((imgUrl, imgIdx) => (
+                          <div
+                            key={imgIdx}
+                            onClick={() => setPreviewImage(imgUrl)}
+                            className="aspect-square rounded-lg overflow-hidden border border-slate-200 bg-white cursor-pointer hover:opacity-90"
+                          >
+                            <img src={imgUrl} alt="Tiến độ" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: NGHIỆM THU & TẤT TOÁN */}
       {activeTab === "warranty_review" && (
-        <div className="space-y-6">
-          {/* Card: Đánh Giá & Góp Ý Cho Đội Thợ */}
+        <div className="space-y-4">
+          {/* Nghiệm thu & Tất toán */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Nghiệm Thu &amp; Tất Toán</span>
+              </h3>
+              {/* Đèn nháy báo hiệu bước hiện tại */}
+              {needsAcceptance ? (
+                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                  Đến bước: Nghiệm thu
+                </span>
+              ) : needsFinalPayment ? (
+                <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-300">
+                  Đến bước: Tất toán 70%
+                </span>
+              ) : isFinalPaid ? (
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  ✓ Hoàn tất 100%
+                </span>
+              ) : null}
+            </div>
+
+            {/* Bước 1: Nghiệm thu */}
+            {isAccepted ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-900">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Bạn đã xác nhận nghiệm thu công trình đạt chuẩn chất lượng.</span>
+                </div>
+                <span className="text-[10px] font-bold bg-white text-emerald-700 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                  ✓ Đã nghiệm thu
+                </span>
+              </div>
+            ) : booking.status === "WORKER_COMPLETED" ? (
+              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                  <span className="text-slate-700">Công trình đã thi công xong. Mời bạn kiểm tra thực tế và xác nhận nghiệm thu:</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCustomerAccept}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition cursor-pointer shrink-0"
+                >
+                  Xác nhận Nghiệm thu
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                <span>Công trình đang trong tiến trình thi công. Nút nghiệm thu sẽ mở sau khi thợ báo hoàn thành.</span>
+              </div>
+            )}
+
+            {/* Bước 2: Nút Tất toán sau khi nghiệm thu xong */}
+            {isAccepted && (
+              <div>
+                {needsFinalPayment ? (
+                  <div className="p-3.5 bg-amber-50/80 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                      <span className="text-slate-800">
+                        Tất toán 70% còn lại: <strong className="text-[#1E3A8A] font-bold text-sm">{formatMoney(remaining)}</strong>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleBannerAction("pay_final")}
+                      className="px-4 py-2 bg-[#1E3A8A] hover:bg-[#1e40a6] text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                    >
+                      <CreditCard className="w-4 h-4 text-amber-300" />
+                      <span>Tất toán 70% VNPay</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Hợp đồng đã hoàn thành tất toán 100%. Gói bảo hành {booking.warrantyYears || 2} năm đã kích hoạt.</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Đánh giá */}
           {(["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) || booking.paymentStatus === "FULLY_PAID") && (
             <div>
               {review ? (
@@ -1135,87 +1199,47 @@ export default function BookingDetail(props) {
                   onDelete={handleDeleteReview}
                 />
               ) : (
-                <div className="bg-gradient-to-br from-slate-900 via-[#1E3A8A] to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-md border border-blue-400/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative overflow-hidden">
-                  <div className="flex items-start gap-4 z-10">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center text-2xl shrink-0 font-black">
-                      ★
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400/20 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                          Chia sẻ trải nghiệm
-                        </span>
-                        <span className="text-xs text-blue-200 font-bold">1 phút gửi đánh giá</span>
-                      </div>
-                      <h3 className="text-base sm:text-lg font-bold text-white">
-                        Đánh Giá Chất Lượng Thi Công &amp; Góp Ý Cho Đội Thợ
-                      </h3>
-                      <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
-                        Công trình đã nghiệm thu thành công! Ý kiến đóng góp chân thành của quý khách sẽ giúp đội thợ không ngừng nâng cao tay nghề phục vụ.
-                      </p>
-                    </div>
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">Đánh giá chất lượng dịch vụ</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Gửi đánh giá để giúp chúng tôi nâng cao chất lượng.</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setReviewModalOpen(true)}
-                    className="w-full sm:w-auto px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-2xl text-xs transition shrink-0 shadow-lg flex items-center justify-center gap-2 cursor-pointer z-10 hover:scale-105 duration-150"
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition cursor-pointer shrink-0"
                   >
-                    <Star className="w-4 h-4 fill-white text-white" />
-                    <span>Đánh Giá Thợ Ngay</span>
+                    Viết đánh giá
                   </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Card: Quyền Lợi Bảo Hành & Phiếu Yêu Cầu */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider">
-                  Quyền Lợi Bảo Hành &amp; Hỗ Trợ Kỹ Thuật
-                </h3>
-              </div>
+          {/* Bảo hành */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#1E3A8A]" />
+                <span>Bảo Hành &amp; Hỗ Trợ Kỹ Thuật ({booking.warrantyYears || 2} năm)</span>
+              </h3>
+
               {["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) && (
-                hasActiveWarrantyClaim ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 text-xs font-semibold rounded-xl border border-amber-200">
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Đang có yêu cầu bảo hành đang xử lý</span>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setWarrantyModalOpen(true)}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs cursor-pointer self-start sm:self-auto"
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    <span>Gửi Yêu Cầu Bảo Hành</span>
-                  </button>
-                )
+                <button
+                  type="button"
+                  onClick={() => setWarrantyModalOpen(true)}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>Yêu cầu bảo hành</span>
+                </button>
               )}
             </div>
 
             {warrantyClaims.length === 0 ? (
-              <div className="p-6 bg-emerald-50/60 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-                <div className="space-y-1 text-emerald-950">
-                  <p className="font-bold text-sm">
-                    🛡️ Công trình được bảo hành chính hãng {booking.warrantyYears || 2} năm.
-                  </p>
-                  <p className="text-emerald-800 text-xs leading-relaxed max-w-xl">
-                    Nếu phát sinh bất kỳ hiện tượng nứt chân chim, bong tróc hay ẩm mốc kỹ thuật, đội ngũ chuyên viên bảo trì của Precision Paint sẽ có mặt xử lý miễn phí 100%.
-                  </p>
-                </div>
-                {["COMPLETED", "PAID_TO_STAFF"].includes(booking.status) && (
-                  <button
-                    type="button"
-                    onClick={() => setWarrantyModalOpen(true)}
-                    className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition whitespace-nowrap cursor-pointer shrink-0 shadow-xs"
-                  >
-                    Tạo Phiếu Hỗ Trợ Kỹ Thuật
-                  </button>
-                )}
-              </div>
+              <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-xl">
+                Chưa có yêu cầu bảo hành nào. Nếu có hiện tượng bong tróc hay ẩm mốc, quý khách có thể gửi yêu cầu hỗ trợ miễn phí.
+              </p>
             ) : (
               <WarrantyClaimList
                 claims={warrantyClaims}
@@ -1246,38 +1270,32 @@ export default function BookingDetail(props) {
         role="customer"
         showToast={showToast}
         onSuccess={refreshData}
-        onRejectQuote={() => setRejectModalOpen(true)}
-      />
-
-      <RejectQuoteModal
-        isOpen={rejectModalOpen}
-        onClose={() => setRejectModalOpen(false)}
-        booking={booking}
-        onConfirmReject={handleRejectQuote}
-        loading={rejecting}
       />
 
       <QuoteResponseModal
         isOpen={quoteResponseModalOpen}
         onClose={() => setQuoteResponseModalOpen(false)}
         booking={booking}
-        onAccept={(startDate, preferredTechnicianId) => {
+        onAccept={(startDate, preferredTechnicianId, updatedBookingServices) => {
           setSelectedStartDate(startDate);
           setQuoteResponseModalOpen(false);
-          AxiosConfig.put(`/bookings/${id}`, {
+          const payload = {
             ...booking,
             expectedStartDate: startDate,
             preferredTechnicianId: preferredTechnicianId || null,
-          }).then(() => {
+          };
+          if (updatedBookingServices && updatedBookingServices.length > 0) {
+            payload.bookingServices = updatedBookingServices;
+          }
+          AxiosConfig.put(`/bookings/${id}`, payload).then(() => {
             setContractModal(true);
             refreshData();
           }).catch((e) => {
-            showToast?.(e.response?.data?.message || "Lỗi cập nhật ngày thi công / đội thợ!", "error");
+            showToast?.(e.response?.data?.message || "Lỗi cập nhật ngày thi công!", "error");
           });
         }}
         onNegotiate={handleNegotiateQuote}
         onCancelNegotiation={handleCancelNegotiation}
-        onReject={handleRejectQuote}
       />
 
       <ImageLightboxModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />

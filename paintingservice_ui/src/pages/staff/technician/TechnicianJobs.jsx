@@ -12,6 +12,7 @@ import Pagination from "../../../components/common/Pagination";
 import { formatMoney } from "../../../util/formatters";
 import { formatDate } from "../../../util/orderFlowUtils";
 import { HANOI_DISTRICTS, parseHanoiAddress } from "../../../data/hanoiLocations";
+import { getTechWorkflowState } from "../../../util/technicianWorkflow";
 import {
   Search,
   RefreshCw,
@@ -39,6 +40,7 @@ import {
 export default function TechnicianJobs() {
   const context = useOutletContext() || {};
   const showToast = context.showToast;
+  const currentUser = context.user || JSON.parse(localStorage.getItem("user") || "{}");
 
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -165,6 +167,10 @@ export default function TechnicianJobs() {
         );
       }
       await fetchJobs();
+      if (selectedJob) {
+        const res = await AxiosConfig.get(`/bookings/${selectedJob.id}`);
+        setSelectedJob(res.data);
+      }
     } catch (err) {
       showToast?.(
         err.response?.data?.message || "Không thể thực hiện thao tác",
@@ -172,6 +178,25 @@ export default function TechnicianJobs() {
       );
     } finally {
       setConfirmAction(null);
+    }
+  };
+
+  const handleCompleteServiceItem = async (serviceItemId, note) => {
+    if (!selectedJob) return;
+    try {
+      await AxiosConfig.post(
+        `/bookings/${selectedJob.id}/services/${serviceItemId}/complete-job`,
+        { note: note || "Đã thi công hoàn tất đúng yêu cầu kỹ thuật" }
+      );
+      showToast?.("Đã báo hoàn thành gói dịch vụ thành công!", "success");
+      await fetchJobs();
+      const res = await AxiosConfig.get(`/bookings/${selectedJob.id}`);
+      setSelectedJob(res.data);
+    } catch (err) {
+      showToast?.(
+        err.response?.data?.message || "Không thể báo hoàn thành gói này",
+        "error"
+      );
     }
   };
 
@@ -203,21 +228,32 @@ export default function TechnicianJobs() {
   // Stats / Counts
   const stats = useMemo(() => {
     const total = jobs.length;
-    const pending = jobs.filter((j) =>
-      ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED"].includes(j.status)
-    ).length;
-    const accepted = jobs.filter((j) => j.status === "ACCEPTED").length;
-    const processing = jobs.filter((j) => j.status === "PROCESSING").length;
-    const waitingAcceptance = jobs.filter((j) => j.status === "WORKER_COMPLETED").length;
-    const completed = jobs.filter((j) =>
-      ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(j.status)
-    ).length;
-    const cancelled = jobs.filter((j) =>
-      ["CANCELLED", "WORKER_REJECTED"].includes(j.status)
-    ).length;
+    let pending = 0;
+    let accepted = 0;
+    let processing = 0;
+    let waitingAcceptance = 0;
+    let completed = 0;
+    let cancelled = 0;
+
+    jobs.forEach((j) => {
+      const { myStatus, canAccept, isDone, isCancelled } = getTechWorkflowState(j, currentUser);
+      if (canAccept || ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED"].includes(myStatus)) {
+        pending++;
+      } else if (myStatus === "ACCEPTED") {
+        accepted++;
+      } else if (myStatus === "PROCESSING") {
+        processing++;
+      } else if (myStatus === "WORKER_COMPLETED") {
+        waitingAcceptance++;
+      } else if (isDone || ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(myStatus)) {
+        completed++;
+      } else if (isCancelled || ["CANCELLED", "WORKER_REJECTED"].includes(myStatus)) {
+        cancelled++;
+      }
+    });
 
     return { total, pending, accepted, processing, waitingAcceptance, completed, cancelled };
-  }, [jobs]);
+  }, [jobs, currentUser]);
 
   // Filter & Search & Sort
   const filteredJobs = useMemo(() => {
@@ -225,25 +261,23 @@ export default function TechnicianJobs() {
 
     // 1. Status Filter
     if (filter !== "ALL") {
-      if (filter === "PENDING") {
-        list = list.filter((j) =>
-          ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED"].includes(j.status)
-        );
-      } else if (filter === "ACCEPTED") {
-        list = list.filter((j) => j.status === "ACCEPTED");
-      } else if (filter === "PROCESSING") {
-        list = list.filter((j) => j.status === "PROCESSING");
-      } else if (filter === "WORKER_COMPLETED") {
-        list = list.filter((j) => j.status === "WORKER_COMPLETED");
-      } else if (filter === "COMPLETED") {
-        list = list.filter((j) =>
-          ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(j.status)
-        );
-      } else if (filter === "CANCELLED") {
-        list = list.filter((j) =>
-          ["CANCELLED", "WORKER_REJECTED"].includes(j.status)
-        );
-      }
+      list = list.filter((j) => {
+        const { myStatus, canAccept, isDone, isCancelled } = getTechWorkflowState(j, currentUser);
+        if (filter === "PENDING") {
+          return canAccept || ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED"].includes(myStatus);
+        } else if (filter === "ACCEPTED") {
+          return myStatus === "ACCEPTED";
+        } else if (filter === "PROCESSING") {
+          return myStatus === "PROCESSING";
+        } else if (filter === "WORKER_COMPLETED") {
+          return myStatus === "WORKER_COMPLETED";
+        } else if (filter === "COMPLETED") {
+          return isDone || ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(myStatus);
+        } else if (filter === "CANCELLED") {
+          return isCancelled || ["CANCELLED", "WORKER_REJECTED"].includes(myStatus);
+        }
+        return true;
+      });
     }
 
     // 2. Hanoi District Filter
@@ -306,7 +340,6 @@ export default function TechnicianJobs() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
             <h1 className="text-xl font-black text-slate-900">
               Công Việc Đội Thợ Thi Công
             </h1>
@@ -505,14 +538,18 @@ export default function TechnicianJobs() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedJobs.map((job) => {
-                  const status = job.status || "";
-                  const canAccept = ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED"].includes(status);
-                  const canReject = ["CONTRACT_APPROVED", "DEPOSIT_CONFIRMED", "ASSIGNED", "ACCEPTED"].includes(status);
-                  const canStart = status === "ACCEPTED";
-                  const canComplete = status === "PROCESSING";
-                  const isWaitingAcceptance = status === "WORKER_COMPLETED";
-                  const isDone = ["WAITING_FINAL_PAYMENT", "COMPLETED", "PAID_TO_STAFF"].includes(status);
-                  const isCancelled = status === "CANCELLED" || status === "WORKER_REJECTED";
+                  const techState = getTechWorkflowState(job, currentUser);
+                  const {
+                    myStatus,
+                    canAccept,
+                    canReject,
+                    canStart,
+                    canComplete,
+                    isWaitingAcceptance,
+                    isDone,
+                    isCancelled,
+                  } = techState;
+                  const status = myStatus || job.status || "";
                   const parsed = parseHanoiAddress(job.address);
                   const workerPayout = Number(job.totalAmount || 0) * 0.60;
 
@@ -700,6 +737,7 @@ export default function TechnicianJobs() {
             <JobCard
               key={job.id}
               job={job}
+              currentUser={currentUser}
               onAccept={handleAccept}
               onReject={handleReject}
               onStart={handleStart}
@@ -740,6 +778,8 @@ export default function TechnicianJobs() {
         onReject={handleReject}
         onStart={handleStart}
         onComplete={handleComplete}
+        currentUser={context.user}
+        onCompleteServiceItem={handleCompleteServiceItem}
       />
 
       {/* Lightbox Modal */}
